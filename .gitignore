@@ -1,0 +1,23 @@
+# Real infrastructure values — never commit
+docs/environment.local.md
+*.local.md
+.env
+.env.*
+!.env.example
+
+# Secrets
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# n8n exports may embed credential references — review before committing
+n8n/exports/
+
+# Tooling
+node_modules/
+.next/
+dist/
+build/
+.DS_Store
+*.log

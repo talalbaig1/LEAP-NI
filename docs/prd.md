@@ -1,0 +1,212 @@
+# prd.md
+
+**LEAP Networking Intelligence (LNI)** · Product Requirements
+Version 2.0 · 25 August 2026
+
+> **Documentation precedes implementation.** Behaviour changes are recorded here
+> *before* they are built. See `rules.md` §1.
+
+---
+
+## 1. The user and the situation
+
+One user: Talal, attending LEAP 2026 in Riyadh as a visitor, 31 Aug – 3 Sep.
+
+**The physical reality the product must survive:**
+- Halls open 1:00 PM – 9:00 PM. Eight hours on his feet, four days running.
+- ~200,000 attendees sharing venue wifi. Connectivity is unreliable by default.
+- One hand free. The other holds a bag, a coffee, or a business card.
+- Expected volume: 40–80 contacts per day, ~350 across the event.
+- Mornings are free. That is the review and planning window.
+
+**What he collects:** business cards, occasional selfies with people, and his
+own voice notes describing what was discussed.
+
+---
+
+## 2. Jobs to be done
+
+| # | Job | Success looks like |
+|---|---|---|
+| 1 | Capture a contact without breaking the conversational moment | Under 30 seconds, one hand, no thinking about the tool |
+| 2 | Never lose anything | Every card, note, and photo survives, even with no signal |
+| 3 | Remember *why* someone mattered | The conversation is attached to the person, not just their title |
+| 4 | Know how to spend tomorrow | A morning briefing that changes the plan for the day |
+| 5 | Follow up before the memory fades | Prioritised list with drafts referencing real specifics |
+| 6 | Find anyone later | "Who did I meet from fintech?" answered in seconds |
+
+**Job 1 and Job 2 are the only ones with a deadline.** Jobs 3–6 replay against
+retained raw assets at any future date (`masterplan.md` §3).
+
+---
+
+## 3. Capture surface: Telegram
+
+Chosen because it already solves — tested at scale, for years — camera access,
+microphone, multi-image albums, an offline outbox, and automatic retry on
+reconnect. A hand-rolled offline queue tested for two days would not.
+
+A PWA is built later (Phase 8), sharing the same backend.
+
+---
+
+## 4. Command surface
+
+| Command | Behaviour |
+|---|---|
+| `/new` | Opens a capture. **Implicitly closes any previously open one.** |
+| `/done` | Closes the open capture. Replies `✓ Capture #47 saved · 2 items`. |
+| `/batch` | Every subsequent photo becomes its own independent capture. |
+| `/status` | Shows what is currently open and in what mode. |
+| `/digest` | Runs the digest on demand. |
+| `/ask <question>` | Natural-language query over captures. |
+| `/fix <n>` | Correct fields on a capture. |
+| `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). |
+
+### The four guardrails
+
+The owner chose explicit `/new`…`/done` over reply-threading. These guardrails
+exist so that forgetting `/done` — which *will* happen at 7 PM on day three —
+can never lose or mis-attribute data.
+
+1. **`/new` implicitly closes the previous capture.** The most common mistake
+   becomes a no-op.
+2. **Inactivity auto-close** after ~10 minutes idle, stamped
+   `close_reason = auto` so it is visible in review.
+3. **Media with no open capture is never rejected.** A capture opens silently
+   and the bot says so. Nothing is dropped for a protocol error.
+4. **Every bot reply echoes current state.** The owner always knows which bucket
+   the next item lands in.
+
+### Bulk entry
+
+Two modes, covering genuinely different moments.
+
+**`/batch`** — deliberate evening data entry. Toggle on, send thirty cards in a
+row, `/done` to exit. No grouping, no commands between.
+
+**Album auto-detect** — an album (shared `media_group_id`) of more than two
+images triggers a single inline prompt: *"20 images — separate people, or one
+person?"* The bot **asks rather than assumes**, so twenty strangers can never be
+silently fused into one contact.
+
+Batch-captured cards have no voice note and produce thinner records. They are
+marked `card_only`, so that later the owner can distinguish *"I have no memory
+of this person"* from *"I met them and it wasn't interesting."*
+
+---
+
+## 5. Feedback model
+
+The owner chose **silent unless a flag fires**. Two adjustments make that safe.
+
+### The receipt is not a review card
+
+`/done` replies with a bare `✓ Capture #47 saved · 2 items`. This is not the
+review prompt the owner declined — it is proof the pipeline is alive. Without
+it, a dead pipeline looks identical to a healthy one, and the failure would
+surface on day four instead of day one.
+
+**If storage fails, no receipt is sent.** Silence means something went wrong.
+The owner must never be falsely reassured.
+
+### Flagging is rule-based, not model-reported
+
+A vision model is often *most* confident exactly when it is transliterating an
+Arabic name wrongly, so self-reported confidence is not a reliable error filter.
+Observable conditions are. Full rule list in `architecture.md` §6.
+
+Everything not flagged surfaces in the daily digest.
+
+---
+
+## 6. Digests
+
+| Digest | Time | Purpose |
+|---|---|---|
+| Day close | 10:00 PM `Asia/Riyadh` | Operational health |
+| Morning briefing | 7:00 AM `Asia/Riyadh` | Actionable intelligence |
+| On demand | `/digest` | Either, any time |
+
+**10 PM close** — captured, clean, flagged, failed, **stuck**. The stuck count
+is the figure that saves the project: it is how the owner learns on day one that
+something is jammed, rather than on day four. Also copied to email as a durable
+record independent of Telegram history.
+
+**7 AM briefing** — people met, companies, sector distribution, coverage gaps
+against targets, follow-ups due today. This is the only moment the collected
+data can change how the next eight hours are spent. After Thursday the event is
+over and the information is only useful for follow-up.
+
+Example shape: *"14 people, 9 companies, mostly systems integrators. Nobody yet
+from your target sectors. 3 people asked you to follow up today."*
+
+---
+
+## 7. Data quality requirements
+
+- **Arabic original script is preserved** alongside transliteration, in
+  `name_original_script`. Never discarded. Transliteration is lossy and is the
+  highest-error surface at this event.
+- **Nullable beats guessed.** The model must never invent an email, phone,
+  domain, or date not present in the source.
+- **User corrections are canonical** and are never overwritten by a re-run.
+  Model output is retained alongside, which is what allows extraction quality to
+  be measured and better models to be re-run later without losing edits.
+- **No auto-merge on name similarity.** Only exact email or exact LinkedIn URL.
+- **Provenance recorded.** `source_type` distinguishes a card handed over
+  voluntarily from data obtained any other way.
+
+---
+
+## 8. Privacy requirements
+
+- **Voice notes are self-dictation only** — the owner describing the
+  conversation afterward, never a recording of the other party. This removes the
+  consent question almost entirely, and his own summary of what mattered is more
+  useful than raw small talk anyway.
+- **No facial recognition, ever.** A selfie is context and proof of meeting —
+  *"the man in the grey jacket at the Aramco stand"* — never an identity lookup.
+- **Per-contact deletion is a real feature**, removing database rows and storage
+  objects. Retention is indefinite; the ability to delete is what makes that
+  defensible.
+
+---
+
+## 9. Non-goals
+
+Explicitly out of scope, to prevent scope creep under deadline pressure:
+
+- Multi-user or team collaboration (schema supports it; not built)
+- Automated outbound messaging of any kind
+- LinkedIn connection or message automation
+- Face matching, badge scanning, or attendee-list scraping
+- A native mobile app
+- Real-time processing — asynchronous is correct and sufficient
+- Perfect extraction. Flagged-and-reviewable beats confidently-wrong.
+
+---
+
+## 10. Acceptance criteria — launch (30 August)
+
+The system ships when all of these pass **on the owner's actual phone with real
+business cards**:
+
+1. Card photo, voice note, and typed note each capture independently
+2. 20 consecutive real-device captures with **100% asset preservation** and
+   100% visible outcome — no silent loss
+3. Resending identical media creates no duplicate asset
+4. A card plus a 30-second voice note produces a reviewable record within
+   2 minutes
+5. Arabic name preserved in original script
+6. Forgetting `/done` loses nothing
+7. A 20-image album prompts once and never fuses contacts silently
+8. Both digests fire at correct Riyadh local time, verified by observed
+   execution timestamps
+9. Watchdog alerts on a stuck job independently of the digest
+10. Failed provider calls retry, then land in a visible `failed` state without
+    creating duplicate people
+11. A second authenticated test user can read nothing
+
+**Criterion 2 is the one that matters most.** Everything else can be repaired
+after the event. Data never captured cannot be.
