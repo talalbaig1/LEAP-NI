@@ -28,6 +28,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
+| Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 
 ### Three traps already identified
 
@@ -155,9 +156,10 @@ Receives errors from every LNI workflow.
    must hold.
 
    If `bot_state` returns no row, `chat_id` is empty and repeated failures
-   take the undeliverable path. `bot_state` is empty until Phase 1, so
-   undeliverable is the expected state now and is correct: visible, not
-   silent.
+   take the undeliverable path. Migration `012` seeds the owner `bot_state`
+   row (the same row WF-01 uses as the allowlist), so alerts should deliver
+   once it is applied. The undeliverable INSERT remains if that row is
+   missing: visible, not silent.
 
    Implement the two lookups **and** the undeliverable INSERT in the
    **same** parameterised `executeQuery` as the `workflow_error` INSERT
@@ -239,8 +241,10 @@ Asserting on it produces a false negative.
 The entry point. Its single most important property: **the raw asset reaches
 storage before anything else happens.**
 
-1. **Allowlist check** on `telegram_user_id`. Unknown senders are ignored
-   silently — no reply, no row.
+1. **Allowlist check.** `SELECT owner_id FROM bot_state WHERE telegram_user_id
+   = <sender>`. A row is admission; `owner_id` comes from that same row. No
+   row means ignore silently — no reply, no row written anywhere. The
+   allowlist **is** `bot_state`; there is no separate table and no `$env`.
 2. Parse the update. Branch on type: command · photo · audio/voice · document ·
    text · album member (`media_group_id` present) · callback query.
 3. **Commands** → WF-02 with the command name.
@@ -252,6 +256,11 @@ storage before anything else happens.**
       deterministic path `{owner_id}/{capture_id}/{asset_id}-{name}`).
    d. **Only after upload succeeds**, insert the `assets` row with
       `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+      Phase 1 `kind` is the Telegram media type, not a content classification
+      (`architecture.md` §4, two-stage kind):
+      - Telegram voice or audio → `audio`
+      - Telegram photo or image → `photo` (unclassified)
+      - Telegram document → `document`
    e. Resolve or create the target capture via WF-02.
 5. **Album handling:** buffer members sharing a `media_group_id`. If more than
    two images, send an inline keyboard: *"N images — separate people, or one
@@ -273,12 +282,13 @@ Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
 1. If an open capture exists, close it (`close_reason = superseded`).
 2. Insert a new `captures` row, `status = open`, `event_id` = LEAP 2026.
 3. Update `bot_state.open_capture_id`.
-4. Reply with the new capture number.
+4. Reply with the new capture number (`captures.capture_no`, never the uuid).
 
 ### `/done`
 1. Close the open capture (`close_reason = explicit`).
 2. Count attached assets.
-3. Reply `✓ Capture #47 saved · 2 items`.
+3. Reply `✓ Capture #47 saved · 2 items` using `captures.capture_no`, never
+   the uuid.
 4. Dispatch WF-03 for each unprocessed asset. **Do not wait** —
    `waitForSubWorkflow: false`.
 5. If nothing is open, say so plainly.
@@ -298,7 +308,8 @@ Reports the open capture, its item count, and the current mode.
   configured window, stamping `close_reason = auto`.
 - **Orphan adoption:** media arriving with no open capture opens one silently
   and tells the owner. **Never reject.**
-- **State echo:** every reply includes current state.
+- **State echo:** every reply includes current state, using
+  `captures.capture_no`, never the uuid.
 
 ---
 
@@ -306,6 +317,10 @@ Reports the open capture, its item count, and the current mode.
 
 **Phase 2** · **Trigger:** called by WF-02 · **Inputs:** `job_id`, `asset_id`,
 `capture_id` — reject any other shape
+
+WF-03 assigns the final `assets.kind` (`business_card`, `selfie`, or `photo`)
+from its vision call. Phase 1 stores images as unclassified `photo`. This is
+a Phase 2 deliverable specified here in advance (`architecture.md` §4).
 
 1. Create or claim the `processing_jobs` row; increment `attempt_count`.
 2. Generate a **short-lived signed URL**. Never make the bucket public. Never
