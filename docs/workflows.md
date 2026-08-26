@@ -89,6 +89,11 @@ those fields. Behaviour we depend on (Telegram `download`, sweep
 `minutesInterval`) must be **explicit in the saved JSON** — defaults
 cannot be verified by read-back.
 
+Sizes and hashes are computed from **buffers**, never from item metadata
+(`bin.bytes`, `bin.fileSize`). An asset is `'stored'` only after the
+object has been **read back** from Storage and its reported size equals
+that buffer length. The PUT response (`Key`, `Id`) is not a size.
+
 ---
 
 ## 2. Workflow inventory
@@ -331,7 +336,9 @@ LNI bot only and must not disturb any ElderWise webhook.
       missing object → `stopAndError` (`Storage mismatch terminal`). Do
       **not** write the assets row. PUT `{Key, Id}` is not evidence of
       size. An object read back from Storage is the only number in this
-      pipeline that did not come from n8n describing itself.
+      pipeline that did not come from n8n describing itself. Verified
+      26 Aug 2026: this Supabase build returns `Content-Length` on HEAD
+      (30335), so list was not used.
    g. **ONLY IF** the read-back matches: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
    h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.

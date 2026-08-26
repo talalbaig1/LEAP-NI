@@ -111,7 +111,8 @@ ASCII bytes; Hash and Storage saw 14; Prep trusted metadata and wrote
 `size_bytes=112`. An asset is `upload_status='stored'` **only after** the
 object has been **read back** from Storage and its reported size equals
 that buffer length. The PUT body returns only `Key` and `Id` — not a size.
-That extra round trip is required.
+That extra round trip is required. Verified 26 Aug 2026: HEAD returns
+`Content-Length` on this Supabase build, so list was not used.
 
 ## 13. Never log secrets or PII
 
