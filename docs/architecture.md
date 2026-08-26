@@ -88,7 +88,7 @@ user-owned table — single owner at launch, designed for multi-user.
 | `bot_state` | Which capture is open; batch mode on/off | `telegram_user_id`, `open_capture_id`, `mode`, `last_activity_at` |
 | `captures` | One `/new`…`/done` unit | `event_id`, `status`, `capture_mode`, `opened_at`, `closed_at`, `close_reason`, `typed_note`, `flags` |
 | `assets` | Immutable raw media | `capture_id`, `kind`, `storage_path`, `telegram_file_unique_id`, `sha256`, `mime_type`, `size_bytes`, `upload_status` |
-| `processing_jobs` | Auditable async work | `capture_id`, `asset_id`, `job_type`, `status`, `attempt_count`, `provider`, `provider_request_id`, `error_code`, `output` |
+| `processing_jobs` | Auditable async work | `capture_id`, `asset_id`, `job_type`, `status`, `attempt_count`, `last_transition_at`, `provider`, `provider_request_id`, `error_code`, `error_detail`, `output` |
 | `extraction_runs` | Immutable model evidence | `capture_id`, `model`, `prompt_version`, `raw_vision_output`, `raw_transcript`, `structured_output`, `flag_reasons` |
 | `people` | Canonical person | `full_name`, `name_original_script`, `title`, `email`, `phone`, `linkedin_url`, `review_status`, `source_type` |
 | `companies` | Canonical company | `name`, `normalized_name`, `domain`, `industry`, `enrichment_status` |
@@ -104,6 +104,30 @@ user-owned table — single owner at launch, designed for multi-user.
 **Build the whole schema in Phase 0**, including tables belonging to later
 phases. The schema is built once.
 
+**`processing_jobs.last_transition_at`.** `timestamptz NOT NULL`, default
+`now()`, maintained by a `BEFORE UPDATE` trigger whenever `status` or
+`attempt_count` changes. WF-09 measures staleness from **this column, never
+from `created_at`**. A job healthily in its third WF-03 retry (1/5/20 min) at
+minute 25 is not stale; a `created_at` threshold under 20 minutes would
+false-alarm. The trigger lives in the database so a workflow author cannot
+forget to set the column.
+
+**`processing_jobs.error_detail`.** `jsonb`. WF-00 writes redacted diagnostics
+here when a `job_id` is resolvable; otherwise to `audit_log`. Not a status
+vocabulary.
+
+**Seed owner (`009`).** Migration 009 resolves `owner_id` by **explicit email
+match**, never by creation order. "Earliest `auth.users` row" is an ordering
+heuristic, not a rule: any throwaway account created before the owner silently
+becomes the owner of every row in the database, and RLS then locks the real
+owner out. Discovered 26 Aug 2026 before seeding.
+
+The owner email is supplied at migration time via the setting
+`lni.owner_email` and is **never committed** — the repo is public
+(masterplan.md §5). Missing setting, unmatched email, or an unconfirmed
+match are hard failures. There is no fallback to earliest row, row-count
+heuristics, or a hardcoded UUID.
+
 ### Constraints and indexes
 
 | Constraint | Reason |
@@ -111,6 +135,7 @@ phases. The schema is built once.
 | `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
+| Index on `processing_jobs (status, last_transition_at)` | WF-09 watchdog query |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
 
@@ -134,6 +159,49 @@ density of shared family names this would quietly corrupt the dataset —
 and quiet corruption is worse than a visible gap.
 
 All merges are reversible, preserve source captures, and write an audit event.
+
+### Status vocabularies
+
+Text columns with `CHECK` constraints. **Not** Postgres enums — enums require
+`ALTER TYPE` to extend, and schema changes are forbidden during event week.
+These values are cross-workflow contracts; WF-01 through WF-09 all read them.
+
+| Column | Allowed values |
+|---|---|
+| `captures.status` | `open` \| `processing` \| `ready` \| `needs_review` \| `failed` |
+| `captures.close_reason` | `explicit` \| `superseded` \| `auto` |
+| `captures.capture_mode` | `standard` \| `batch` |
+| `captures.card_only` | boolean, default `false` |
+| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` |
+| `assets.upload_status` | `pending` \| `stored` \| `failed` |
+| `processing_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `needs_review` |
+| `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
+| `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
+| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
+| `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
+| `entity_candidates.decision` | `pending` \| `accepted` \| `rejected` |
+| `bot_state.mode` | `normal` \| `batch` |
+| `follow_ups.status` | `open` \| `done` \| `cancelled` |
+| `follow_ups.priority` | `low` \| `medium` \| `high` |
+| `enrichment_records.provider` | `apollo` \| `tavily` |
+| `audit_log.actor_type` | `user` \| `ai` \| `system` |
+
+### RLS policy shape
+
+`owner_id uuid NOT NULL REFERENCES auth.users(id)` is **denormalised onto every
+table**, including child and junction tables. A policy predicate must never
+require a join.
+
+One policy per table, named `<table>_owner_all`:
+
+```sql
+FOR ALL TO authenticated
+USING (owner_id = auth.uid())
+WITH CHECK (owner_id = auth.uid())
+```
+
+No policies for the `anon` role. `FORCE ROW LEVEL SECURITY` is **not** used —
+n8n's `service_role` must continue to bypass RLS.
 
 ---
 
@@ -279,8 +347,23 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | 16 tables created in one migration. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`010`) create the 16 tables, indexes, policies, bucket, seed, and the processing-job staleness column. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
+
+Phase 0 applies **numbered forward-only migrations**, not a single dump:
+
+| # | File | Contents |
+|---|---|---|
+| 001 | `001_extensions` | `pg_trgm` |
+| 002 | `002_events_bot_state` | `events`, `bot_state` |
+| 003 | `003_capture_pipeline` | `captures`, `assets`, `processing_jobs` |
+| 004 | `004_entities` | `extraction_runs`, `people`, `companies`, `person_companies`, `interactions`, `follow_ups` |
+| 005 | `005_review_support` | `entity_candidates`, `field_corrections`, `enrichment_records`, `credit_ledger`, `audit_log` |
+| 006 | `006_indexes` | indexes and constraints |
+| 007 | `007_rls_policies` | RLS enable + one `<table>_owner_all` policy per table |
+| 008 | `008_storage` | private bucket `lni-assets` + object path policies |
+| 009 | `009_seed_leap_2026` | LEAP 2026 seed row; `owner_id` by `lni.owner_email` match |
+| 010 | `010_processing_jobs_transition` | `last_transition_at` + trigger + watchdog index |
 
 ### Connection policy — verified 25 Aug 2026
 
