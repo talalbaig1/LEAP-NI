@@ -57,6 +57,12 @@ Phase 3 is squeezed, the watchdog is not cut (`workflows.md` WF-09).
   LNI workflow — **never** ElderWise's.
 - LNI WF-00b read-only credential and connectivity probe.
 
+**Internal ordering.** WF-00b's Postgres branch self-identifies via the
+LEAP 2026 seed row, so it **cannot** run before migrations and seed have
+landed. The real Phase 0 order is: **migrations + seed → WF-00 → WF-00b**.
+The build-order table in `workflows.md` §3 lists WF-00b second by workflow
+sequence, not by execution readiness.
+
 ### Definition of done
 - Migrations apply cleanly, in order, against the empty project.
 - `pg_policies` returns **at least one explicit policy** for every user-owned
