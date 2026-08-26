@@ -96,12 +96,16 @@ Receives errors from every LNI workflow.
    and must not reset the watchdog clock.
 
    `audit_log.owner_id` is NOT NULL. WF-00 reads the owner UUID **only**
-   from the n8n environment variable `LNI_OWNER_UUID` — never from a
-   workflow-level constant, and never from a committed file (the repo is
-   public, masterplan.md §5). If the value is missing or not a UUID, WF-00
-   **throws** rather than skip the write. An error handler that silently
-   drops errors is worse than no error handler. A constant fallback would
-   mask an unset env var and defeat the throw.
+   from the n8n instance environment variable `LNI_OWNER_UUID` — never from
+   a workflow-level constant, and never from a committed file (the repo is
+   public, masterplan.md §5). A Set node copies `$env.LNI_OWNER_UUID` and
+   `$env.LNI_TELEGRAM_CHAT_ID` onto the item via expressions. The Code node
+   then validates the UUID and **throws** if it is missing or not a UUID,
+   before any write. Do not read `$env` inside Code: this instance's JS
+   task runner denies env access there (`access to env vars denied`) and
+   the handler would fail before the throw. A constant fallback would
+   mask an unset env var and defeat the throw. An error handler that
+   silently drops errors is worse than no error handler.
 
 4. Alert the owner via Telegram only on **repeated** failure of the same
    `workflow_name` + `node_name` within 15 minutes. The repeat count is a
