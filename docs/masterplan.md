@@ -193,13 +193,16 @@ fallback.
 | # | Item | Owner | Status | Blocks |
 |---|---|---|---|---|
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **DONE** — credential `Leap-NI` in n8n. Token not yet proven on a real chat. | — |
-| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`008` and `010` applied. `009` seed blocked until the owner Auth user exists. | — |
+| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`010` applied. | — |
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Open | Phase 1 |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | Open | Phase 2 benchmark, by 29 Aug |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
 | 6 | Confirm whether anyone else needs access | Talal | Open | — (schema already supports) |
-| 7 | Create owner Auth user on LEAP-NI | Talal | Open | Migration `009` seed; `owner_id` is resolved from `auth.users` and must fail loudly if none exist |
-| 8 | Create second authenticated test user on LEAP-NI | Talal | Open | Phase 0 RLS proof: test user must read zero rows and cannot list/download `lni-assets` |
+| 7 | Create owner Auth user on LEAP-NI | Talal | **DONE** — confirmed Auth user; `009` bound seed via `lni.owner_email` | — |
+| 8 | Create second authenticated test user on LEAP-NI | Talal | **DONE** — throwaway test user for P3 | — |
+| 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |
+| 10 | Delete stray unconfirmed Auth user `7bf179a8` | Talal | Open | Bootstrap artefact. Needs service_role or dashboard. Harmless. |
+| 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | Turned off to unblock Phase 0 provisioning. |
 
 ### Apollo credit budget
 
