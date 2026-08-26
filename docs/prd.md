@@ -60,8 +60,8 @@ A PWA is built later (Phase 8), sharing the same backend.
 | `/status` | Shows what is currently open and in what mode. |
 | `/digest` | Runs the digest on demand. |
 | `/ask <question>` | Natural-language query over captures. |
-| `/fix <n>` | Correct fields on a capture. |
-| `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). |
+| `/fix <n>` | Correct fields on a capture. `<n>` is `captures.capture_no`, never the uuid. |
+| `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). `<n>` is `captures.capture_no`, never the uuid. |
 
 ### The four guardrails
 
@@ -117,6 +117,10 @@ Arabic name wrongly, so self-reported confidence is not a reliable error filter.
 Observable conditions are. Full rule list in `architecture.md` §6.
 
 Everything not flagged surfaces in the daily digest.
+
+Phase 1 stores images without classifying them. Composition is unpredictable
+and the owner has one hand free, so `'photo'` at capture time means
+unclassified; WF-03 assigns the real `assets.kind` in Phase 2.
 
 ---
 
