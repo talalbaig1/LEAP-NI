@@ -58,6 +58,15 @@ Two consequences, both binding:
    credentials would go green against the wrong database. **WF-00b is the
    workflow specified to carry this principle.**
 
+   With an n8n API key present, auto-assign on a WRITE is dangerous — a
+   failed SELECT is harmless; a WRITE would not fail politely. New Postgres
+   nodes auto-assign ElderWise. Before any node that WRITES, verify the bound
+   credential with a self-identifying READ first. Never trust the MCP
+   creation response. Never act on a workflow whose name does not begin with
+   `LNI ` (`LNI-TEST-` allowed for disposable tests). Owner handles deletion
+   of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
+   not spend time on them.
+
 ---
 
 ## 2. Workflow inventory

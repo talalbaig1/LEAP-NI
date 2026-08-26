@@ -112,9 +112,12 @@ minute 25 is not stale; a `created_at` threshold under 20 minutes would
 false-alarm. The trigger lives in the database so a workflow author cannot
 forget to set the column.
 
-**`processing_jobs.error_detail`.** `jsonb`. WF-00 writes redacted diagnostics
-here when a `job_id` is resolvable; otherwise to `audit_log`. Not a status
-vocabulary.
+**`processing_jobs.error_detail`.** `jsonb`. `audit_log` receives one row for
+**every** handled error — that series is what the repeat counter reads. Where
+a `job_id` also resolves, this column is updated **in addition**, not instead.
+The UPDATE touches `error_detail` only, never `status` or `attempt_count`, so
+the `last_transition_at` trigger does not fire and the watchdog clock is not
+reset. Not a status vocabulary.
 
 **Seed owner (`009`).** Migration 009 resolves `owner_id` by **explicit email
 match**, never by creation order. "Earliest `auth.users` row" is an ordering
