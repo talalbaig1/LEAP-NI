@@ -111,6 +111,21 @@ cannot be verified by read-back.
    you cannot check is a hope. Do not "fix" this back into trusting
    metadata as `size_bytes`.
 
+**Filesystem-shaped proof (packet 1.3e, 26 Aug 2026).** Pins were not used.
+`LNI-TEST-13e-filesystem` fetched a real JPEG via HTTP Request
+`responseFormat: file` (picsum 1200×800, source `Content-Length` 117383).
+Item shape: `data: "filesystem-v2"`, `id: filesystem-v2:workflows/…/binary_data/…`
+— not inline base64. Same Prep (copy only) / PUT / HEAD / size-match / Insert
+as live WF-01.
+
+| Proof | Exec | Result |
+|---|---|---|
+| A shape | 245307 | filesystem-v2, not inline |
+| B numbers | 245307 | source CL **117383**, PUT **200**, HEAD CL **117383**, `assets.size_bytes` **117383** — they match |
+| C truncation | 245335 | declared `file_size=1`, HEAD 117383 → `stopAndError`; Insert did not run; no row |
+| D missing object | 245341 | PUT 200 to one path, HEAD another → 400 → `stopAndError`; Insert did not run; no row |
+| E cleanup | 245354 | Storage DELETE 200 ×3; asset `lni13efsB` deleted; throwaway capture 20 deleted; GET-name then DELETE both TEST workflows (404 after). Capture **#9** left `processing` / `close_reason=auto`. |
+
 ---
 
 ## 2. Workflow inventory

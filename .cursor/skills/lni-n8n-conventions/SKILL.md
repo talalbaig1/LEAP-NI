@@ -116,7 +116,9 @@ in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
 2. A **pinned** item is inline base64 and is a **different program** from
    a real download (`data: "filesystem-v2"` + filesystem `id`). Pinned
    fixtures are not evidence for anything touching binary. Three green
-   fixtures preceded three real-device failures.
+   fixtures preceded three real-device failures. Filesystem-shaped
+   proof (HTTP `responseFormat: file`, not a pin): executions
+   245307 / 245335 / 245341.
 3. File size is **measured by reading the stored object back** (HEAD
    `Content-Length`), never from item metadata (`bin.bytes`,
    `bin.fileSize`) and never from a Code-computed buffer length (the
