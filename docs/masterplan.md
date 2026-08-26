@@ -199,7 +199,7 @@ fallback.
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **DONE** — credential `Leap-NI` in n8n. Token not yet proven on a real chat. | — |
 | 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`010` applied. | — |
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeds `bot_state` from that value at apply time. | Phase 1 — `012` apply |
-| 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | Open | Phase 2 benchmark, by 29 Aug |
+| 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
 | 6 | Confirm whether anyone else needs access | Talal | **MOOT** — WF-01 allowlist **is** `bot_state`. Only a seeded row is admitted; extra access is another `bot_state` row, not a schema change. Launch remains single-owner. | — |
 | 7 | Create owner Auth user on LEAP-NI | Talal | **DONE** — confirmed Auth user; `009` bound seed via `lni.owner_email` | — |
