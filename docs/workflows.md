@@ -141,6 +141,14 @@ Postgres returns bigint as a **string** (`"23"` on exec 245471). Compose
 **must** `Number()` it before returning. Cosmetic today; `/fix <n>` in
 Phase 2 will parse it.
 
+**Packet 1.3f proof (exec 245685, `LNI-TEST-13f-reply-text`, then deleted).**
+`resolve_target` with nothing open: `reply_text` =
+`Opened capture #32 (nothing was open — adopted)` (non-empty);
+`capture_no` type **number**. Same call with that capture open:
+`reply_text` = `""`. Batch `resolve_target`: `reply_text` = `""`.
+Throwaway captures 32/33 deleted; #9 and #21–#31 kept. `bot_state` restored
+to `normal` / nothing open.
+
 ---
 
 ## 2. Workflow inventory
