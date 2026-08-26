@@ -117,13 +117,15 @@ Receives errors from every LNI workflow.
    empty until Phase 1, so undeliverable is the expected state now and
    is correct: visible, not silent.
 
-   Implement the two lookups in the **same** parameterised
-   `executeQuery` as the `audit_log` INSERT (node name
-   `INSERT audit_log`). A *new* Postgres node is auto-assigned
+   Implement the two lookups **and** the undeliverable INSERT in the
+   **same** parameterised `executeQuery` as the `workflow_error` INSERT
+   (node name `INSERT audit_log`). A *new* Postgres node is auto-assigned
    ElderWise — verified 26 Aug 2026: `relation "public.events" does
    not exist`. Restore-by-name on the existing Leap-NI node is the
    only bind that survives an MCP update. Do not add a separate
-   lookup node.
+   lookup node. The undeliverable row is written in that same statement
+   when `hit_count >= 2` and `chat_id` is empty; the undeliverable
+   branch remains an explicit NoOp terminal.
 
 4. Alert the owner via Telegram only on **repeated** failure of the same
    `workflow_name` + `node_name` within 15 minutes. The repeat count is a
