@@ -21,7 +21,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | `errorWorkflow` | LNI WF-00's own ID | Pointing an LNI workflow at ElderWise's error workflow is a defect. Set per workflow; it is not inherited. |
 | `availableInMCP` | `true` on every LNI workflow | A workflow with MCP access off cannot be read back by the architect. Verification then degrades to accepting the implementer's report, which `rules.md` §4 forbids. A false value is a defect, not a preference. |
 | `executionTimeout` | 300 | Matches proven ElderWise setting |
-| Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL |
+| Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL. On this instance (Postgres node v2.5+) the replacement **must be one expression that evaluates to an array**: `{{ [a, b, c] }}` (n8n docs). A CSV that mixes a literal with `{{ }}` drops the literal, so `$1` is the first expression. `.join()` on that array binds as a single `$1`. Verified 26 Aug 2026. |
 | Idempotency | `ON CONFLICT ... DO NOTHING` on the natural key | ElderWise `media_id` pattern |
 | Terminal branches | Explicit NoOp nodes | Makes every path visibly terminal |
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
@@ -105,7 +105,10 @@ Receives errors from every LNI workflow.
 
    - `owner_id` ← parameterised
      `SELECT owner_id FROM public.events WHERE name = $1 LIMIT 1`
-     with `$1 = 'LEAP 2026'`.
+     with `$1` bound from the Code node field `event_name` (`'LEAP 2026'`,
+     the public 009 seed). `queryReplacement` is the array expression
+     `{{ [event_name, workflow_name, node_name, execution_id,
+     redacted_message, request_id] }}` — not a CSV, not `.join()`.
    - `chat_id` ← parameterised
      `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
      using the resolved owner.
