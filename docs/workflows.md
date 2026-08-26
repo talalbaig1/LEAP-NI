@@ -262,10 +262,12 @@ LNI bot only and must not disturb any ElderWise webhook.
    `$1` is the sender id from the update. **No row → silent NoOp terminal.**
    No reply, no row written anywhere, **no log entry naming the user.**
    The allowlist **is** `bot_state`; there is no separate table and no `$env`.
-3. **Mint `correlation_id`** = `crypto.randomUUID()`, **once per update**.
-   Carry it on every WF-02 call and every `audit_log` path. Do not use
-   `$execution.id` (numeric string; belongs in `after`, not
-   `audit_log.correlation_id`).
+3. **Mint `correlation_id`** once per update via the n8n **Crypto** node
+   (`action=generate`, `encodingType=uuid`). Carry it on every WF-02 call.
+   Do not use `$execution.id` (numeric string; belongs in `after`, not
+   `audit_log.correlation_id`). Do not call `crypto.randomUUID()` in a
+   Code node: this instance's task-runner sandbox has no `crypto` global
+   and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
    before any write. No matching row → stop, no send.
 5. **Branch:** command | photo | voice/audio | document/video | text | callback.
@@ -280,7 +282,8 @@ LNI bot only and must not disturb any ElderWise webhook.
 7. **MEDIA**, in exactly this order — this ordering **is** the invariant:
    a. Extract `file_unique_id` (photo: largest size in the array). `SELECT id FROM public.assets WHERE telegram_file_unique_id = $1`. If a row exists, **silent duplicate terminal**. Telegram redelivery is normal.
    b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `adopted` / `reply_text`.
-   c. Mint `asset_id` = `crypto.randomUUID()` in n8n.
+   c. Mint `asset_id` via the n8n Crypto node (`generate` / `uuid`) — same
+      sandbox restriction as `correlation_id`.
    d. Telegram `getFile`, then download the binary (Telegram node `download: true`).
    e. Compute `sha256`, `size_bytes`, `mime_type`.
    f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`.
@@ -344,11 +347,11 @@ failure. The owner is never falsely reassured.
 Schedule (inactivity sweep). A sub-workflow cannot hold a schedule, so both
 live on WF-02.
 
-**Do not activate WF-02 in packet 1.3.** Packet 1.3 activates WF-01 only.
-The Schedule Trigger stays inactive until the architect accepts 1.3.
-Carry-forward: `rule.interval` **must** be
-`[{ "field": "minutes", "minutesInterval": 5 }]` — a relied-upon default
-that is absent from the JSON cannot be verified by read-back.
+**Packet 1.3 activates WF-01.** This n8n instance refuses to publish a parent
+that calls an unpublished sub-workflow (`Call WF-02 *` → `BV0nukrQdOpDCPe4`).
+WF-02 must be published first so WF-01 can go live. The Schedule Trigger then
+fires every 5 minutes (`minutesInterval: 5`, `Asia/Riyadh`) — correct once
+ingest exists. Do not activate anything else.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
 **WF-02 never sends a Telegram message.** Every send happens in WF-01, so the
@@ -464,7 +467,9 @@ land somewhere (`prd.md` §4 guardrail 3).
   documented constant in the sweep SQL (`interval '10 minutes'`), **not**
   in `$env` (denied instance-wide) and not as a new `events` column (no
   extra migration in this packet).
-- Schedule stays **inactive** until packet 1.3 is accepted.
+- Schedule stays **inactive until WF-01 is published**. Packet 1.3 publishes
+  WF-02 first because this n8n instance will not activate a parent that
+  calls an unpublished sub-workflow.
 
 ### Guardrails
 - **Implicit close on `/new`** — see above.
