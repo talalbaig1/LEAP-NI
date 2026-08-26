@@ -318,18 +318,25 @@ written anywhere**:
   "telegram_user_id": 0,
   "action":           "new | done | batch | status | resolve_target | sweep",
   "asset_count_hint": 0,
-  "correlation_id":   "text"
+  "correlation_id":   "uuid"
 }
 ```
 
 `owner_id`, `telegram_user_id`, `action`, and `correlation_id` are required
-on the WF-01 path. `asset_count_hint` is optional (`/done` receipt only).
-`action=sweep` is produced by the Schedule Trigger, not by WF-01, and does
-not require `owner_id`.
+on the WF-01 path. `correlation_id` is a uuid, minted per inbound Telegram
+update by WF-01. Reject with `error_code=malformed_payload` if it is not a
+uuid. n8n `$execution.id` is a numeric string and belongs in `after`, not
+in `audit_log.correlation_id`.
 
-The contract types `correlation_id` as text. `audit_log.correlation_id` is
-`uuid` (migration 005). WF-02 always echoes the text into `after.correlation_id`
-and writes the uuid column only when the value is a uuid. No schema change.
+`asset_count_hint` is optional and **advisory only** — usable for logging,
+never used for the receipt (`prd.md` §5: the receipt is the sole proof the
+pipeline is alive; a receipt that can claim more items than Storage holds
+is a false reassurance).
+
+`action=sweep` is produced by the Schedule Trigger, not by WF-01, and does
+not require `owner_id`. Reject `action=sweep` unless `$('Schedule sweep').isExecuted`
+is true; return `error_code=sweep_not_externally_invokable`. A same-owner
+passthrough must not be able to close every open capture.
 
 ### Return contract
 
@@ -363,8 +370,9 @@ the signal; it is visible in review.
 1. Close the open capture (`status` leaves `open`, `close_reason = explicit`).
 2. Count attached assets.
 3. `reply_text` = `✓ Capture #<capture_no> saved · <n> items` using
-   `captures.capture_no`, never the uuid. `asset_count_hint` may populate
-   `<n>` when the caller already knows the count.
+   `captures.capture_no`, never the uuid. `item_count` and `<n>` always
+   come from the authoritative Postgres asset count. `asset_count_hint`
+   never populates `<n>`.
 4. Dispatch WF-03 for each unprocessed asset. **Do not wait** —
    `waitForSubWorkflow: false`. **Packet 1.2: WF-03 does not exist yet.
    The dispatch is an explicit NoOp terminal labelled as such.**

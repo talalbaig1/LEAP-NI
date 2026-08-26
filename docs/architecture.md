@@ -101,6 +101,12 @@ user-owned table — single owner at launch, designed for multi-user.
 | `credit_ledger` | Apollo spend guard | `provider`, `credits_spent`, `operation`, `entity_id`, `spent_at` |
 | `audit_log` | Every AI write and user edit | `actor_type`, `action`, `entity_type`, `before`, `after`, `correlation_id` |
 
+**`audit_log.correlation_id` is uuid system-wide.** WF-01 mints one uuid
+per inbound Telegram update and passes it down. n8n `$execution.id` is a
+numeric string and belongs in `after`, not in this column. WF-00 correlates
+an error to its capture through this uuid; writing NULL here hides the
+real value.
+
 **Build the whole schema in Phase 0**, including tables belonging to later
 phases. The schema is built once.
 
