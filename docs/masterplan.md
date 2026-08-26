@@ -198,10 +198,10 @@ fallback.
 |---|---|---|---|---|
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **DONE** — credential `Leap-NI` in n8n. Token not yet proven on a real chat. | — |
 | 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`010` applied. | — |
-| 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Open | Phase 1 |
+| 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeds `bot_state` from that value at apply time. | Phase 1 — `012` apply |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | Open | Phase 2 benchmark, by 29 Aug |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
-| 6 | Confirm whether anyone else needs access | Talal | Open | — (schema already supports) |
+| 6 | Confirm whether anyone else needs access | Talal | **MOOT** — WF-01 allowlist **is** `bot_state`. Only a seeded row is admitted; extra access is another `bot_state` row, not a schema change. Launch remains single-owner. | — |
 | 7 | Create owner Auth user on LEAP-NI | Talal | **DONE** — confirmed Auth user; `009` bound seed via `lni.owner_email` | — |
 | 8 | Create second authenticated test user on LEAP-NI | Talal | **DONE** — throwaway test user for P3 | — |
 | 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |
