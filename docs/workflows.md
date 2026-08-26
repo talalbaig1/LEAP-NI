@@ -89,10 +89,27 @@ those fields. Behaviour we depend on (Telegram `download`, sweep
 `minutesInterval`) must be **explicit in the saved JSON** — defaults
 cannot be verified by read-back.
 
-Sizes and hashes are computed from **buffers**, never from item metadata
-(`bin.bytes`, `bin.fileSize`). An asset is `'stored'` only after the
-object has been **read back** from Storage and its reported size equals
-that buffer length. The PUT response (`Key`, `Id`) is not a size.
+**Binary and size — three standing rules (verified 26 Aug 2026).**
+
+1. This instance stores binary as **filesystem-v2**. Code nodes can
+   **create** filesystem binaries (`prepareBinaryData`,
+   `setBinaryDataBuffer`) but **cannot read** them: `getBinaryStream`,
+   `binaryToBuffer`, `getBinaryMetadata`, `getBinaryPath`,
+   `createReadStream` all deny; `getBinaryDataBuffer` returns nothing
+   usable. Never write Code that reads bytes. Proven by executions
+   245200 / 245231 / 245237.
+2. A **pinned** item is inline base64 and is a **different program** from
+   a real download (`data: "filesystem-v2"` + filesystem `id`). Pinned
+   fixtures are not evidence for anything touching binary. Three green
+   fixtures preceded three real-device failures.
+3. File size is **measured by reading the stored object back** (HEAD
+   `Content-Length`), never from item metadata (`bin.bytes`,
+   `bin.fileSize`) and never from a Code-computed buffer length (the
+   sandbox cannot open the file). Telegram `getFile` `file_size` is **not**
+   the stored value — it is an independent second opinion that must
+   **agree** with HEAD. Two sources that disagree is a defect; one source
+   you cannot check is a hope. Do not "fix" this back into trusting
+   metadata as `size_bytes`.
 
 ---
 
@@ -321,25 +338,22 @@ LNI bot only and must not disturb any ElderWise webhook.
    e. Compute `sha256` (Crypto node) over those same bytes. `Prep upload`
       takes **binary from `$('Telegram getFile').item.binary`** and
       `json.sha256` from the Hash node — never from `$input` after Hash
-      (Crypto emits json-only). **`size_bytes` is the decoded buffer
-      length** Prep will send, never `bin.bytes` or `bin.fileSize`
-      (metadata lied at 112 while the buffer was 14 ASCII bytes; verified
-      26 Aug 2026).
-   e2. **Before the PUT:** assert `size_bytes > 0` AND `sha256` is a
-      non-empty 64-character hex string. Fail → `stopAndError` (`Empty
-      binary terminal`). A zero-byte object that later gets an assets row
-      marked `stored` would pass a count check while losing the card.
+      (Crypto emits json-only). Prep **does not measure length**. Do not
+      put `bin.bytes`, Telegram `file_size`, or a Code-decoded buffer
+      length into `size_bytes` (Code cannot open filesystem-v2; metadata
+      is the disease). There is **no** pre-PUT byte gate — it only fired
+      on pinned fixtures.
    f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`. The PUT body is the getFile bytes, still named `data`.
-   f2. **After PUT 200/201 and before the assets INSERT:** read the object
-      back (HEAD first; list `metadata.size` only if HEAD has no usable
-      size). Require reported size **equals** `size_bytes`. Mismatch or
-      missing object → `stopAndError` (`Storage mismatch terminal`). Do
-      **not** write the assets row. PUT `{Key, Id}` is not evidence of
-      size. An object read back from Storage is the only number in this
-      pipeline that did not come from n8n describing itself. Verified
-      26 Aug 2026: this Supabase build returns `Content-Length` on HEAD
-      (30335), so list was not used.
-   g. **ONLY IF** the read-back matches: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   f2. **After PUT 200/201 and before the assets INSERT:** HEAD the object.
+      HEAD `Content-Length` **is** `assets.size_bytes` — the only number
+      measured from the artifact that survives. Require: HEAD 200/201/204,
+      `Content-Length > 0`, **and** `Content-Length` equals Telegram
+      `getFile` `file_size` (second opinion, not the stored value).
+      Missing object, zero length, failed HEAD, or disagreement with
+      Telegram → `stopAndError` (`Storage mismatch terminal`). Do **not**
+      write the assets row. PUT `{Key, Id}` is not a size. Verified
+      26 Aug 2026: this Supabase build returns `Content-Length` on HEAD.
+   g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
    h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
 8. **TEXT:** if it starts with `/ask`, terminate as out-of-scope for Phase 1
@@ -364,10 +378,11 @@ rather than a named node. Listed even where currently safe.
 
 | Location | What it reads | Verdict |
 |---|---|---|
-| WF-01 `Prep upload` | `$('Telegram getFile').item.binary` + `$('Hash sha256').item.json.sha256` | **Fixed** — no longer `$input` after Hash |
+| WF-01 `Prep upload` | `$('Telegram getFile').item.binary` + `$('Hash sha256').item.json.sha256` | **Fixed** — copies only; does not measure length |
 | WF-01 `Telegram getFile` | `download: true` + `operation: get` explicit; `fileId` from `$('Mint asset')` | **Fixed** |
-| WF-01 `Bytes present?` | `$('Prep upload').item.json.size_bytes` / `sha256` | **New** — named, before PUT |
-| WF-01 `Upload to Storage` URL / content-type | `$('Prep upload')` | Named. PUT *body* is the incoming item field `data` (HTTP node has no named-binary expression). That item is the IF pass-through of Prep, which copied getFile binary. Safe today; inserting Crypto/Code/HTTP between Prep and PUT would drop it again. |
+| WF-01 `Object size matches?` | HEAD `Content-Length` vs `$('Telegram getFile').item.json.result.file_size` | **1.3e** — HEAD is the stored size; Telegram is the agree-check |
+| WF-01 `Insert asset` `size_bytes` | `$('HEAD object')` `Content-Length` | **1.3e** — not Prep, not metadata |
+| WF-01 `Upload to Storage` URL / content-type | `$('Prep upload')` | Named. PUT *body* is the incoming item field `data` (HTTP node has no named-binary expression). That item is Prep's copy of getFile binary. Safe today; inserting Crypto/Code/HTTP between Prep and PUT would drop it again. |
 | WF-01 `Hash sha256` | incoming `binary.data` from getFile | Intended — this node consumes those bytes. It emits json-only; callers must not use its binary. |
 | WF-01 `Mint asset` | `$input.first().json` for the uuid | Currently safe — `Mint asset uuid` (Crypto) sits immediately upstream. Named `$('Mint asset uuid')` would match the rule. |
 | WF-01 `Attach correlation` | `$input.first().json.data` for the uuid | Same as Mint asset, with `Mint correlation`. |
@@ -398,8 +413,7 @@ file bytes, or message text.
 |---|---|
 | Resolve failed terminal | WF-02 did not return a `capture_id` after media was received |
 | Upload failed terminal | Storage rejected the object |
-| Empty binary terminal | `size_bytes` is 0 or `sha256` is not 64 hex — before the PUT |
-| Storage mismatch terminal | PUT succeeded but read-back size ≠ `size_bytes`, or object missing |
+| Storage mismatch terminal | PUT succeeded but HEAD missing/zero, or HEAD `Content-Length` ≠ Telegram `file_size` |
 | Insert miss terminal | Upload succeeded, `assets` row did not |
 | Text resolve failed terminal | `resolve_target` failed on the typed-note path |
 | Note miss terminal | Typed-note UPDATE returned no row |

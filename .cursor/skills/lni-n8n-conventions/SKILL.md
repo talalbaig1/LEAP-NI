@@ -104,15 +104,27 @@ $('Telegram getFile').item.binary
 in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
 `minutesInterval`) must be explicit in the saved JSON.
 
-Sizes and hashes are computed from **buffers**, never from item metadata
-(`bin.bytes`, `bin.fileSize`). Metadata describes the item; the buffer is
-the file. Verified 26 Aug 2026: a pin with `bytes: 112` decoded to 14
-ASCII bytes; Hash and Storage saw 14; Prep trusted metadata and wrote
-`size_bytes=112`. An asset is `upload_status='stored'` **only after** the
-object has been **read back** from Storage and its reported size equals
-that buffer length. The PUT body returns only `Key` and `Id` — not a size.
-That extra round trip is required. Verified 26 Aug 2026: HEAD returns
-`Content-Length` on this Supabase build, so list was not used.
+**Binary and size — three standing rules (verified 26 Aug 2026).**
+
+1. This instance stores binary as **filesystem-v2**. Code nodes can
+   **create** filesystem binaries (`prepareBinaryData`,
+   `setBinaryDataBuffer`) but **cannot read** them: `getBinaryStream`,
+   `binaryToBuffer`, `getBinaryMetadata`, `getBinaryPath`,
+   `createReadStream` all deny; `getBinaryDataBuffer` returns nothing
+   usable. Never write Code that reads bytes. Proven by executions
+   245200 / 245231 / 245237.
+2. A **pinned** item is inline base64 and is a **different program** from
+   a real download (`data: "filesystem-v2"` + filesystem `id`). Pinned
+   fixtures are not evidence for anything touching binary. Three green
+   fixtures preceded three real-device failures.
+3. File size is **measured by reading the stored object back** (HEAD
+   `Content-Length`), never from item metadata (`bin.bytes`,
+   `bin.fileSize`) and never from a Code-computed buffer length (the
+   sandbox cannot open the file). Telegram `getFile` `file_size` is **not**
+   the stored value — it is an independent second opinion that must
+   **agree** with HEAD. Two sources that disagree is a defect; one source
+   you cannot check is a hope. Do not "fix" this back into trusting
+   metadata as `size_bytes`.
 
 ## 13. Never log secrets or PII
 
