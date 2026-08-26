@@ -87,13 +87,29 @@ Receives errors from every LNI workflow.
 2. **Redact** before doing anything else: no secrets, no signed URLs, no media
    bytes, no transcript content, no email addresses, no phone numbers.
 3. Write redacted diagnostics to `processing_jobs.error_detail` where a
-   `job_id` is resolvable; otherwise to `audit_log`.
+   `job_id` is resolvable; otherwise to `audit_log` (which requires
+   `owner_id NOT NULL`). WF-00 reads the owner UUID from the n8n environment
+   variable `LNI_OWNER_UUID`, or from a workflow-level constant set in the
+   n8n UI — **never hardcoded in a committed file** (the repo is public,
+   masterplan.md §5). If the value is missing, WF-00 **fails loudly** rather
+   than skip the write. An error handler that silently drops errors is worse
+   than no error handler.
+
+   The `error_detail` write is an **UPDATE** on `processing_jobs`. It does
+   **not** change `status` or `attempt_count`, so it will not trip the
+   `last_transition_at` trigger. Recording a diagnostic is not a state
+   transition and must not reset the watchdog clock.
+
 4. Alert the owner via Telegram on repeated failure of the same node within a
    window. Single transient failures do not alert — they retry.
 5. Retain enough correlation context to replay the job safely.
 
 **Must not:** place secrets, signed URLs, media, or personal data in a
 notification.
+
+**`errorWorkflow` on WF-00 itself:** none. Pointing WF-00 at itself would
+recurse if the handler fails. Other LNI workflows point at WF-00's ID.
+Never ElderWise's.
 
 ---
 
