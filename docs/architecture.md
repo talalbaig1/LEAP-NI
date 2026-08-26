@@ -135,6 +135,49 @@ and quiet corruption is worse than a visible gap.
 
 All merges are reversible, preserve source captures, and write an audit event.
 
+### Status vocabularies
+
+Text columns with `CHECK` constraints. **Not** Postgres enums — enums require
+`ALTER TYPE` to extend, and schema changes are forbidden during event week.
+These values are cross-workflow contracts; WF-01 through WF-09 all read them.
+
+| Column | Allowed values |
+|---|---|
+| `captures.status` | `open` \| `processing` \| `ready` \| `needs_review` \| `failed` |
+| `captures.close_reason` | `explicit` \| `superseded` \| `auto` |
+| `captures.capture_mode` | `standard` \| `batch` |
+| `captures.card_only` | boolean, default `false` |
+| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` |
+| `assets.upload_status` | `pending` \| `stored` \| `failed` |
+| `processing_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `needs_review` |
+| `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
+| `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
+| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
+| `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
+| `entity_candidates.decision` | `pending` \| `accepted` \| `rejected` |
+| `bot_state.mode` | `normal` \| `batch` |
+| `follow_ups.status` | `open` \| `done` \| `cancelled` |
+| `follow_ups.priority` | `low` \| `medium` \| `high` |
+| `enrichment_records.provider` | `apollo` \| `tavily` |
+| `audit_log.actor_type` | `user` \| `ai` \| `system` |
+
+### RLS policy shape
+
+`owner_id uuid NOT NULL REFERENCES auth.users(id)` is **denormalised onto every
+table**, including child and junction tables. A policy predicate must never
+require a join.
+
+One policy per table, named `<table>_owner_all`:
+
+```sql
+FOR ALL TO authenticated
+USING (owner_id = auth.uid())
+WITH CHECK (owner_id = auth.uid())
+```
+
+No policies for the `anon` role. `FORCE ROW LEVEL SECURITY` is **not** used —
+n8n's `service_role` must continue to bypass RLS.
+
 ---
 
 ## 5. Storage design
@@ -279,8 +322,22 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | 16 tables created in one migration. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Nine numbered migrations (`001`–`009`) create the 16 tables, indexes, policies, bucket, and seed. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
+
+Phase 0 applies **nine numbered forward-only migrations**, not a single dump:
+
+| # | File | Contents |
+|---|---|---|
+| 001 | `001_extensions` | `pg_trgm` |
+| 002 | `002_events_bot_state` | `events`, `bot_state` |
+| 003 | `003_capture_pipeline` | `captures`, `assets`, `processing_jobs` |
+| 004 | `004_entities` | `extraction_runs`, `people`, `companies`, `person_companies`, `interactions`, `follow_ups` |
+| 005 | `005_review_support` | `entity_candidates`, `field_corrections`, `enrichment_records`, `credit_ledger`, `audit_log` |
+| 006 | `006_indexes` | indexes and constraints |
+| 007 | `007_rls_policies` | RLS enable + one `<table>_owner_all` policy per table |
+| 008 | `008_storage` | private bucket `lni-assets` + object path policies |
+| 009 | `009_seed_leap_2026` | LEAP 2026 seed row |
 
 ### Connection policy — verified 25 Aug 2026
 
