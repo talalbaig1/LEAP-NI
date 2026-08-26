@@ -1,6 +1,7 @@
 # Real infrastructure values — never commit
 docs/environment.local.md
 *.local.md
+*.local.env
 .env
 .env.*
 !.env.example
