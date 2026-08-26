@@ -8,8 +8,8 @@ credential store and Supabase — never in any file in this repo.
 - Host: `<N8N_HOST>`
 - ElderWise error workflow ID (pattern reference only): `<ERROR_WF_ID>`
 - LNI error workflow ID (WF-00, created in Phase 0): `TBD`
-- n8n instance env `LNI_OWNER_UUID` (WF-00 audit_log fallback). Never commit the value.
-- n8n instance env `LNI_TELEGRAM_CHAT_ID` (WF-00 repeat-failure alerts). Optional until the owner chat exists.
+- n8n instance env `LNI_OWNER_UUID` (WF-00 `audit_log.owner_id`). Required. Never commit the value.
+- n8n instance env `LNI_TELEGRAM_CHAT_ID` (WF-00 repeat-failure Telegram). If unset when an alert is owed, WF-00 writes `workflow_error_alert_undeliverable` rather than failing silent.
 
 ## Supabase
 - ElderWise project ref — **DO NOT TOUCH**: `<ELDERWISE_PROJECT_REF>`
