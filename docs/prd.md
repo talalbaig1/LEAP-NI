@@ -119,10 +119,10 @@ review prompt the owner declined — it is proof the pipeline is alive. Without
 it, a dead pipeline looks identical to a healthy one, and the failure would
 surface on day four instead of day one.
 
-**Batch `/done` cannot quote extraction outcomes.** Compose currently emits
-clean / need_review / failed as hardcoded 0. Extraction has not run at that
-instant, so those numbers can never be true there. The batch receipt is
-**`N cards received · processing`**. Real clean / review / failed counts
+**Batch `/done` cannot quote extraction outcomes.** Extraction has not run at
+that instant, so clean / need_review / failed numbers can never be true
+there. The batch receipt is **`N cards received · processing`**. Do not
+emit hardcoded zeros for clean / need_review / failed. Real counts
 are deferred to the digest (WF-07), which runs after WF-03/04 have actually
 produced them.
 
