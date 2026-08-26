@@ -131,6 +131,10 @@ Checked directly, 25 August 2026. **Re-verify if stale.**
 - ⚠️ **Known trap.** ElderWise WF-5 hardcodes `language: "en"` on the Transcribe
   node. **Never copy this into LNI.** Forcing English decoding on Arabic or
   code-switched audio yields confident garbage rather than an error.
+- **`N8N_BLOCK_ENV_ACCESS_IN_NODE` is ENABLED** on this instance. `$env` is
+  denied in every node type. Verified 26 August 2026 by four failed WF-00
+  executions. Do not design any LNI workflow against `$env`. Do not request
+  it be removed — the container is shared with ElderWise.
 
 ### Apollo.io — Talal Baig
 | Credit type | Remaining |

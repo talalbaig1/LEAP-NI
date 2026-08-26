@@ -1,7 +1,7 @@
 # rules.md
 
 **LEAP Networking Intelligence (LNI)** · Operating Rules
-Version 2.0 · 25 August 2026
+Version 2.0 · 26 August 2026
 
 These rules govern how the project is run. They override convenience, speed, and
 enthusiasm. Where a rule and a deadline conflict, the rule wins — that is the
@@ -79,6 +79,22 @@ workflows directly, faster than instructing Cursor.
 it, the verification is theatre — the failures most likely to be missed are
 precisely the ones Claude built in. Author and verifier must be different
 parties or the check is decorative.
+
+### Exception — tooling-shaped walls only
+
+Claude may implement **only** when the blocker is tooling-shaped: an operation
+Cursor's tools cannot perform at all, not one it is finding difficult.
+Difficulty is not a wall. A wall is "the tool cannot do this."
+
+All of the following are required:
+
+1. The cause is understood and agreed first (§5). This is never a shortcut
+   past diagnosis.
+2. The handoff and its reason are recorded in the session log.
+3. Cursor reviews Claude's work by independent read-back, **roles reversed**.
+   The check is preserved, not dropped.
+4. The next task reverts to normal: Claude architects and verifies, Cursor
+   implements.
 
 ---
 
@@ -160,6 +176,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 15 | **Bind LNI credentials explicitly; verify by read-back before first execution** | n8n MCP auto-assignment reached for an ElderWise credential, and the creation response disagreed with the saved workflow |
 | 16 | **First execution of any workflow must be self-identifying** | A bare `200` or `success` proves nothing about *which* system answered |
 | 17 | **Postgres via the shared Supavisor pooler, SSL `Require`** | Direct and dedicated endpoints are IPv6-only; the n8n container has no IPv6 route |
+| 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here: `$env` is blocked instance-wide, and configuration or state outside Postgres violates architecture.md §2 rule 2. Where a skill and this repo disagree, the repo wins, and you say so rather than silently following the skill. |
 
 ---
 
@@ -197,3 +214,27 @@ captured cannot be recovered, and that asymmetry decides every scope argument.
   tested rather than assumed.
 - **State when evidence is weak.** This applies to the system's `/ask` answers
   and to the architect's recommendations equally.
+
+---
+
+## 12. Instance-wide n8n API key
+
+The n8n REST API key is **instance-wide**. It can write or delete all 52
+workflows on the shared container, including ElderWise WhatsApp inbound with
+real users.
+
+**Allowed targets only:**
+
+- workflows whose **name** begins with `LNI ` or `LNI-TEST-`
+- archived orphans `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — verify by
+  **name** before any delete
+
+**Hard constraints:**
+
+- Never list-and-act in one step. Fetch, check the name, then act.
+- Never call a destructive endpoint against an unprefixed workflow.
+- Never restart, upgrade, or change instance settings.
+- Never touch ElderWise.
+
+If an operation would touch anything else: **STOP and report.** Do not
+continue, guess, or "clean up" extras.

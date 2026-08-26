@@ -21,12 +21,13 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | `errorWorkflow` | LNI WF-00's own ID | Pointing an LNI workflow at ElderWise's error workflow is a defect. Set per workflow; it is not inherited. |
 | `availableInMCP` | `true` on every LNI workflow | A workflow with MCP access off cannot be read back by the architect. Verification then degrades to accepting the implementer's report, which `rules.md` §4 forbids. A false value is a defect, not a preference. |
 | `executionTimeout` | 300 | Matches proven ElderWise setting |
-| Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL |
+| Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL. On this instance (Postgres node v2.5+) the replacement **must be one expression that evaluates to an array**: `{{ [a, b, c] }}` (n8n docs). A CSV that mixes a literal with `{{ }}` drops the literal, so `$1` is the first expression. `.join()` on that array binds as a single `$1`. Verified 26 Aug 2026. |
 | Idempotency | `ON CONFLICT ... DO NOTHING` on the natural key | ElderWise `media_id` pattern |
 | Terminal branches | Explicit NoOp nodes | Makes every path visibly terminal |
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
+| Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 
 ### Three traps already identified
 
@@ -57,6 +58,15 @@ Two consequences, both binding:
    credentials would go green against the wrong database. **WF-00b is the
    workflow specified to carry this principle.**
 
+   With an n8n API key present, auto-assign on a WRITE is dangerous — a
+   failed SELECT is harmless; a WRITE would not fail politely. New Postgres
+   nodes auto-assign ElderWise. Before any node that WRITES, verify the bound
+   credential with a self-identifying READ first. Never trust the MCP
+   creation response. Never act on a workflow whose name does not begin with
+   `LNI ` (`LNI-TEST-` allowed for disposable tests). Owner handles deletion
+   of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
+   not spend time on them.
+
 ---
 
 ## 2. Workflow inventory
@@ -86,14 +96,105 @@ Receives errors from every LNI workflow.
 1. Extract workflow name, node name, execution ID, error message.
 2. **Redact** before doing anything else: no secrets, no signed URLs, no media
    bytes, no transcript content, no email addresses, no phone numbers.
-3. Write redacted diagnostics to `processing_jobs.error_detail` where a
-   `job_id` is resolvable; otherwise to `audit_log`.
-4. Alert the owner via Telegram on repeated failure of the same node within a
-   window. Single transient failures do not alert — they retry.
-5. Retain enough correlation context to replay the job safely.
+
+   **Known limitation.** The redact function also strips every comma and every
+   quote from extracted fields. That is a workaround for n8n Postgres v2.5+
+   `queryReplacement` (CSV-split / `stringToArray`). It works; it permanently
+   degrades diagnostics (error text cannot contain `,` `'` `"`). The better
+   fix is a **single `jsonb` parameter** for the whole payload. Do that
+   post-event; do not change the workaround during LEAP.
+3. Write redacted diagnostics. Every handled error **INSERT**s one
+   `audit_log` row (`actor_type = system`, `action = workflow_error`). That
+   row is the source of truth for repeat detection (architecture.md §2
+   rule 2: Postgres holds state; n8n does not). This is **every** error,
+   not an otherwise-only write: the hit counter needs a single complete
+   series. Where a `job_id` is also resolvable, **additionally UPDATE**
+   `processing_jobs.error_detail` only — do not change `status` or
+   `attempt_count`, so the `last_transition_at` trigger does not fire.
+   Recording a diagnostic is not a state transition and must not reset
+   the watchdog clock.
+
+   `audit_log.owner_id` is NOT NULL. Resolve both runtime values from
+   Postgres — never `$env`, never a workflow-level constant, never a
+   committed file (the repo is public; masterplan.md §5; architecture.md
+   §2 rule 2):
+
+   - `owner_id` ← parameterised
+     `SELECT owner_id FROM public.events WHERE name = $1 LIMIT 1`
+     with `$1` bound from the Code node field `event_name` (`'LEAP 2026'`,
+     the public 009 seed). `queryReplacement` is the array expression
+     `{{ [event_name, workflow_name, node_name, execution_id,
+     redacted_message, request_id] }}` — not a CSV, not `.join()`.
+   - `chat_id` ← parameterised
+     `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
+     using the resolved owner.
+
+   If the events lookup returns no `owner_id`, **THROW** rather than skip
+   the write. An error handler that silently drops errors is worse than
+   no error handler.
+
+   **Primary protection — row-returned gate (authoritative).** Immediately
+   after `INSERT audit_log`, IF `id` is present. Non-empty continues to
+   the job-id test. Empty — including Postgres `{success:true}` on zero
+   rows, a missing `id`, or a zero-item output — does **not** proceed and
+   does **not** fail quietly: `stopAndError` throws so the execution is
+   visible as failed. `INSERT audit_log` has `alwaysOutputData: true` so
+   a zero-item result still reaches the gate. Without this gate,
+   `Number(undefined) >= 2` is false and the run exits through `No alert`
+   — silence, the outcome WF-00 exists to prevent. This gate does **not**
+   depend on the query planner.
+
+   **Secondary — SQL CAST (defence in depth only).** A runtime `CAST` of
+   `events lookup returned no owner_id; refusing to drop the error write`
+   to `uuid` remains in the statement. It is **not** the primary guard. A
+   constant `CAST('…' AS uuid)` is folded at **plan time** (verified 26
+   Aug 2026: unused `CASE ELSE` still threw while `$1` was `'LEAP 2026'`).
+   The volatile subquery (`WHERE clock_timestamp() IS NOT NULL`) and
+   `FROM guard CROSS JOIN hits` reduce that, but a planner or version
+   change can disable it silently. The row-returned gate above is what
+   must hold.
+
+   If `bot_state` returns no row, `chat_id` is empty and repeated failures
+   take the undeliverable path. `bot_state` is empty until Phase 1, so
+   undeliverable is the expected state now and is correct: visible, not
+   silent.
+
+   Implement the two lookups **and** the undeliverable INSERT in the
+   **same** parameterised `executeQuery` as the `workflow_error` INSERT
+   (node name `INSERT audit_log`). A *new* Postgres node is auto-assigned
+   ElderWise — verified 26 Aug 2026: `relation "public.events" does
+   not exist`. Restore-by-name on the existing Leap-NI node is the
+   only bind that survives an MCP update. Do not add a separate
+   lookup node. The undeliverable row is written in that same statement
+   when `hit_count >= 2` and `chat_id` is empty; the undeliverable
+   branch remains an explicit NoOp terminal.
+
+4. **Send-node gate.** `Chat id present?` sits immediately before
+   `Telegram owner alert`. Combined with step 3's row-returned gate, an
+   empty write cannot reach Telegram or `No alert`.
+
+5. Alert the owner via Telegram only on **repeated** failure of the same
+   `workflow_name` + `node_name` within 15 minutes. The repeat count is a
+   parameterised `SELECT count(*)` on `audit_log` for those keys in the
+   window, **after** the current row is inserted. Count 1 = transient, no
+   alert. Count ≥ 2 = alert. Do **not** use n8n static data — it is not
+   shared across queue workers, is unreliable in manual runs, and is lost
+   on reset.
+
+   If the counter says an alert is owed but `chat_id` is empty, INSERT a
+   second `audit_log` row with
+   `action = workflow_error_alert_undeliverable` before terminating. Do
+   not route that case to a silent NoOp. The 10 PM digest must be able to
+   see that an alert was owed and not delivered.
+
+6. Retain enough correlation context to replay the job safely.
 
 **Must not:** place secrets, signed URLs, media, or personal data in a
 notification.
+
+**`errorWorkflow` on WF-00 itself:** none. Pointing WF-00 at itself would
+recurse if the handler fails. Other LNI workflows point at WF-00's ID.
+Never ElderWise's.
 
 ---
 
