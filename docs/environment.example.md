@@ -7,7 +7,7 @@ credential store and Supabase — never in any file in this repo.
 ## n8n
 - Host: `<N8N_HOST>`
 - ElderWise error workflow ID (pattern reference only): `<ERROR_WF_ID>`
-- LNI error workflow ID (WF-00, created in Phase 0): `TBD`
+- LNI error workflow ID (WF-00): live value lives in `docs/environment.local.md` (gitignored). Do not commit the ID here.
 - n8n instance env `N8N_BLOCK_ENV_ACCESS_IN_NODE`: ENABLED. Fact, not a to-do. `$env` is denied in every node. Do not remove it (shared ElderWise container). LNI does not use `$env`.
 - `LNI_OWNER_UUID` / `LNI_TELEGRAM_CHAT_ID`: unused. Dead. WF-00 resolves `owner_id` from `events` and `chat_id` from `bot_state`.
 - `N8N_API_KEY`: `<PASTE_N8N_API_KEY_HERE>` — INSTANCE-WIDE (write/delete every workflow on the shared instance, including ElderWise). Local-only; not committed. Gitignored. Lives in `docs/n8n.local.env`.
