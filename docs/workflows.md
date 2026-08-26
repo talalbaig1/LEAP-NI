@@ -159,9 +159,9 @@ to `normal` / nothing open.
 | WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
-| WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** by WF-02 `/done` (`waitForSubWorkflow: false`) |
-| WF-04 | Structured extraction | 2 | Enqueued by WF-03 as `job_type='extraction'`; wired in packet 2.4 |
-| WF-05 | Entity resolution | 2 | Called by WF-04 |
+| WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
+| WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres (packet 2.5) |
+| WF-05 | Entity resolution | 2 | Called by WF-04 — **not yet** |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
@@ -737,13 +737,27 @@ mode. If nothing is open, `reply_text` = `nothing open`.
   is older than the inactivity window, stamping `close_reason='auto'`.
   `status` leaves `open` so a later sweep does not re-close. Clear
   `bot_state.open_capture_id`. Send nothing. No `reply_text`.
+- **`Action sweep` RETURNs the closed capture ids** as `closed_ids uuid[]`
+  (plus counts). Counts-only is a defect: the enqueue cannot see what
+  closed.
+- **Then enqueue**, using the **same** single `INSERT … SELECT` and the
+  **same** `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL
+  DO NOTHING` as the `/done` path (`architecture.md` §4). Source
+  `closed_ids` from the **named** `Action sweep` node, never `$json`
+  after Compose. Audio → `transcription`; else → `card_vision`. Zero
+  rows enqueued is a normal silent terminal — not an error, not a send.
+- **Then dispatch WF-03 once**, best-effort: `waitForSubWorkflow: false`,
+  `onError: continueRegularOutput` **explicit in the saved JSON**. Same
+  reason as `/done`: enqueue is durable; dispatch is not; a throw must
+  not fail the sweep execution. A missed dispatch leaves `queued` jobs
+  for WF-09 (Phase 3).
 - **Inactivity window: 10 minutes** (`prd.md` §4 guardrail 2). Stored as a
   documented constant in the sweep SQL (`interval '10 minutes'`), **not**
   in `$env` (denied instance-wide) and not as a new `events` column (no
   extra migration in this packet).
-- Schedule stays **inactive until WF-01 is published**. Packet 1.3 publishes
-  WF-02 first because this n8n instance will not activate a parent that
-  calls an unpublished sub-workflow.
+- Live defect (packet 2.5): capture #59 sat `open` with a stored audio
+  asset; the sweep closed other captures `close_reason='auto'` and never
+  enqueued. Guardrail 2 exists because forgetting `/done` WILL happen.
 
 ### Guardrails
 - **Implicit close on `/new`** — see above.
@@ -757,8 +771,9 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 ## WF-03 — Asset processors
 
 **Phase 2** · **Triggers:** Manual (standalone / prove) **and** Execute
-Workflow Trigger (called **once** by WF-02 `/done`,
-`waitForSubWorkflow: false`). Workflow ID on the instance:
+Workflow Trigger (called **once** per kick by WF-02 `/done` **and** by
+the inactivity sweep, `waitForSubWorkflow: false`,
+`onError: continueRegularOutput`). Workflow ID on the instance:
 `<WF-03_WORKFLOW_ID>`. Never commit the literal.
 
 **Input contract:** `owner_id` and `correlation_id`. WF-03 is **not**
@@ -771,9 +786,10 @@ Capture-time kind is Telegram media type only — live image assets sit at
 `kind='photo'`, so a `business_card` branch would never fire
 (`architecture.md` §4).
 
-Provisional card engine: **GPT-4o**, behind the adapter. The model id is
-set in **one** named config node (`Card engine config`) and read from
-there. Do not scatter it. The benchmark packet may flip it.
+Provisional card engine: **GPT-4o**, behind the adapter, **shipping
+without a benchmark** (packet 2.5; `phases.md`; `rules.md` §7 rule 14
+knowingly not honoured). The model id is set in **one** named config
+node (`Card engine config`) and read from there. Do not scatter it.
 
 1. **Self-identify** before any write: `SELECT name, timezone, owner_id
    FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
@@ -821,6 +837,16 @@ there. Do not scatter it. The benchmark packet may flip it.
    `scene_description` only — **no facial recognition, no identification
    of people** (`rules.md` §7 rule 13).
 
+   **Name contract in the vision system prompt** (packet 2.5 defect 2):
+   `full_name` is the Latin transliteration; `name_original_script` is
+   the verbatim original. If the card prints a Latin name, `full_name`
+   uses it **exactly as printed** and is never re-transliterated. If the
+   card is Arabic-only, `full_name` is a transliteration and
+   `name_original_script` holds the original. Never discard the
+   original. Never invent a Latin name the card does not support.
+   A prove re-run INSERTs a **new** `card_vision` row; the original
+   succeeded row is not updated (it is evidence).
+
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
 
@@ -840,6 +866,12 @@ there. Do not scatter it. The benchmark packet may flip it.
    inside this execution — `executionTimeout` is 300s. After 3 attempts
    → `failed`. Malformed content (schema missing, empty transcript) →
    `needs_review`. **Never silently drop.**
+
+   **KNOWN LIMITATION (named Phase 3 item, do not fix now):** a requeued
+   job returns to `queued` with **no backoff delay**. The 1/5/20 minute
+   cadence is specified, not implemented. Safe today because WF-03 only
+   runs on dispatch (WF-02 `/done` and sweep). It becomes live when
+   WF-09 re-dispatches in Phase 3 (`phases.md` Phase 2, named item).
 7. When **every sibling job for that capture** is in a terminal state
    (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
    capture-level job: `job_type='extraction'`, `asset_id` NULL,
@@ -854,29 +886,104 @@ workflow depends on is explicit in the saved JSON.
 
 ## WF-04 — Structured extraction
 
-**Phase 2** · **Trigger:** `processing_jobs` row `job_type='extraction'`,
-`asset_id` NULL, enqueued by WF-03 when every sibling asset job is
-terminal. **Wiring (executeWorkflow) is packet 2.4.**
+**Phase 2** · **Triggers:** Manual **and** Execute Workflow Trigger.
+Claims capture-level `processing_jobs` rows (`job_type='extraction'`,
+`asset_id` NULL) the same way WF-03 claims asset jobs. Enqueued by
+WF-03 when every sibling asset job is terminal. Workflow ID on the
+instance: `<WF-04_WORKFLOW_ID>`. Never commit the literal.
+
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone **explicitly `Asia/Riyadh`**,
+`callerPolicy: workflowsFromSameOwner`.
 
 WF-04 composes `extraction_runs` from `processing_jobs.output.result` of
 that capture's asset jobs. It does not unwrap a provider envelope. It
-does not call the card/Whisper providers.
+does not call the card/Whisper providers. GPT-4o is the extract engine
+(same "ships without a benchmark" cut as WF-03).
 
-1. Compose explicit sources: typed note, card JSON, transcript, photo
-   description. Label each so provenance survives.
-2. Call the LLM with a **strict JSON schema**, `temperature: 0`. No free-form
-   parsing of prose.
-3. Extract: people, companies, roles, summary, topics, opportunities,
-   follow-ups.
-4. Validate. **Reject any invented email, phone, domain, or date not supported
-   by source evidence.**
-5. **Apply rule-based flagging** (`architecture.md` §6). Set
-   `extraction_runs.flag_reasons`.
-6. Write an `extraction_runs` row — immutable evidence.
-7. Dispatch WF-05.
+**Input contract:** a kick with `owner_id` / `correlation_id` is enough
+and optional — WF-04 **claims from Postgres itself**.
 
-**Must not:** overwrite any field present in `field_corrections`. User
-corrections are canonical.
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued extraction jobs:
+
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1::uuid
+       AND p.asset_id IS NULL
+       AND p.job_type = 'extraction'
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
+
+   Explicit gate on rows returned. Zero claimed → silent NoOp
+   (`No queued extraction jobs`). Not an error.
+3. **Compose labelled sources** for the capture, in one Postgres read.
+   Provenance must survive into the prompt — the model must know which
+   text came from a card and which from speech:
+
+   - `[TYPED_NOTE]` from `captures.typed_note` (may be empty)
+   - `[CARD <asset_id>]` — each sibling `card_vision` job's
+     `output.result` (the unwrapped card JSON)
+   - `[TRANSCRIPT <asset_id>]` — each sibling `transcription` job's
+     `output.result.text`
+   - `[SCENE <asset_id>]` — `output.result.scene_description` when
+     `image_type` is `scene` or `other`
+
+   Source every field from the **named** node that produced it. Never
+   `$json` after I/O.
+4. **ONE LLM call**, strict `json_schema`, `temperature: 0`. Extract
+   people, companies, roles, summary, topics, opportunities, follow_ups.
+   Nullable beats guessed. Reject any email, phone, domain, or date not
+   present in the labelled source evidence. Preserve
+   `name_original_script`; apply the same `full_name` transliteration
+   contract as WF-03 (`architecture.md` §6).
+5. **Validate in a Code node** (no binary read). Drop or null any
+   email / phone / domain / date that does not appear as a substring of
+   the labelled sources. Schema-invalid → `needs_review`.
+6. **Apply RULE-BASED flagging** (`architecture.md` §6) in that same
+   Code node — the **observable conditions**, never model
+   self-confidence. Set `flag_reasons` to the matching reason strings
+   (empty array if none). Conditions: no name extracted; no email AND
+   no phone; non-Latin script present in `full_name`; empty transcript
+   despite audio longer than 5 seconds; two or more people detected on
+   one card; extraction output fails schema validation; capture contains
+   nothing usable.
+7. **Write ONE `extraction_runs` row per capture** (immutable evidence).
+   Columns: `model`, `prompt_version`, `raw_vision_output` (jsonb of the
+   labelled card/scene results), `raw_transcript` (concatenated
+   `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Do not
+   UPDATE an existing row for that `capture_id` — `INSERT … WHERE NOT
+   EXISTS`. Then set the job `succeeded` | `failed` | `needs_review`
+   with the adapter-free job row (extraction `output` may hold the
+   structured_output + flag_reasons). `last_transition_at = now()`.
+8. Terminate at a NoOp named **`WF-05 dispatch (not yet)`**. Do not call
+   WF-05.
+
+Same failure discipline as WF-03: `succeeded` / `failed` / `needs_review`,
+never silent, every branch visibly terminal. `retryOnFail: true` on
+provider and DB nodes. Transient provider error → requeue if
+`attempt_count < 3`, else `failed`. The 1/5/20 minute backoff
+limitation named under WF-03 applies here too.
+
+**Must not:** unwrap `output.raw`; overwrite any field present in
+`field_corrections` (table exists; `/fix` is post-event); log
+transcripts, emails, phones, or signed URLs.
+
+**`language` is not set on any node.** There is no transcription node
+in WF-04.
 
 ---
 
@@ -1010,7 +1117,7 @@ specifically to cover that gap and must not be cut when Phase 3 is squeezed.**
 | 1 | WF-00 | Force an error; confirm redacted write, no secrets |
 | 2 | WF-00b | Self-identifying execution on both branches; live JSON `errorWorkflow` + `availableInMCP` |
 | 3 | WF-01, WF-02 | 20 real-device captures, 100% asset preservation |
-| 4 | WF-03, WF-04, WF-05 | Benchmark; live JSON read-back for unset `language` |
+| 4 | WF-03, WF-04 | Live JSON read-back for unset `language`; envelope keys; extraction_runs row |
 | 5 | WF-07, WF-08, WF-09 | Observed execution timestamps in Riyadh local time |
 | 6 | WF-06 | Forced retry loop must not breach the credit ceiling |
 

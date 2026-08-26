@@ -38,6 +38,14 @@ capture works identically on 5 September. Phases 5–8 stay post-LEAP.
 (digests, `/ask`, watchdog) is not squeezed to finish Phase 2 extras. The
 watchdog is not cut (`workflows.md` WF-09).
 
+**Scope cut, packet 2.5 (architect decision 26 Aug 2026).** `/fix`,
+album auto-detect (packet 1.4), and the provider benchmark are **CUT
+from Phase 2 and moved to post-event.** GPT-4o ships as the card engine
+**WITHOUT a benchmark.** `rules.md` §7 rule 14 says provider choices are
+settled by benchmark; we are **knowingly not honouring it under
+deadline**, and this document says so in those words rather than quietly
+dropping it. Album grouping stays on `/batch`, which is proven.
+
 ---
 
 ## Phase 0 — Foundation
@@ -150,32 +158,41 @@ Confirm every storage object exists at its recorded path.
 - Normalized writes to `people`, `companies`, `person_companies`,
   `interactions`
 - Rule-based flagging
-- `field_corrections` on `/fix`
-- **Provider benchmark** — stays in scope. Owner confirmed 27 Aug 2026
-  that all API credentials are live in n8n.
-- **Album auto-detect** — promoted from Phase 1 leftover into Phase 2 by
-  owner decision 27 Aug 2026. Postgres-buffer design in `workflows.md`
-  WF-01. Not implemented in packet 2.1.
+- `field_corrections` on `/fix` — **CUT to post-event** (packet 2.5)
+- **Provider benchmark** — **CUT to post-event** (packet 2.5). GPT-4o
+  ships as the card engine without a benchmark. `rules.md` §7 rule 14
+  says provider choices are settled by benchmark; we are knowingly not
+  honouring it under deadline.
+- **Album auto-detect** — **CUT to post-event** (packet 2.5). Album
+  grouping stays on `/batch`, which is proven. Design remains in
+  `workflows.md` WF-01 for the post-event build.
 
 Phase 3 remains launch-blocking and untouched. If Phase 2 threatens
 Phase 3, **cut Phase 2 scope first** (album prompt and benchmark extras
 before digest/watchdog).
 
 ### Definition of done
-- Album of 20 images prompts once, never fuses silently; unanswered
-  callback drops no file (`workflows.md` WF-01)
-- Benchmark run on 8–10 real cards across GPT-4o, Gemini, Mistral OCR; winner
-  chosen on **measured field-level accuracy**, recorded in this repo
 - `language` unset on the transcription node — verified in the live JSON
-- Arabic name preserved in `name_original_script`
+- Arabic name preserved in `name_original_script`; `full_name` is Latin
+  transliteration when the card is Arabic-only (`architecture.md` §6)
 - A card plus a 30-second voice note produces a reviewable record within
   2 minutes
 - Raw vision output, transcript, and structured output all traceable from one
   capture
 - No auto-merge occurs on name similarity alone
-- `/fix` writes to `field_corrections` and does **not** overwrite model output
 - Failed provider calls retry, then land in a visible `failed` state without
   creating duplicate people
+- Inactivity sweep enqueues and dispatches the same as `/done` (packet 2.5
+  defect 1)
+
+**Moved to post-event (not Phase 2 done):** album-of-20 prompt; provider
+benchmark on GPT-4o / Gemini / Mistral; `/fix` → `field_corrections`.
+
+### Named Phase 3 item — retry backoff
+A requeued job returns to `queued` with **no backoff delay**.
+`workflows.md` specifies 1/5/20 minutes. Safe today because WF-03 only
+runs on dispatch; it becomes live when WF-09 re-dispatches in Phase 3.
+Do not "fix" it in Phase 2.
 
 ---
 

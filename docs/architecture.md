@@ -177,9 +177,9 @@ raw provider blob. WF-04 reads `output.result`.
 
 **Enqueue natural key.** Unique index `processing_jobs_asset_job_uniq` on
 `(asset_id, job_type) WHERE asset_id IS NOT NULL` (migration `016`). WF-02
-`/done` `INSERT … ON CONFLICT DO NOTHING` on this key so a re-run or a
-replay enqueues nothing twice. Capture-scoped jobs (`asset_id` NULL) are
-outside the index.
+`/done` **and the inactivity sweep** `INSERT … ON CONFLICT DO NOTHING` on
+this key so a re-run or a replay enqueues nothing twice. Capture-scoped
+jobs (`asset_id` NULL) are outside the index.
 
 **`extraction_runs`** — immutable **capture-level** model evidence.
 Composed by **WF-04** from `processing_jobs.output.result`. WF-03 does not
@@ -409,8 +409,9 @@ The first member to arrive creates the capture and stores the group id at
 `flags->>'media_group_id'`. Later members find that row by the same key.
 The race is the partial unique index below (migration `013`). When the
 group exceeds two images, WF-01 sends one inline prompt after the assets
-are stored — splitting cannot lose an asset. Album implementation is
-Phase 2 (promoted from packet 1.4 leftover, owner decision 27 Aug).
+are stored — splitting cannot lose an asset. **Album auto-detect is
+post-event** (packet 2.5). Live grouping is `/batch`. This design stays
+so the post-event build does not invent a second buffer.
 
 ### Constraints and indexes
 
@@ -422,7 +423,7 @@ Phase 2 (promoted from packet 1.4 leftover, owner decision 27 Aug).
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
 | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING` makes a re-run enqueue nothing twice. This uniqueness is a **partial unique index**, not a table constraint — `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq` will not run. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
-| `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
+| `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** `full_name` is the Latin transliteration; `name_original_script` is the verbatim original. If the card prints a Latin name, `full_name` uses it **exactly as printed** and is never re-transliterated. If the card is Arabic-only, `full_name` is a transliteration and `name_original_script` holds the original. Never invent a Latin name the card does not support. Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
 
 **Extension prerequisite — verified 26 Aug 2026.** `pg_trgm` is **not**
@@ -591,14 +592,26 @@ whose strict schema includes:
 
 WF-03 feeds that vision call the **stored binary** (C3 path:
 `imageType: base64` + named binary property). Signed URL (C4) is a
-proven fallback only. **GPT-4o is the provisional card engine** behind
-the adapter; the model id lives in one named config node so a later
-benchmark can flip it without hunting the graph.
+proven fallback only. **GPT-4o ships as the card engine** behind the
+adapter, **without a benchmark** (packet 2.5 scope cut). The model id
+lives in one named config node so a later post-event benchmark can still
+flip it without hunting the graph. `rules.md` §7 rule 14 says provider
+choices are settled by benchmark; we are **knowingly not honouring it
+under deadline** (`phases.md` Phase 2).
 
 WF-03 `UPDATE`s `assets.kind` from `image_type` (`architecture.md` §4).
 When `image_type` is `business_card`, people/company fields are the card
 extraction. When `scene` or `other`, `scene_description` is contextual
 only — **no facial recognition, no identification of people**.
+
+**Name fields on the card JSON (and later on `people`).**
+
+| Field | Meaning |
+|---|---|
+| `full_name` | **Latin transliteration.** If the card prints a Latin name, copy it **exactly as printed** — never re-transliterate a name that is already Latin. If the card is Arabic-only (no Latin name on the card), transliterate into Latin. Never invent a Latin name the card does not support. |
+| `name_original_script` | **Verbatim original** as printed. Arabic stays Arabic. Latin-only cards may set this equal to the printed Latin, or null if there is no second script. **Never discard the original.** |
+
+Live defect (packet 2.5): both fields were identical Arabic (`عمران خالد`). That is a lost transliteration, not preservation.
 
 **No OCR-then-parse pipeline.** One call.
 
@@ -685,14 +698,20 @@ Replaces model self-reported confidence. A capture is flagged when **any** hold:
 transliterating an Arabic name wrongly. Self-reported confidence is not a
 reliable error filter; observable conditions are.
 
-### Provider benchmark — a Phase 2 deliverable
+### Provider benchmark — **post-event** (cut from Phase 2)
 
 8–10 representative cards (Arabic-only, bilingual, glossy, dark background,
 embossed, bad angle) plus two code-switched voice notes. Score **field-level
 accuracy** across GPT-4o vision, Gemini, and Mistral OCR.
 
+**Not run before LEAP.** Packet 2.5 cut this from Phase 2 under deadline.
+GPT-4o ships. `rules.md` §7 rule 14 is knowingly not honoured. The adapter
+still makes a later winner a config change.
+
 The adapter makes the winner a config change. **No provider is chosen on
-reputation.** If Mistral wins, Mistral ships.
+reputation** — except that deadline forced GPT-4o to ship on reputation
+plus the spike (packet 2.2b C3), which rule 14 forbids. Recorded here so
+the cut is visible.
 
 ---
 
