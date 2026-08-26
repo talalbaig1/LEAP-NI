@@ -27,6 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
+| Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 
 ### Three traps already identified
 
@@ -89,28 +90,32 @@ Receives errors from every LNI workflow.
 3. Write redacted diagnostics. Every handled error **INSERT**s one
    `audit_log` row (`actor_type = system`, `action = workflow_error`). That
    row is the source of truth for repeat detection (architecture.md §2
-   rule 2: Postgres holds state; n8n does not). Where a `job_id` is also
-   resolvable, additionally **UPDATE** `processing_jobs.error_detail` only —
-   do not change `status` or `attempt_count`, so the `last_transition_at`
-   trigger does not fire. Recording a diagnostic is not a state transition
-   and must not reset the watchdog clock.
+   rule 2: Postgres holds state; n8n does not). This is **every** error,
+   not an otherwise-only write: the hit counter needs a single complete
+   series. Where a `job_id` is also resolvable, **additionally UPDATE**
+   `processing_jobs.error_detail` only — do not change `status` or
+   `attempt_count`, so the `last_transition_at` trigger does not fire.
+   Recording a diagnostic is not a state transition and must not reset
+   the watchdog clock.
 
-   `audit_log.owner_id` is NOT NULL. WF-00 reads the owner UUID **only**
-   from the n8n instance environment variable `LNI_OWNER_UUID` — never from
-   a workflow-level constant, and never from a committed file (the repo is
-   public, masterplan.md §5). A Set node copies `$env.LNI_OWNER_UUID` and
-   `$env.LNI_TELEGRAM_CHAT_ID` onto the item via expressions. The Code node
-   then validates the UUID and **throws** if it is missing or not a UUID,
-   before any write. Do not read `$env` inside Code: this instance's JS
-   task runner denies env access there (`access to env vars denied`) and
-   the handler would fail before the throw. This n8n instance currently
-   also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE`, which blocks `$env` in Set
-   expressions too. The owner must unset that flag (or set it `false`)
-   and restart n8n, then set `LNI_OWNER_UUID`, or WF-00 cannot write.
+   `audit_log.owner_id` is NOT NULL. Resolve both runtime values from
+   Postgres — never `$env`, never a workflow-level constant, never a
+   committed file (the repo is public; masterplan.md §5; architecture.md
+   §2 rule 2):
 
-   A constant fallback would mask an unset env var and defeat the throw.
-   An error handler that silently drops errors is worse than no error
-   handler.
+   - `owner_id` ← parameterised
+     `SELECT owner_id FROM public.events WHERE name = $1 LIMIT 1`
+     with `$1 = 'LEAP 2026'`.
+   - `chat_id` ← parameterised
+     `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
+     using the resolved owner.
+
+   If the events lookup returns no `owner_id`, **THROW** rather than skip
+   the write. An error handler that silently drops errors is worse than
+   no error handler. If `bot_state` returns no row, `chat_id` is empty
+   and repeated failures take the undeliverable path. `bot_state` is
+   empty until Phase 1, so undeliverable is the expected state now and
+   is correct: visible, not silent.
 
 4. Alert the owner via Telegram only on **repeated** failure of the same
    `workflow_name` + `node_name` within 15 minutes. The repeat count is a
@@ -120,8 +125,8 @@ Receives errors from every LNI workflow.
    shared across queue workers, is unreliable in manual runs, and is lost
    on reset.
 
-   If the counter says an alert is owed but `LNI_TELEGRAM_CHAT_ID` is
-   unset, INSERT a second `audit_log` row with
+   If the counter says an alert is owed but `chat_id` is empty, INSERT a
+   second `audit_log` row with
    `action = workflow_error_alert_undeliverable` before terminating. Do
    not route that case to a silent NoOp. The 10 PM digest must be able to
    see that an alert was owed and not delivered.
