@@ -53,11 +53,11 @@ compete with capture reliability.
 
 | Phase | Contents | State |
 |---|---|---|
-| 0 | Foundation: Supabase, schema, RLS, storage, bot, error handler | Complete — merged `4cd0347` |
-| 1 | Capture path — **launch release** | In progress |
-| 2 | Extraction | Not started |
+| 0 | Foundation: Supabase, schema, RLS, storage, bot, error handler | Complete |
+| 1 | Capture path — **launch release** | Complete |
+| 2 | Extraction | In progress |
 | 3 | Digests, `/ask`, watchdog | Not started |
-| 4 | Enrichment | Gated on 0–3 green by 29 Aug |
+| 4 | Enrichment | Dropped pre-event (works identically on 5 September) |
 | 5–8 | Dashboard, RAG, follow-up, PWA | Post-LEAP |
 
 ---

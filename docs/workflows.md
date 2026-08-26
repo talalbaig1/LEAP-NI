@@ -403,9 +403,9 @@ LNI bot only and must not disturb any ElderWise webhook.
    `captures.typed_note` on that capture. **ONLY AFTER** the note write
    succeeds: send if `reply_text` is a non-empty string. Same rule as media.
    Do not re-test `adopted` through a different operator than the photo path.
-9. **CALLBACK:** no album prompt in this packet. Silent NoOp terminal
-   (answer the query only if Telegram would otherwise spin; send no owner
-   message).
+9. **CALLBACK:** album split prompt is answered on this existing
+   `callback_query` branch (today a silent NoOp — `Callback terminal`).
+   Design in **Album auto-detect** below. Packet 2.1 does not implement it.
 10. **Every path ends in an explicit terminal.** Failure terminals are
     `stopAndError` (WF-00 runs). Correct outcomes are silent NoOps.
 
@@ -472,7 +472,7 @@ file bytes, or message text.
 | Not allowlisted terminal | Unknown sender; no reply, no row, no log naming the user |
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
 | Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
-| Callback terminal | No album prompt in this packet |
+| Callback terminal | Album callback not yet implemented (packet 2.1 design only). Today a silent NoOp. |
 | Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
 | Command sent / Media stored / Note done | Happy path |
 
@@ -489,23 +489,38 @@ Phase 1 never classifies content (`architecture.md` §4 two-stage kind):
 | voice, audio | `audio` |
 | document, video, video_note | `document` |
 
-### Interim album rule (packet 1.3)
+### Album auto-detect — Postgres buffer (design only; Phase 2)
 
-Packet 1.3 does **not** implement the album prompt. Until packet 1.4, a
-message carrying `media_group_id` is treated as an ordinary photo and
-attached to the resolved open capture. Every member is stored; nothing is
-lost; the only missing behaviour is the separate-people prompt. Storing
-them individually is the safe interim: the failure mode is a grouping
-question deferred, not an asset dropped.
+Telegram delivers each album member as a **separate update**. Twenty members
+are twenty WF-01 executions with **no shared n8n memory**. The buffer is a
+`captures` row keyed on `flags->>'media_group_id'` (object shape after
+migration `015`). Implementation is Phase 2 (promoted from packet 1.4,
+owner decision 27 Aug 2026). This packet documents the design only.
 
-Album mechanism (implementation is packet 1.4): Telegram delivers each
-member as a separate update, so twenty members are twenty WF-01 executions
-with no shared memory. The first member will create a capture carrying the
-group id at `captures.flags->>'media_group_id'`; later members find that
-capture; concurrent INSERTs race and migration `013` makes the loser
-re-select. When the group exceeds two images, one inline prompt after
-assets are stored. Splitting happens after storage, so no unanswered
-callback can lose an asset.
+1. **First INSERT wins.** Attempt `INSERT` of a capture with
+   `flags = jsonb_build_object('media_group_id', <id>)`. Partial unique
+   index `captures_owner_media_group_uniq` (`013`) makes the first writer
+   succeed.
+2. **Losers catch `unique_violation` and re-SELECT** the winning row by
+   `(owner_id, flags->>'media_group_id')`. Do not retry INSERT in a loop.
+3. **Store the asset first** (existing WF-01 mint → PUT → HEAD → INSERT
+   `assets`). Every member is durable before any prompt is considered.
+4. **Count** assets on that `media_group_id` (join `assets` to the capture
+   found in 1–2). If the count is **> 2**, run **one** parameterised
+   `UPDATE` that sets `album_prompt_sent` **guarded by**
+   `NOT (flags ? 'album_prompt_sent')` and `RETURNING` a row. First
+   execution that sees > 2 wins the prompt; later members get zero rows.
+5. **Explicit gate on the returned row** before the inline keyboard is
+   sent (*"N images — separate people, or one person?"*). A zero-row
+   UPDATE must not send.
+6. **Callback is answered on the existing `callback_query` branch**, which
+   is a silent NoOp today (`Callback terminal`). Packet 2.1 does not wire
+   it.
+
+**Assets are already stored before any prompt**, so an unanswered callback
+can never drop a file. The only missing behaviour until this ships is the
+grouping question; members still land as ordinary photos on the resolved
+capture.
 
 ### Must not log
 
@@ -607,24 +622,47 @@ the signal; it is visible in review.
    `Capture #<n> open`.
 
 ### `/done`
-1. Close the open capture (`status` leaves `open`, `close_reason = explicit`).
-2. Count attached assets.
-3. `reply_text` = `✓ Capture #<capture_no> saved · <n> items` using
-   `captures.capture_no`, never the uuid. `item_count` and `<n>` always
-   come from the authoritative Postgres asset count. `asset_count_hint`
-   never populates `<n>`.
-4. Dispatch WF-03 for each unprocessed asset. **Do not wait** —
-   `waitForSubWorkflow: false`. **Packet 1.2: WF-03 does not exist yet.
-   The dispatch is an explicit NoOp terminal labelled as such.**
-5. If nothing is open, `reply_text` = `nothing open`. No crash, no phantom
-   row.
-6. In batch mode, `/done` closes **all** open `capture_mode='batch'`
-   captures for the owner (`close_reason='explicit'`), sets
-   `bot_state.mode = normal`, and returns the batch summary shape instead
-   of the per-capture receipt (`prd.md` §4): `"<n> cards processed ·
-   <clean> clean · <review> need review · <failed> failed"`. Until WF-03
-   exists, clean / review / failed are counts of sibling batch captures
-   in those statuses (zero in Phase 1).
+
+Postgres is the queue. `/done` enqueues work, then fires WF-03 **once**.
+Replaying the 41 already-captured assets later is **one INSERT**, not 41
+workflow calls.
+
+1. Close. `Action done` sets `status` to leave `open`,
+   `close_reason = explicit`, and **RETURNs the `id` of every capture it
+   closed**. Batch `/done` closes every open `capture_mode='batch'` row
+   for the owner (many ids). Standard `/done` returns one. If nothing is
+   open, zero rows → `reply_text` = `nothing open`. No crash, no phantom
+   row. Batch also sets `bot_state.mode = normal`.
+2. Enqueue — **one** statement:
+
+   ```sql
+   INSERT INTO processing_jobs (owner_id, capture_id, asset_id, job_type, status)
+   SELECT a.owner_id, a.capture_id, a.id,
+          CASE WHEN a.kind = 'audio' THEN 'transcription'
+               ELSE 'card_vision' END,
+          'queued'
+   FROM assets a
+   WHERE a.capture_id = ANY(<closed_ids>)
+     AND a.upload_status = 'stored'
+   ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING;
+   ```
+
+   Natural key: unique index **`processing_jobs_asset_job_uniq`** on
+   `(asset_id, job_type) WHERE asset_id IS NOT NULL`
+   (`architecture.md` §4). Audio → `transcription`; everything else →
+   `card_vision`. A re-run enqueues nothing twice. The index is created
+   in the WF-02 enqueue packet, not in 014/015.
+3. **Explicit gate on rows returned**, then **ONE** `executeWorkflow`
+   call to WF-03 with `waitForSubWorkflow: false`. Replaces the NoOp
+   node **"WF-03 dispatch (not yet)"**. Do not call WF-03 per asset. A
+   re-run that enqueues nothing (all conflicts) does not fire WF-03
+   again — the jobs are already in Postgres.
+4. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
+   `captures.capture_no` and the Postgres asset count (`asset_count_hint`
+   never populates `<n>`). Batch: **`N cards received · processing`**.
+   Extraction has not run at this instant, so clean / need_review /
+   failed **cannot** be true here — Compose currently hardcodes those as
+   0. Real counts are deferred to the digest (`prd.md` §5).
 
 ### `/batch`
 Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
@@ -681,27 +719,35 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 
 ## WF-03 — Asset processors
 
-**Phase 2** · **Trigger:** called by WF-02 · **Inputs:** `job_id`, `asset_id`,
-`capture_id` — reject any other shape
+**Phase 2** · **Trigger:** called **once** by WF-02 `/done` (`waitForSubWorkflow:
+false`). Postgres is the queue — WF-03 claims `processing_jobs` rows with
+`status='queued'`. Do not require a per-asset payload; a kick with
+`owner_id` is enough. Reject unknown extra fields if a payload is sent.
 
-WF-03 assigns the final `assets.kind` (`business_card`, `selfie`, or `photo`)
-from its vision call. Phase 1 stores images as unclassified `photo`. This is
-a Phase 2 deliverable specified here in advance (`architecture.md` §4).
+WF-03 assigns `assets.kind` from **one** vision call per image. Capture-time
+kind is Telegram media type only — live, all 34 image assets sit at
+`kind='photo'`, so a `business_card` branch would never fire
+(`architecture.md` §4).
 
-1. Create or claim the `processing_jobs` row; increment `attempt_count`.
+1. Claim a `processing_jobs` row already enqueued by WF-02 `/done`
+   (`status='queued'` → `running`); increment `attempt_count`. Do not
+   INSERT a second job for the same `(asset_id, job_type)`.
 2. Generate a **short-lived signed URL**. Never make the bucket public. Never
    log the URL.
-3. Branch on `assets.kind`:
+3. Branch on capture-time `assets.kind`:
 
-   **`business_card`** — single vision call, image → structured JSON per the
-   contract in `architecture.md` §6. **No OCR-then-parse step.** Store the raw
-   provider response in `extraction_runs.raw_vision_output`.
+   **`audio`** — Whisper transcription. **`language` unset.** Store the
+   verbatim transcript in `extraction_runs.raw_transcript` regardless of
+   quality.
 
-   **`audio`** — Whisper transcription. **`language` unset.** Store the verbatim
-   transcript in `extraction_runs.raw_transcript` regardless of quality.
-
-   **`photo` / `selfie`** — contextual description only. **No facial
-   recognition. No identification of people.** Scene and setting only.
+   **Everything else (image, including live `photo`)** — **one** vision
+   call whose strict schema includes `image_type`:
+   `business_card | scene | other` (`architecture.md` §6). **No
+   OCR-then-parse step.** WF-03 then `UPDATE`s `assets.kind`
+   (`business_card` → `business_card`; `scene`/`other` → `photo`). Store
+   the raw provider response in `extraction_runs.raw_vision_output`. A
+   `scene` image gets contextual description only — **no facial
+   recognition, no identification of people** (`rules.md` §7 rule 13).
 
 4. Validate against the versioned schema.
 5. On transient error: exponential retry (1, 5, 20 min; max 3), then `failed`.

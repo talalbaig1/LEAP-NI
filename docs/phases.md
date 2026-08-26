@@ -29,10 +29,14 @@ start, not by sliding the gate.
 | 31 Aug – 3 Sep | Event operations |
 | Sep onward | Phases 5–8 |
 
-**The 29 August gate is binding.** If Phases 0–3 are not passing on the owner's
-actual phone with real cards, all feature work stops and 30 August is spent
-hardening. Phase 4 is never allowed to compete with Phase 1 reliability. When
-Phase 3 is squeezed, the watchdog is not cut (`workflows.md` WF-09).
+**Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete (41/41
+assets preserved). Phase 2 in progress. Phase 3 remains **launch-blocking
+and untouched**. Phase 4 is dropped pre-event — enrichment on a 31 Aug
+capture works identically on 5 September. Phases 5–8 stay post-LEAP.
+
+**If Phase 2 threatens Phase 3, Phase 2 scope is cut first.** Phase 3
+(digests, `/ask`, watchdog) is not squeezed to finish Phase 2 extras. The
+watchdog is not cut (`workflows.md` WF-09).
 
 ---
 
@@ -106,17 +110,19 @@ sequence, not by execution readiness.
 ### Scope
 - WF-01 ingest router: Telegram → Storage → Postgres
 - Commands `/new`, `/done`, `/batch`, `/status`
-- Album auto-detect with inline "separate people or one person?" prompt
 - Four guardrails (`prd.md` §4)
 - Bare receipt on `/done`
 - Idempotency on `telegram_file_unique_id`
+
+Album auto-detect (inline "separate people or one person?" prompt) was a
+Phase 1 leftover. **Owner decision 27 Aug 2026: promoted into Phase 2
+scope.** Phase 1 stores album members as ordinary photos; nothing is lost.
 
 ### Definition of done
 - Photo, voice note, and typed note each capture independently
 - `/new` implicitly closes a previously open capture
 - Media arriving with no open capture opens one silently and says so
 - Inactivity auto-close fires and stamps `close_reason = auto`
-- Album of 20 images prompts once, never fuses silently
 - **20 real-device captures with 100% asset preservation** and 100% visible
   outcome — no silent loss
 - Resending the same media does not create a duplicate asset
@@ -134,16 +140,30 @@ Confirm every storage object exists at its recorded path.
 **Timing:** 27–28 Aug · **Should be live 30 Aug**
 
 ### Scope
-- WF-03 asset processors: card vision → JSON, Whisper audio
+- WF-03 asset processors: **one** vision call per image (strict schema
+  returns `image_type` `business_card | scene | other`; then `UPDATE
+  assets.kind`). Whisper on audio. No OCR-then-parse.
+- WF-02 `/done` enqueue: one `INSERT` into `processing_jobs`, then **one**
+  fire of WF-03 (`waitForSubWorkflow: false`). Postgres is the queue.
 - WF-04 structured extraction against the versioned contract
 - WF-05 entity resolution — suggest only
 - Normalized writes to `people`, `companies`, `person_companies`,
   `interactions`
 - Rule-based flagging
 - `field_corrections` on `/fix`
-- **Provider benchmark**
+- **Provider benchmark** — stays in scope. Owner confirmed 27 Aug 2026
+  that all API credentials are live in n8n.
+- **Album auto-detect** — promoted from Phase 1 leftover into Phase 2 by
+  owner decision 27 Aug 2026. Postgres-buffer design in `workflows.md`
+  WF-01. Not implemented in packet 2.1.
+
+Phase 3 remains launch-blocking and untouched. If Phase 2 threatens
+Phase 3, **cut Phase 2 scope first** (album prompt and benchmark extras
+before digest/watchdog).
 
 ### Definition of done
+- Album of 20 images prompts once, never fuses silently; unanswered
+  callback drops no file (`workflows.md` WF-01)
 - Benchmark run on 8–10 real cards across GPT-4o, Gemini, Mistral OCR; winner
   chosen on **measured field-level accuracy**, recorded in this repo
 - `language` unset on the transcription node — verified in the live JSON
