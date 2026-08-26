@@ -88,7 +88,7 @@ user-owned table — single owner at launch, designed for multi-user.
 | `bot_state` | Which capture is open; batch mode on/off | `telegram_user_id`, `open_capture_id`, `mode`, `last_activity_at` |
 | `captures` | One `/new`…`/done` unit | `event_id`, `status`, `capture_mode`, `opened_at`, `closed_at`, `close_reason`, `typed_note`, `flags` |
 | `assets` | Immutable raw media | `capture_id`, `kind`, `storage_path`, `telegram_file_unique_id`, `sha256`, `mime_type`, `size_bytes`, `upload_status` |
-| `processing_jobs` | Auditable async work | `capture_id`, `asset_id`, `job_type`, `status`, `attempt_count`, `provider`, `provider_request_id`, `error_code`, `output` |
+| `processing_jobs` | Auditable async work | `capture_id`, `asset_id`, `job_type`, `status`, `attempt_count`, `last_transition_at`, `provider`, `provider_request_id`, `error_code`, `error_detail`, `output` |
 | `extraction_runs` | Immutable model evidence | `capture_id`, `model`, `prompt_version`, `raw_vision_output`, `raw_transcript`, `structured_output`, `flag_reasons` |
 | `people` | Canonical person | `full_name`, `name_original_script`, `title`, `email`, `phone`, `linkedin_url`, `review_status`, `source_type` |
 | `companies` | Canonical company | `name`, `normalized_name`, `domain`, `industry`, `enrichment_status` |
@@ -104,6 +104,18 @@ user-owned table — single owner at launch, designed for multi-user.
 **Build the whole schema in Phase 0**, including tables belonging to later
 phases. The schema is built once.
 
+**`processing_jobs.last_transition_at`.** `timestamptz NOT NULL`, default
+`now()`, maintained by a `BEFORE UPDATE` trigger whenever `status` or
+`attempt_count` changes. WF-09 measures staleness from **this column, never
+from `created_at`**. A job healthily in its third WF-03 retry (1/5/20 min) at
+minute 25 is not stale; a `created_at` threshold under 20 minutes would
+false-alarm. The trigger lives in the database so a workflow author cannot
+forget to set the column.
+
+**`processing_jobs.error_detail`.** `jsonb`. WF-00 writes redacted diagnostics
+here when a `job_id` is resolvable; otherwise to `audit_log`. Not a status
+vocabulary.
+
 ### Constraints and indexes
 
 | Constraint | Reason |
@@ -111,6 +123,7 @@ phases. The schema is built once.
 | `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
+| Index on `processing_jobs (status, last_transition_at)` | WF-09 watchdog query |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
 
@@ -322,10 +335,10 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Nine numbered migrations (`001`–`009`) create the 16 tables, indexes, policies, bucket, and seed. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`010`) create the 16 tables, indexes, policies, bucket, seed, and the processing-job staleness column. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
-Phase 0 applies **nine numbered forward-only migrations**, not a single dump:
+Phase 0 applies **numbered forward-only migrations**, not a single dump:
 
 | # | File | Contents |
 |---|---|---|
@@ -338,6 +351,7 @@ Phase 0 applies **nine numbered forward-only migrations**, not a single dump:
 | 007 | `007_rls_policies` | RLS enable + one `<table>_owner_all` policy per table |
 | 008 | `008_storage` | private bucket `lni-assets` + object path policies |
 | 009 | `009_seed_leap_2026` | LEAP 2026 seed row |
+| 010 | `010_processing_jobs_transition` | `last_transition_at` + trigger + watchdog index |
 
 ### Connection policy — verified 25 Aug 2026
 

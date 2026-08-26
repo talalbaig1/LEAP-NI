@@ -357,6 +357,10 @@ pgvector hybrid retrieval arrives in Phase 6, when the corpus outgrows it.
 **Phase 3** · **Trigger:** Schedule, every 15 minutes, `Asia/Riyadh`
 
 1. Find `processing_jobs` in a non-terminal state past a staleness threshold.
+   Measure from `last_transition_at`, **never** from `created_at`. That column
+   is maintained by a `BEFORE UPDATE` trigger on `status` or `attempt_count`
+   changes (architecture.md §4). A job in a healthy WF-03 retry window must
+   not trip the watchdog.
 2. Find `captures` closed but with no `extraction_runs` after a grace period.
 3. Find `assets` with `upload_status != 'stored'`.
 4. Alert the owner via Telegram **and** email if any are found. Silent when
