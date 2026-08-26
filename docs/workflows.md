@@ -103,9 +103,14 @@ Receives errors from every LNI workflow.
    then validates the UUID and **throws** if it is missing or not a UUID,
    before any write. Do not read `$env` inside Code: this instance's JS
    task runner denies env access there (`access to env vars denied`) and
-   the handler would fail before the throw. A constant fallback would
-   mask an unset env var and defeat the throw. An error handler that
-   silently drops errors is worse than no error handler.
+   the handler would fail before the throw. This n8n instance currently
+   also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE`, which blocks `$env` in Set
+   expressions too. The owner must unset that flag (or set it `false`)
+   and restart n8n, then set `LNI_OWNER_UUID`, or WF-00 cannot write.
+
+   A constant fallback would mask an unset env var and defeat the throw.
+   An error handler that silently drops errors is worse than no error
+   handler.
 
 4. Alert the owner via Telegram only on **repeated** failure of the same
    `workflow_name` + `node_name` within 15 minutes. The repeat count is a
