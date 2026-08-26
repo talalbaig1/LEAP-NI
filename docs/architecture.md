@@ -110,9 +110,15 @@ phases. The schema is built once.
 |---|---|
 | `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
-| Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search |
+| Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
+
+**Extension prerequisite — verified 26 Aug 2026.** `pg_trgm` is **not**
+installed on LEAP-NI. Migration `001` must run
+`create extension if not exists pg_trgm` **before** any trigram index is
+created. The trigram indexes in this section would fail as written without
+that statement.
 
 ### Entity-resolution policy
 
