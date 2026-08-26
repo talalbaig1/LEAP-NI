@@ -22,3 +22,8 @@ dist/
 build/
 .DS_Store
 *.log
+
+# Third-party agent skills (czlonkowski n8n-* etc). Do not commit blobs.
+# LNI conventions skill lives in .cursor/skills/lni-n8n-conventions/.
+.agents/
+skills-lock.json
