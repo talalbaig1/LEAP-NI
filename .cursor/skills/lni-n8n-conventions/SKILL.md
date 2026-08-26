@@ -128,6 +128,12 @@ in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
    you cannot check is a hope. Do not "fix" this back into trusting
    metadata as `size_bytes`.
 
+**WF-02 owns every decision about what the owner is told; WF-01 owns only
+the sending.** WF-01 never re-derives a condition WF-02 has already
+evaluated. `reply_text` non-empty means send; empty means stay silent.
+Do not add `adopted` (or any second field) that must stay in agreement
+with `reply_text`.
+
 ## 13. Never log secrets or PII
 
 Never log tokens, keys, signed URLs, transcripts, emails, or phone numbers.

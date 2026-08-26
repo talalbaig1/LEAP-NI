@@ -27,6 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
+| Who decides what the owner is told | **WF-02 decides; WF-01 only sends** | WF-01 never re-derives a condition WF-02 has already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field (`adopted`) that must stay in agreement with `reply_text` — that is the same bug waiting to recur. Verified 26 Aug 2026 (exec 245471: Compose dropped `adopted`; WF-01 tested a field that never arrived). |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -125,6 +126,20 @@ as live WF-01.
 | C truncation | 245335 | declared `file_size=1`, HEAD 117383 → `stopAndError`; Insert did not run; no row |
 | D missing object | 245341 | PUT 200 to one path, HEAD another → 400 → `stopAndError`; Insert did not run; no row |
 | E cleanup | 245354 | Storage DELETE 200 ×3; asset `lni13efsB` deleted; throwaway capture 20 deleted; GET-name then DELETE both TEST workflows (404 after). Capture **#9** left `processing` / `close_reason=auto`. |
+
+**WF-02 owns every decision about what the owner is told; WF-01 owns only
+the sending.** WF-01 never re-derives a condition WF-02 has already
+evaluated. `reply_text` non-empty means send; empty means stay silent.
+Batch and non-adopted `resolve_target` already return empty `reply_text`.
+Do **not** add `adopted` to the return contract so WF-01 can re-test it
+(defect 10, exec 245471: Compose dropped `adopted`; the photo IF and the
+text IF tested that absent field through different operators and could
+disagree).
+
+**`capture_no` is a number.** The contract field is numeric (`0`). n8n
+Postgres returns bigint as a **string** (`"23"` on exec 245471). Compose
+**must** `Number()` it before returning. Cosmetic today; `/fix <n>` in
+Phase 2 will parse it.
 
 ---
 
@@ -343,7 +358,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    `state_echo` is empty.
 7. **MEDIA**, in exactly this order — this ordering **is** the invariant:
    a. Extract `file_unique_id` (photo: largest size in the array). `SELECT id FROM public.assets WHERE telegram_file_unique_id = $1`. If a row exists, **silent duplicate terminal**. Telegram redelivery is normal.
-   b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `adopted` / `reply_text`.
+   b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `reply_text` only. Do not re-test `adopted` or `mode`.
    c. Mint `asset_id` via the n8n Crypto node (`generate` / `uuid`) — same
       sandbox restriction as `correlation_id`.
    d. Telegram `getFile`, then download the binary. Saved parameters must
@@ -369,12 +384,17 @@ LNI bot only and must not disturb any ElderWise webhook.
       write the assets row. PUT `{Key, Id}` is not a size. Verified
       26 Aug 2026: this Supabase build returns `Content-Length` on HEAD.
    g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
-   h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
+   h. **ONLY NOW** send if `reply_text` is a non-empty string. Nothing else.
+      WF-02 already returned empty `reply_text` for batch and for
+      non-adopted resolves. An `adopted` or `mode != batch` test here
+      duplicates a decision already encoded in that string (defect 10,
+      exec 245471).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
 8. **TEXT:** if it starts with `/ask`, terminate as out-of-scope for Phase 1
    (WF-08 is Phase 3) — no reply. Otherwise `resolve_target`, then append to
-   `captures.typed_note` on that capture. Send the adoption message only after
-   the note write succeeds, and only if a capture was opened.
+   `captures.typed_note` on that capture. **ONLY AFTER** the note write
+   succeeds: send if `reply_text` is a non-empty string. Same rule as media.
+   Do not re-test `adopted` through a different operator than the photo path.
 9. **CALLBACK:** no album prompt in this packet. Silent NoOp terminal
    (answer the query only if Telegram would otherwise spin; send no owner
    message).
@@ -407,6 +427,8 @@ rather than a named node. Listed even where currently safe.
 | WF-01 `Already stored?` / `Asset row returned?` / `Note row returned?` `$json.id` | that Postgres output | Safe — empty `{}` means miss |
 | WF-01 `Media/Text capture present?` `$json.capture_id` | Execute Workflow result | Safe |
 | WF-01 `Upload succeeded?` `$json.statusCode` | the HTTP response | Safe |
+| WF-01 `Send adoption?` | `$('Call WF-02 resolve media').item.json.reply_text` notEmpty only | **1.3f** — no `adopted`, no `mode` |
+| WF-01 `Send note adoption?` | `$('Call WF-02 resolve text').item.json.reply_text` notEmpty only | **1.3f** — same rule, same operator as photo |
 | WF-01 `Command has reply?` / `Send command reply` | Call WF-02 item | Safe |
 | WF-01 `Text is ask?` `$json.is_ask` | `Attach correlation` | Safe |
 | WF-01 `Duplicate check` / `Insert asset` `queryReplacement` | already named | Safe |
@@ -441,7 +463,7 @@ file bytes, or message text.
 | Duplicate terminal | Telegram redelivery; `file_unique_id` already stored |
 | Not allowlisted terminal | Unknown sender; no reply, no row, no log naming the user |
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
-| Adoption skipped terminal | Stored; no adoption message (already-open or batch) |
+| Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
 | Callback terminal | No album prompt in this packet |
 | Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
 | Command sent / Media stored / Note done | Happy path |
@@ -556,6 +578,13 @@ miss cannot crash every WF-01 call.
 }
 ```
 
+There is **no** `adopted` field. Adoption is encoded in `reply_text`
+(non-empty vs empty). Do not add a second field that must stay in
+agreement with `reply_text`.
+
+`capture_no` is a **number**. n8n Postgres emits bigint as a string;
+Compose `Number()`s it (packet 1.3f).
+
 The sweep branch produces no `reply_text` and sends nothing. The stamp is
 the signal; it is visible in review.
 
@@ -594,7 +623,8 @@ Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
 photo creates its own capture with `capture_mode = batch`, marked `card_only`
 (`prd.md` §4: "every subsequent photo becomes its own independent capture" —
 that sentence remains true; the implementation is `resolve_target` below).
-**Suppresses per-capture receipts** (WF-01 honours `mode`). `/done` exits
+**Suppresses per-capture receipts** by returning empty `reply_text` from
+`resolve_target`. WF-01 does not re-check `mode`. `/done` exits
 batch by closing **all** open batch captures for the owner.
 
 ### `/status`
@@ -605,15 +635,16 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 **Never reject.** Media with no open capture must still land somewhere
 (`prd.md` §4 guardrail 3).
 
-- **`bot_state.mode = 'normal'`:** return the existing open capture, or
-  insert one (orphan adoption) and say so in `reply_text` / `state_echo`.
+- **`bot_state.mode = 'normal'`:** return the existing open capture (empty
+  `reply_text`), or insert one (orphan adoption) and put the tell in
+  `reply_text` / `state_echo`.
   Update `bot_state.open_capture_id` and `last_activity_at`.
 - **`bot_state.mode = 'batch'`:** **always** insert a new capture
   (`capture_mode='batch'`, `card_only=true`, `status='open'`). Do **not**
   return an existing open capture. Do **not** set `bot_state.open_capture_id`
   (each photo is independent; `/done` finds them by `capture_mode='batch'`
-  and `status='open'`). Still bump `last_activity_at`. No per-capture
-  `reply_text`.
+  and `status='open'`). Still bump `last_activity_at`. Empty
+  `reply_text` (WF-01 stays silent).
 
 ### Sweep (Schedule Trigger)
 - Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;
