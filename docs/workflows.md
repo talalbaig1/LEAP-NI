@@ -96,6 +96,13 @@ Receives errors from every LNI workflow.
 1. Extract workflow name, node name, execution ID, error message.
 2. **Redact** before doing anything else: no secrets, no signed URLs, no media
    bytes, no transcript content, no email addresses, no phone numbers.
+
+   **Known limitation.** The redact function also strips every comma and every
+   quote from extracted fields. That is a workaround for n8n Postgres v2.5+
+   `queryReplacement` (CSV-split / `stringToArray`). It works; it permanently
+   degrades diagnostics (error text cannot contain `,` `'` `"`). The better
+   fix is a **single `jsonb` parameter** for the whole payload. Do that
+   post-event; do not change the workaround during LEAP.
 3. Write redacted diagnostics. Every handled error **INSERT**s one
    `audit_log` row (`actor_type = system`, `action = workflow_error`). That
    row is the source of truth for repeat detection (architecture.md §2
@@ -124,21 +131,33 @@ Receives errors from every LNI workflow.
 
    If the events lookup returns no `owner_id`, **THROW** rather than skip
    the write. An error handler that silently drops errors is worse than
-   no error handler. The throw is a runtime `CAST` of
+   no error handler.
+
+   **Primary protection — row-returned gate (authoritative).** Immediately
+   after `INSERT audit_log`, IF `id` is present. Non-empty continues to
+   the job-id test. Empty — including Postgres `{success:true}` on zero
+   rows, a missing `id`, or a zero-item output — does **not** proceed and
+   does **not** fail quietly: `stopAndError` throws so the execution is
+   visible as failed. `INSERT audit_log` has `alwaysOutputData: true` so
+   a zero-item result still reaches the gate. Without this gate,
+   `Number(undefined) >= 2` is false and the run exits through `No alert`
+   — silence, the outcome WF-00 exists to prevent. This gate does **not**
+   depend on the query planner.
+
+   **Secondary — SQL CAST (defence in depth only).** A runtime `CAST` of
    `events lookup returned no owner_id; refusing to drop the error write`
-   to `uuid`. It must **not** be a constant (or a concatenation of
-   constants): n8n inlines `queryReplacement` as SQL literals under the
-   transaction-mode pooler, and PostgreSQL constant-folds
-   `CAST('…' AS uuid)` at **plan time**, so the CAST fires even when the
-   lookup succeeded — including unused `CASE ELSE` branches (verified 26
-   Aug 2026; `user_name=postgres`, `$1` correctly `'LEAP 2026'`). Wrap
-   the message in a volatile subquery (`WHERE clock_timestamp() IS NOT
-   NULL`) so the CAST is evaluated only when the CASE ELSE runs. Select
-   `FROM guard CROSS JOIN hits`: `FROM hits CROSS JOIN guard` can skip
-   the empty-owner throw when `hits` is empty. If `bot_state` returns no
-   row, `chat_id` is empty and repeated failures take the undeliverable
-   path. `bot_state` is empty until Phase 1, so undeliverable is the
-   expected state now and is correct: visible, not silent.
+   to `uuid` remains in the statement. It is **not** the primary guard. A
+   constant `CAST('…' AS uuid)` is folded at **plan time** (verified 26
+   Aug 2026: unused `CASE ELSE` still threw while `$1` was `'LEAP 2026'`).
+   The volatile subquery (`WHERE clock_timestamp() IS NOT NULL`) and
+   `FROM guard CROSS JOIN hits` reduce that, but a planner or version
+   change can disable it silently. The row-returned gate above is what
+   must hold.
+
+   If `bot_state` returns no row, `chat_id` is empty and repeated failures
+   take the undeliverable path. `bot_state` is empty until Phase 1, so
+   undeliverable is the expected state now and is correct: visible, not
+   silent.
 
    Implement the two lookups **and** the undeliverable INSERT in the
    **same** parameterised `executeQuery` as the `workflow_error` INSERT
@@ -150,7 +169,11 @@ Receives errors from every LNI workflow.
    when `hit_count >= 2` and `chat_id` is empty; the undeliverable
    branch remains an explicit NoOp terminal.
 
-4. Alert the owner via Telegram only on **repeated** failure of the same
+4. **Send-node gate.** `Chat id present?` sits immediately before
+   `Telegram owner alert`. Combined with step 3's row-returned gate, an
+   empty write cannot reach Telegram or `No alert`.
+
+5. Alert the owner via Telegram only on **repeated** failure of the same
    `workflow_name` + `node_name` within 15 minutes. The repeat count is a
    parameterised `SELECT count(*)` on `audit_log` for those keys in the
    window, **after** the current row is inserted. Count 1 = transient, no
@@ -164,7 +187,7 @@ Receives errors from every LNI workflow.
    not route that case to a silent NoOp. The 10 PM digest must be able to
    see that an alert was owed and not delivered.
 
-5. Retain enough correlation context to replay the job safely.
+6. Retain enough correlation context to replay the job safely.
 
 **Must not:** place secrets, signed URLs, media, or personal data in a
 notification.
