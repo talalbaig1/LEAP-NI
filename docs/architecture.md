@@ -172,6 +172,9 @@ that are capture-scoped, not asset-scoped).
 | `created_at` | timestamptz | `now()` | NO |
 | `last_transition_at` | timestamptz | `now()` | NO |
 
+`processing_jobs.output` is the **adapter envelope** defined in §6 — not a
+raw provider blob. WF-04 reads `output.result`.
+
 **Enqueue natural key.** Unique index `processing_jobs_asset_job_uniq` on
 `(asset_id, job_type) WHERE asset_id IS NOT NULL` (migration `016`). WF-02
 `/done` `INSERT … ON CONFLICT DO NOTHING` on this key so a re-run or a
@@ -179,7 +182,7 @@ replay enqueues nothing twice. Capture-scoped jobs (`asset_id` NULL) are
 outside the index.
 
 **`extraction_runs`** — immutable **capture-level** model evidence.
-Composed by **WF-04** from `processing_jobs.output`. WF-03 does not
+Composed by **WF-04** from `processing_jobs.output.result`. WF-03 does not
 write this table.
 
 | Column | Type | Default | Null |
@@ -418,7 +421,7 @@ Phase 2 (promoted from packet 1.4 leftover, owner decision 27 Aug).
 | `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
-| Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT DO NOTHING` makes a re-run or a replay of stored assets enqueue nothing twice. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
+| Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING` makes a re-run enqueue nothing twice. This uniqueness is a **partial unique index**, not a table constraint — `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq` will not run. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
 
@@ -599,10 +602,48 @@ only — **no facial recognition, no identification of people**.
 
 **No OCR-then-parse pipeline.** One call.
 
-### Where raw per-asset provider output lives
+### Where per-asset provider output lives
 
-**WF-03 writes the raw provider response to `processing_jobs.output`.**
-`extraction_runs` is composed later by **WF-04** from those outputs.
+**WF-03 writes one adapter envelope to `processing_jobs.output` for every
+asset job** (`card_vision` and `transcription`). `extraction_runs` is
+composed later by **WF-04** from those envelopes.
+
+The envelope is the same shape for every `job_type`. Provider-specific
+wrappers (OpenAI `output[0].content[0].text`, Whisper `{text, usage}`,
+error objects) stay inside `raw`. WF-04 reads `result` only.
+
+```json
+{
+  "provider":     "<engine id>",
+  "model":        "<model id>",
+  "job_type":     "card_vision | transcription",
+  "result":       {},
+  "raw":          {},
+  "error":        null,
+  "completed_at": "<timestamptz>"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `provider` | Engine id behind the adapter (e.g. `openai`). Not a node type. |
+| `model` | Model id from **Card engine config** (vision) or `whisper-1` (transcription). Changeable by config. |
+| `job_type` | `card_vision` or `transcription`. |
+| `result` | **Normalised payload.** `card_vision`: the strict card JSON itself (`image_type`, `people`, `company`, `scene_description`, `uncertainties`) — already unwrapped, not buried under `content[0].text`. `transcription`: `{ "text": "...", "duration_seconds": 0 }`. |
+| `raw` | The provider response, unmodified, for replay and the benchmark. |
+| `error` | `null` on success. On failure / `needs_review`: a **redacted** error object (message class only — no transcript, no signed URL, no payload). |
+| `completed_at` | When this envelope was written (`timestamptz`). |
+
+**Why:** Packet 2.3 wrote two shapes into `output` — the OpenAI Responses
+envelope for vision, and a flat `{text, usage}` for Whisper. WF-04 would
+need two unwrapping paths, one of which depends on a provider envelope
+staying shaped exactly as today. That leaks a provider detail into the
+data model and violates rule 4 (provider specifics sit behind an
+adapter). The envelope is the adapter. WF-04 must not know the shape of
+any provider's envelope.
+
+Failed jobs write the same envelope: `result` may be null, `error` is
+set, `raw` still holds what the provider returned.
 
 WF-03 runs **per asset**. `extraction_runs` is **per capture**. Writing a
 partial capture row from a per-asset worker produces a row that is
@@ -623,8 +664,9 @@ phone number, domain, or date not present in the source.
 ### Transcription
 
 OpenAI Whisper. **`language` left unset** — auto-detect. Arabic/English
-code-switching is expected and normal. Raw transcript is written to
-`processing_jobs.output` by WF-03. WF-04 copies it into
+code-switching is expected and normal. WF-03 writes the adapter envelope
+(`result.text`, `result.duration_seconds`, `raw` = unmodified Whisper
+response). WF-04 copies `result.text` into
 `extraction_runs.raw_transcript` when composing the capture-level run.
 
 ### Rule-based flagging
@@ -829,7 +871,7 @@ unfinished one. See `phases.md`, Phase 0 verification.
 |---|---|
 | Extraction provider down | Capture continues; jobs queue; replay later |
 | Storage unavailable | Telegram retains the message in its outbox; the bot does not acknowledge, so the owner sees no receipt. **The n8n execution MUST error** (`stopAndError`) so WF-00 writes `audit_log`. A success NoOp after media was received but not stored is a defect (rule 5). |
-| Bad workflow deployed | Deactivate, import previous versioned JSON |
+| Bad workflow deployed | Roll back with **n8n's own workflow version history** (`versionId` / `activeVersionId`). **Do not import workflow JSON from git** — this repo does not contain it and must not. Saved workflow JSON carries the project ref, credential names, and host identifiers; the repo is public. **How:** (1) n8n editor → the workflow → Versions → restore the `versionId` recorded before the change. (2) Confirm `activeVersionId` matches that id and the workflow is still Active. Record both version ids in the packet report; that pair is the rollback point. |
 | Bad migration | Forward-only fix; **no destructive migrations during event week** |
 | Stuck jobs | WF-09 watchdog alerts independently of the digest |
 

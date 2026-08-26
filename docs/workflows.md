@@ -159,7 +159,7 @@ to `normal` / nothing open.
 | WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
-| WF-03 | Asset processors | 2 | Manual (this packet) · called by WF-02 in packet 2.4 |
+| WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** by WF-02 `/done` (`waitForSubWorkflow: false`) |
 | WF-04 | Structured extraction | 2 | Enqueued by WF-03 as `job_type='extraction'`; wired in packet 2.4 |
 | WF-05 | Entity resolution | 2 | Called by WF-04 |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
@@ -624,16 +624,24 @@ the signal; it is visible in review.
 ### `/done`
 
 Postgres is the queue. `/done` enqueues work, then fires WF-03 **once**.
-Replaying the 41 already-captured assets later is **one INSERT**, not 41
-workflow calls.
+**Enqueue-and-dispatch is implemented in this packet (2.4).** Replaying
+already-captured assets is **one INSERT**, not N workflow calls.
+
+WF-03's live workflow ID lives on the instance only. In this document it
+is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
 
 1. Close. `Action done` sets `status` to leave `open`,
-   `close_reason = explicit`, and **RETURNs the `id` of every capture it
-   closed**. Batch `/done` closes every open `capture_mode='batch'` row
-   for the owner (many ids). Standard `/done` returns one. If nothing is
+   `close_reason = explicit`, and **RETURNs every capture it closed**
+   (ids as `closed_ids uuid[]`, plus the first `capture_id` /
+   `capture_no` for the standard receipt). Batch `/done` closes every
+   open `capture_mode='batch'` row for the owner (many ids). Standard
+   `/done` returns one. If nothing is
    open, zero rows → `reply_text` = `nothing open`. No crash, no phantom
    row. Batch also sets `bot_state.mode = normal`.
-2. Enqueue — **one** statement:
+2. Enqueue — **one** statement, after Compose has already decided
+   `reply_text` (WF-01 return contract must not become the enqueue
+   row). `closed_ids` comes from the **named** `Action done` node,
+   never `$json` after Compose.
 
    ```sql
    INSERT INTO processing_jobs (owner_id, capture_id, asset_id, job_type, status)
@@ -642,28 +650,41 @@ workflow calls.
                ELSE 'card_vision' END,
           'queued'
    FROM assets a
-   WHERE a.capture_id = ANY(<closed_ids>)
+   WHERE a.capture_id = ANY($1::uuid[])
      AND a.upload_status = 'stored'
-   ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING;
+   ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL
+     DO NOTHING
+   RETURNING id, capture_id, asset_id, job_type, status;
    ```
 
    Natural key: unique index **`processing_jobs_asset_job_uniq`** on
    `(asset_id, job_type) WHERE asset_id IS NOT NULL`
-   (`architecture.md` §4). Audio → `transcription`; everything else →
-   `card_vision`. A re-run enqueues nothing twice. The index is created
-   in the WF-02 enqueue packet, not in 014/015.
-3. **Explicit gate on rows returned**, then **ONE** `executeWorkflow`
-   call to WF-03 with `waitForSubWorkflow: false`. Replaces the NoOp
-   node **"WF-03 dispatch (not yet)"**. **Wiring is packet 2.4** — this
-   packet builds WF-03 standalone against already-stored assets. Do not
-   call WF-03 per asset. A re-run that enqueues nothing (all conflicts)
-   does not fire WF-03 again — the jobs are already in Postgres.
-4. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
+   (`architecture.md` §4). That object is a **partial unique index**,
+   not a table constraint — do not write
+   `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq`.
+   Audio → `transcription`; everything else → `card_vision`. A re-run
+   enqueues nothing twice.
+3. **Explicit gate on rows returned.** Zero rows enqueued (all conflicts,
+   or a capture with no stored assets) is a **normal, silent, terminal**
+   path — not an error, and not a send. `reply_text` from Compose is
+   restored from the named Compose node so WF-01 still receives the
+   receipt.
+4. **ONE** `executeWorkflow` call to WF-03 (`<WF-03_WORKFLOW_ID>`),
+   `waitForSubWorkflow: false`. Replaces the NoOp **"WF-03 dispatch
+   (not yet)"**. Do not call WF-03 per asset. A re-run that enqueues
+   nothing does not fire WF-03 again — the jobs are already in Postgres.
+5. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
    `captures.capture_no` and the Postgres asset count (`asset_count_hint`
    never populates `<n>`). Batch: **`N cards received · processing`**.
-   Extraction has not run at this instant, so clean / need_review /
-   failed **cannot** be true here — Compose currently hardcodes those as
-   0. Real counts are deferred to the digest (`prd.md` §5).
+   `N` is the number of batch captures closed. Extraction has not run at
+   this instant, so clean / need_review / failed **cannot** be true here
+   — do **not** emit hardcoded zeros for those. Real counts are deferred
+   to the digest (`prd.md` §5).
+
+The last node on every `/done` path that WF-01 waits on must emit the
+Compose contract (`ok`, `reply_text`, …), sourced from the **named**
+Compose node. Enqueue and executeWorkflow sit between Compose and that
+terminal; they must not become the sub-workflow return.
 
 ### `/batch`
 Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
@@ -720,9 +741,10 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 
 ## WF-03 — Asset processors
 
-**Phase 2** · **Trigger:** Manual (this packet). Called **once** by WF-02
-`/done` in packet 2.4 (`waitForSubWorkflow: false`). **Do not touch
-WF-01 or WF-02 in this packet.**
+**Phase 2** · **Triggers:** Manual (standalone / prove) **and** Execute
+Workflow Trigger (called **once** by WF-02 `/done`,
+`waitForSubWorkflow: false`). Workflow ID on the instance:
+`<WF-03_WORKFLOW_ID>`. Never commit the literal.
 
 **Input contract:** `owner_id` and `correlation_id`. WF-03 is **not**
 handed an asset. It **claims queued jobs from Postgres itself**. Postgres
@@ -789,11 +811,14 @@ there. Do not scatter it. The benchmark packet may flip it.
 
    Signed URL (C2/C4) is a **proven fallback, not the default**. A signed
    URL is **never logged**.
-5. Write the **raw provider response** to `processing_jobs.output`.
-   Set `status` to `succeeded` | `failed` | `needs_review` and
-   `last_transition_at = now()`. **Do not write `extraction_runs`.**
-   WF-03 is per asset; `extraction_runs` is per capture
-   (`architecture.md` §6).
+5. Write **one adapter envelope** to `processing_jobs.output` (same
+   shape for every `job_type` — `architecture.md` §6). Set `status` to
+   `succeeded` | `failed` | `needs_review` and
+   `last_transition_at = now()`. `result` is the unwrapped card JSON or
+   `{text, duration_seconds}`. `raw` is the unmodified provider
+   response. `error` is null or a redacted object. **Do not write
+   `extraction_runs`.** WF-03 is per asset; `extraction_runs` is per
+   capture. WF-04 must not know any provider's envelope.
 6. **Retry:** transient errors leave the job `queued` (if
    `attempt_count < 3`) so a later execution retries. Delays **1, 5, 20
    minutes** are the intended cadence (watchdog / next kick), not a Wait
@@ -818,8 +843,9 @@ workflow depends on is explicit in the saved JSON.
 `asset_id` NULL, enqueued by WF-03 when every sibling asset job is
 terminal. **Wiring (executeWorkflow) is packet 2.4.**
 
-WF-04 composes `extraction_runs` from `processing_jobs.output` of that
-capture's asset jobs. It does not call the card/Whisper providers.
+WF-04 composes `extraction_runs` from `processing_jobs.output.result` of
+that capture's asset jobs. It does not unwrap a provider envelope. It
+does not call the card/Whisper providers.
 
 1. Compose explicit sources: typed note, card JSON, transcript, photo
    description. Label each so provenance survives.
