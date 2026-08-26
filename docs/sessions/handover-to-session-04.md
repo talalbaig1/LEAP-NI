@@ -85,3 +85,13 @@ WF-02 must stay published or WF-01 cannot stay active on this build.
 
 Do not start packet 1.4 (album prompt) or Phase 2 (WF-03) until the
 architect says so. The 29 August gate does not move.
+
+---
+
+## Correction — 27 August 2026
+
+The handover line that counted **"13 migrations"** counted repo **files**
+under `supabase/migrations/` (`001`–`013`). The live catalog
+`supabase_migrations.schema_migrations` holds **12** rows because
+`012_seed_bot_state` never applied (`current_setting` without
+`missing_ok`, 26 Aug). The file stays as history; 014 repairs the catalog.
