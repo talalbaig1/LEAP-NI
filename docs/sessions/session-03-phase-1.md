@@ -3,10 +3,11 @@
 **Date:** 26 August 2026
 **Chat purpose:** Phase 1 capture — docs/migrations, WF-02 lifecycle,
 WF-01 ingest router, media-path defects through 1.3f.
-**Outcome:** In progress. PR **#7** (`phase-1/packet-1.3b-media-path-fix`)
-holds 1.3b–1.3f. **Do not merge** until the architect verifies the
-20-capture run. WF-01 and WF-02 left **ACTIVE**. This chat window is
-ending (`rules.md` §2).
+**Outcome:** Phase 1 core **accepted** by architect read-back (26 Aug 2026
+18:10Z). **41 assets, 41 objects, 0 missing, 0 size mismatches, 0
+duplicate `file_unique_id`, all `upload_status='stored'`.** PR **#7**
+squash-merged to `main` (`306e1b8`). PR **#6** closed as superseded.
+WF-01 and WF-02 remain **ACTIVE** on the production bot.
 
 No n8n workflow JSON is committed. Repo stays identifier-free. Live
 values live in gitignored `docs/environment.local.md`.
@@ -43,7 +44,7 @@ duplicate check → `resolve_target` → mint asset → `getFile` `download:
 true` → Hash sha256 → Prep → Storage PUT → HEAD → INSERT assets → then
 maybe tell the owner.
 
-### Packets 1.3b–1.3f on PR #7 (not merged)
+### Packets 1.3b–1.3f on PR #7 (**merged** `306e1b8`, 26 Aug 2026 18:11Z)
 
 Live REST PUT, names checked first, Leap-NI creds rebound. Public PUT of
 `settings.binaryMode` is 400 — GET shows `separate`; do not send it.
@@ -112,17 +113,23 @@ read `$('Named').item…`, never `$json` / `$input` from the previous item.
 
 ---
 
-## 5. Live state at chat end
+## 5. Live state after architect acceptance
 
-- WF-01 **ACTIVE**, 57 nodes. No pre-PUT byte gate. `Send adoption?` and
-  `Send note adoption?` are a single `reply_text` notEmpty each.
-- WF-02 **ACTIVE**, 39 nodes. Compose still uses `adopted` **internally**
-  to build `reply_text`; the return object does **not** include `adopted`.
-- Capture **#9**: `processing` / `close_reason=auto`. Do not delete.
-- Captures **#21–#31** and their assets: Talal’s verified real-device
-  evidence. Do not delete. Architect counts them.
-- `bot_state`: `mode=normal`, nothing open (restored after 1.3f proofs).
-- PR **#7** open, not merged.
+- **41 assets / 41 Storage objects.** 0 missing, 0 size mismatches, 0
+  duplicate `telegram_file_unique_id`, every row `upload_status='stored'`.
+- **Test 13 was not a dedup miss.** Capture #51 has two assets that
+  differ in bytes and sha256. Telegram re-compresses on gallery
+  re-upload, so `file_unique_id` differs and both rows are correct. No
+  fix needed.
+- WF-01 **ACTIVE**, 57 nodes. `Send adoption?` / `Send note adoption?`
+  are `reply_text` notEmpty only.
+- WF-02 **ACTIVE**, 39 nodes. Compose uses `adopted` internally to build
+  `reply_text`; the return object does not include `adopted`.
+- Capture **#9**: `processing` / `close_reason=auto`. Kept.
+- Captures **#21–#31** and later real-device evidence: kept.
+- PR **#7** merged. PR **#6** closed (superseded; its commits were
+  ancestors of #7; merging it would have reverted 1.3b–1.3f docs).
+  Feature branches deleted. `origin` heads: `main` only.
 
 ### 1.3f proofs (then deleted)
 
@@ -140,31 +147,28 @@ captures **#32** and **#33** (no assets). Did not touch #9 or #21–#31.
 
 ## 6. What remains
 
-### Owner actions (called out separately)
+### Owner actions
 
-1. **Test 4 re-run:** one photo with nothing open. Expect a Telegram
-   message naming the capture, arriving **after** the photo is stored.
-2. **Then the 20-capture run** (`prd.md` §10 criterion 2): 20 consecutive
-   real-device captures, 100% asset preservation, 100% visible outcome.
-   Mixed types: cards, a few voice notes, at least one selfie, at least
-   two typed notes, at least one orphan adoption, at least one `/batch`
-   group. Aeroplane-mode: send 3 items with no signal, reconnect, confirm
-   all 3 land and none twice.
-3. Do **not** merge PR #7 until the architect verifies that run.
-4. Hard-delete archived orphans `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X`
-   in the UI (MCP archives; it does not hard-delete). Still open from
-   Phase 0.
-5. Do not deactivate WF-01. Do not restart n8n. Do not touch ElderWise.
+- Hard-delete archived orphans `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X`
+  in the UI (MCP archives; it does not hard-delete). Still open from
+  Phase 0.
+- Do not deactivate WF-01 or WF-02. Do not restart n8n. Do not touch
+  ElderWise. For multiple cards at LEAP: use `/batch` (proven working).
 
-The implementer reports **nothing from the database** for the 20-capture
-run — the architect reads it.
+### Implementation remaining
 
-### Implementation remaining (not this chat)
-
-- Packet 1.4 album prompt (interim: albums store as ordinary photos).
+- **Packet 1.4 album auto-detect is NOT built.** Interim rule stands:
+  album members attach individually to the open capture. Nothing is
+  lost, but **20 album photos WILL fuse into one capture**, which
+  `prd.md` §4 forbids. Workaround for LEAP: use `/batch` for multiple
+  cards — proven working.
+- **WF-01 and WF-02 remain ACTIVE on the production bot.**
 - WF-03 processors (Phase 2). `/fix <n>` will need numeric `capture_no`.
-- Criteria 4–11 in `prd.md` §10 (extraction, Arabic, digests, watchdog).
-- 29 August gate unchanged: 0–3 green on the real phone with real cards.
+- Criteria 4–11 in `prd.md` §10 (extraction, Arabic, album prompt,
+  digests, watchdog). Criterion 2 (20 consecutive captures, 100%
+  preservation) **passed**.
+- 29 August gate unchanged: Phases 2–3 still have to land before the
+  event.
 
 ---
 
