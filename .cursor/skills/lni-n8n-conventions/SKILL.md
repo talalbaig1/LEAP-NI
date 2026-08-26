@@ -77,19 +77,74 @@ literals are dropped; `.join()` binds as one `$1`. Verified 26 Aug 2026
 
 - `executionTimeout`: 300
 - `retryOnFail: true` on provider and DB nodes
-- Explicit NoOp terminals on every path (`workflows.md` §1)
+- Explicit NoOp terminals on correct outcomes
+- `stopAndError` on received-but-not-stored media (and wrong-database), so WF-00 runs
 
-## 12. Never log secrets or PII
+## 12. Never read `$json` or `$item.binary` from the previous item after I/O
+
+Never read `$json` or `$item.binary` from the immediately preceding node
+when any Postgres, HTTP, Crypto, or Code node sits between you and the
+data you need. Source every field from the NAMED node that produced it.
+Postgres with `alwaysOutputData` emits an empty item on zero rows; Crypto
+emits a json-only item. Both look like success and both blank the context.
+
+Verified 26 Aug 2026 on WF-01:
+
+- `Duplicate check` → `{}` → `Resolve payload` used `$json.owner_id` →
+  WF-02 `malformed_payload` → success NoOp, assets lost.
+- `Hash sha256` → json-only item → `Prep upload` forwarded empty binary →
+  Storage PUT: no binary file `'data'`.
+
+```
+{{ $('Attach correlation').item.json.owner_id }}
+$('Telegram getFile').item.binary
+```
+
+`$json` is only safe on the node that just produced those fields. Equal
+in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
+`minutesInterval`) must be explicit in the saved JSON.
+
+**Binary and size — three standing rules (verified 26 Aug 2026).**
+
+1. This instance stores binary as **filesystem-v2**. Code nodes can
+   **create** filesystem binaries (`prepareBinaryData`,
+   `setBinaryDataBuffer`) but **cannot read** them: `getBinaryStream`,
+   `binaryToBuffer`, `getBinaryMetadata`, `getBinaryPath`,
+   `createReadStream` all deny; `getBinaryDataBuffer` returns nothing
+   usable. Never write Code that reads bytes. Proven by executions
+   245200 / 245231 / 245237.
+2. A **pinned** item is inline base64 and is a **different program** from
+   a real download (`data: "filesystem-v2"` + filesystem `id`). Pinned
+   fixtures are not evidence for anything touching binary. Three green
+   fixtures preceded three real-device failures. Filesystem-shaped
+   proof (HTTP `responseFormat: file`, not a pin): executions
+   245307 / 245335 / 245341.
+3. File size is **measured by reading the stored object back** (HEAD
+   `Content-Length`), never from item metadata (`bin.bytes`,
+   `bin.fileSize`) and never from a Code-computed buffer length (the
+   sandbox cannot open the file). Telegram `getFile` `file_size` is **not**
+   the stored value — it is an independent second opinion that must
+   **agree** with HEAD. Two sources that disagree is a defect; one source
+   you cannot check is a hope. Do not "fix" this back into trusting
+   metadata as `size_bytes`.
+
+**WF-02 owns every decision about what the owner is told; WF-01 owns only
+the sending.** WF-01 never re-derives a condition WF-02 has already
+evaluated. `reply_text` non-empty means send; empty means stay silent.
+Do not add `adopted` (or any second field) that must stay in agreement
+with `reply_text`.
+
+## 13. Never log secrets or PII
 
 Never log tokens, keys, signed URLs, transcripts, emails, or phone numbers.
 Request IDs and redacted errors only (`rules.md` §7 rule 8; WF-00 redaction).
 
-## 13. Never touch ElderWise or restart n8n
+## 14. Never touch ElderWise or restart n8n
 
 Never touch the ElderWise project or workflows. Never restart, upgrade, or
 change settings on the shared n8n container (`rules.md` §7 rule 12; §12).
 
-## 14. INSTANCE-WIDE n8n API key guard
+## 15. INSTANCE-WIDE n8n API key guard
 
 The key (`N8N_API_KEY` in gitignored `docs/n8n.local.env`) is
 **instance-wide**: write/delete all 52 workflows, including ElderWise
