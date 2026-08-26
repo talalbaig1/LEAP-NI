@@ -1,6 +1,6 @@
 # phases.md
 
-**LEAP Networking Intelligence (LNI)** · Version 2.0 · 25 August 2026
+**LEAP Networking Intelligence (LNI)** · Version 2.0 · 26 August 2026
 
 Companion to `masterplan.md`. Each phase is built in **its own new chat window**
 (`rules.md` §2).
@@ -12,13 +12,18 @@ Companion to `masterplan.md`. Each phase is built in **its own new chat window**
 
 ## Timeline
 
+Re-dated 26 August 2026 (`Asia/Riyadh`). Phase 0 did not start on 25 August.
+The **29 August gate does not move.** Phases 0–3 compress into 26–29 August.
+The lost day is absorbed by overlapping Phase 0 close-out with the Phase 1
+start, not by sliding the gate.
+
 | Date | Target |
 |---|---|
-| 25 Aug | Phase 0 — foundation |
-| 26–27 Aug | Phase 1 — capture |
+| **26 Aug** | Phase 0 — foundation (schema, policies, bucket, WF-00, WF-00b) |
+| 26–27 Aug | Phase 1 — capture (starts as soon as Phase 0 verification is accepted) |
 | 27–28 Aug | Phase 2 — extraction |
 | 28–29 Aug | Phase 3 — digests, `/ask`, watchdog |
-| **29 Aug** | **GATE: 0–3 green on real phone with real cards** |
+| **29 Aug** | **GATE: 0–3 green on real phone with real cards — unchanged** |
 | 30 Aug | Phase 4 if green, otherwise hardening |
 | **31 Aug** | **LEAP day 1** |
 | 31 Aug – 3 Sep | Event operations |
@@ -26,43 +31,65 @@ Companion to `masterplan.md`. Each phase is built in **its own new chat window**
 
 **The 29 August gate is binding.** If Phases 0–3 are not passing on the owner's
 actual phone with real cards, all feature work stops and 30 August is spent
-hardening. Phase 4 is never allowed to compete with Phase 1 reliability.
+hardening. Phase 4 is never allowed to compete with Phase 1 reliability. When
+Phase 3 is squeezed, the watchdog is not cut (`workflows.md` WF-09).
 
 ---
 
 ## Phase 0 — Foundation
 
-**Timing:** now · **Blocking:** everything
+**Timing:** 26 Aug · **Blocking:** everything
 
 ### Scope
-- New dedicated Supabase project, paid tier, ~2 GB storage headroom
-- Complete schema from `architecture.md` §4, via numbered forward-only
-  migrations — **including tables belonging to later phases**
-- RLS enabled on every user-owned table
-- Private storage bucket `lni-assets` with owner-scoped path policy
-- Telegram bot registered via BotFather; token stored as an n8n credential
-- n8n credentials wired: Supabase Postgres, Supabase Storage (`httpHeaderAuth`),
-  Telegram
-- WF-00 central error handler, set as `errorWorkflow` on all LNI workflows
-- Read-only credential-check workflow proving Postgres query **and** Storage
-  bucket listing both succeed
+- Supabase project `LEAP-NI` is **already provisioned**. Configuration is in
+  `architecture.md` §9 — reference it; do not restate identifiers here.
+- Full schema from `architecture.md` §4 — **all 16 tables**, including tables
+  belonging to later phases — via numbered forward-only migrations.
+- **Explicit RLS policies** on every user-owned table. The `ensure_rls` event
+  trigger sets `rowsecurity` independently of any migration statement, so an
+  enabled flag is **not** evidence that policy work was done.
+- Private bucket `lni-assets`, path policy keyed on first segment =
+  `auth.uid()`.
+- n8n credentials: Postgres and Storage already proven per `architecture.md`
+  §9. The Telegram credential exists but is **unproven**; proving it is a
+  Phase 1 deliverable on a real device, not Phase 0.
+- LNI WF-00 central error handler. Its ID is set as `errorWorkflow` on every
+  LNI workflow — **never** ElderWise's.
+- LNI WF-00b read-only credential and connectivity probe.
 
 ### Definition of done
-- Migrations apply cleanly against an empty project, in order, no errors
-- A second authenticated test user reads zero rows from every table and cannot
-  list or download any object in `lni-assets`
-- Duplicate `telegram_file_unique_id` insert fails
-- LEAP 2026 seed row present with timezone `Asia/Riyadh`
-- Nothing created or altered in the ElderWise project
+- Migrations apply cleanly, in order, against the empty project.
+- `pg_policies` returns **at least one explicit policy** for every user-owned
+  table. RLS enabled with zero policies is an **unfinished** migration, not a
+  finished one.
+- A second authenticated test user reads zero rows from every table and can
+  neither list nor download any object in `lni-assets`.
+- A duplicate `telegram_file_unique_id` insert fails.
+- LEAP 2026 seed row present, timezone `Asia/Riyadh`.
+- Every LNI credential bound **explicitly in the n8n UI** and confirmed by
+  read-back of the live workflow JSON **before** first execution. The creation
+  response is not evidence — it has already been observed to disagree with
+  saved state (`workflows.md` §1, trap 3).
+- WF-00b's first execution is self-identifying on **both** branches.
+- Nothing created or altered in the ElderWise project.
 
 ### Verification (architect, by read-back)
-1. Read live schema — every table present with stated columns and types
-2. `rowsecurity = true` confirmed via `pg_tables` / `pg_policies`, **not** by
-   reading the migration file
-3. Bucket confirmed private; policy references `auth.uid()` as first segment
-4. `assets.telegram_file_unique_id` carries a real UNIQUE constraint
-5. Seed row timezone correct
-6. ElderWise untouched
+1. Read live schema — every table present with stated columns and types.
+2. `pg_policies` returns at least one explicit policy per user-owned table,
+   **not** by reading the migration file and **not** by checking
+   `rowsecurity = true`. The `ensure_rls` event trigger sets that flag
+   regardless. RLS enabled with zero policies is unfinished work.
+3. Bucket confirmed private; policy references `auth.uid()` as first segment.
+4. `assets.telegram_file_unique_id` carries a real UNIQUE constraint.
+5. Seed row timezone correct (`Asia/Riyadh`).
+6. Per LNI workflow, from live JSON: `settings.errorWorkflow` resolves to
+   LNI WF-00's ID, **and** `availableInMCP` is `true`. The ElderWise
+   credential-check workflow carries **no** `errorWorkflow` at all, so this
+   setting is per-workflow and is **not inherited**. Check each LNI workflow
+   individually.
+7. WF-00b first execution is self-identifying on both the Postgres branch
+   (LEAP 2026 seed row) and the Storage branch (`sb-project-ref` header).
+8. ElderWise project untouched.
 
 ---
 
