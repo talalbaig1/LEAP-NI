@@ -1,3 +1,4 @@
+-- Failed to apply on 26 Aug 2026 (current_setting without missing_ok). Superseded by 014.
 DO $$
 DECLARE
   v_owner uuid;
