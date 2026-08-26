@@ -86,22 +86,37 @@ Receives errors from every LNI workflow.
 1. Extract workflow name, node name, execution ID, error message.
 2. **Redact** before doing anything else: no secrets, no signed URLs, no media
    bytes, no transcript content, no email addresses, no phone numbers.
-3. Write redacted diagnostics to `processing_jobs.error_detail` where a
-   `job_id` is resolvable; otherwise to `audit_log` (which requires
-   `owner_id NOT NULL`). WF-00 reads the owner UUID from the n8n environment
-   variable `LNI_OWNER_UUID`, or from a workflow-level constant set in the
-   n8n UI — **never hardcoded in a committed file** (the repo is public,
-   masterplan.md §5). If the value is missing, WF-00 **fails loudly** rather
-   than skip the write. An error handler that silently drops errors is worse
-   than no error handler.
+3. Write redacted diagnostics. Every handled error **INSERT**s one
+   `audit_log` row (`actor_type = system`, `action = workflow_error`). That
+   row is the source of truth for repeat detection (architecture.md §2
+   rule 2: Postgres holds state; n8n does not). Where a `job_id` is also
+   resolvable, additionally **UPDATE** `processing_jobs.error_detail` only —
+   do not change `status` or `attempt_count`, so the `last_transition_at`
+   trigger does not fire. Recording a diagnostic is not a state transition
+   and must not reset the watchdog clock.
 
-   The `error_detail` write is an **UPDATE** on `processing_jobs`. It does
-   **not** change `status` or `attempt_count`, so it will not trip the
-   `last_transition_at` trigger. Recording a diagnostic is not a state
-   transition and must not reset the watchdog clock.
+   `audit_log.owner_id` is NOT NULL. WF-00 reads the owner UUID **only**
+   from the n8n environment variable `LNI_OWNER_UUID` — never from a
+   workflow-level constant, and never from a committed file (the repo is
+   public, masterplan.md §5). If the value is missing or not a UUID, WF-00
+   **throws** rather than skip the write. An error handler that silently
+   drops errors is worse than no error handler. A constant fallback would
+   mask an unset env var and defeat the throw.
 
-4. Alert the owner via Telegram on repeated failure of the same node within a
-   window. Single transient failures do not alert — they retry.
+4. Alert the owner via Telegram only on **repeated** failure of the same
+   `workflow_name` + `node_name` within 15 minutes. The repeat count is a
+   parameterised `SELECT count(*)` on `audit_log` for those keys in the
+   window, **after** the current row is inserted. Count 1 = transient, no
+   alert. Count ≥ 2 = alert. Do **not** use n8n static data — it is not
+   shared across queue workers, is unreliable in manual runs, and is lost
+   on reset.
+
+   If the counter says an alert is owed but `LNI_TELEGRAM_CHAT_ID` is
+   unset, INSERT a second `audit_log` row with
+   `action = workflow_error_alert_undeliverable` before terminating. Do
+   not route that case to a silent NoOp. The 10 PM digest must be able to
+   see that an alert was owed and not delivered.
+
 5. Retain enough correlation context to replay the job safely.
 
 **Must not:** place secrets, signed URLs, media, or personal data in a
