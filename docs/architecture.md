@@ -116,6 +116,18 @@ forget to set the column.
 here when a `job_id` is resolvable; otherwise to `audit_log`. Not a status
 vocabulary.
 
+**Seed owner (`009`).** Migration 009 resolves `owner_id` by **explicit email
+match**, never by creation order. "Earliest `auth.users` row" is an ordering
+heuristic, not a rule: any throwaway account created before the owner silently
+becomes the owner of every row in the database, and RLS then locks the real
+owner out. Discovered 26 Aug 2026 before seeding.
+
+The owner email is supplied at migration time via the setting
+`lni.owner_email` and is **never committed** — the repo is public
+(masterplan.md §5). Missing setting, unmatched email, or an unconfirmed
+match are hard failures. There is no fallback to earliest row, row-count
+heuristics, or a hardcoded UUID.
+
 ### Constraints and indexes
 
 | Constraint | Reason |
@@ -350,7 +362,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 006 | `006_indexes` | indexes and constraints |
 | 007 | `007_rls_policies` | RLS enable + one `<table>_owner_all` policy per table |
 | 008 | `008_storage` | private bucket `lni-assets` + object path policies |
-| 009 | `009_seed_leap_2026` | LEAP 2026 seed row |
+| 009 | `009_seed_leap_2026` | LEAP 2026 seed row; `owner_id` by `lni.owner_email` match |
 | 010 | `010_processing_jobs_transition` | `last_transition_at` + trigger + watchdog index |
 
 ### Connection policy — verified 25 Aug 2026
