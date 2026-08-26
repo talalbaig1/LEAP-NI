@@ -69,15 +69,25 @@ Two consequences, both binding:
    of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
    not spend time on them.
 
-**Never build a contract payload from `$json` after a Postgres / HTTP / Crypto
-node.** A Postgres node with `alwaysOutputData: true` emits one empty item
-on zero rows and silently blanks the incoming context. Verified 26 Aug 2026
-on WF-01: `Duplicate check` → `{}` → `Resolve payload` dropped `owner_id` /
-`telegram_user_id` / `correlation_id` → WF-02 `malformed_payload` → success
-NoOp, three assets lost, owner got a `0 items` receipt. Source every
-contract field from the **named node** that produced it
-(`$('Attach correlation').item.json.owner_id`). `$json` is only safe on the
-node that just produced those fields.
+**Never read `$json` or `$item.binary` from the immediately preceding node
+when any Postgres, HTTP, Crypto, or Code node sits between you and the
+data you need. Source every field from the NAMED node that produced it.
+Postgres with `alwaysOutputData` emits an empty item on zero rows; Crypto
+emits a json-only item. Both look like success and both blank the context.**
+
+Two failures, one pattern (verified 26 Aug 2026 on WF-01):
+
+1. `Duplicate check` → `{}` → `Resolve payload` read `$json` → dropped
+   `owner_id` / `telegram_user_id` / `correlation_id` → WF-02
+   `malformed_payload` → success NoOp, three assets lost.
+2. `Hash sha256` hashed `binary.data` into `json.sha256` and emitted a
+   json-only item → `Prep upload` forwarded `$input.binary` (empty) →
+   Storage PUT looked for `'data'` and failed. Capture opened, 0 assets.
+
+`$json` / `$item.binary` are only safe on the node that just produced
+those fields. Behaviour we depend on (Telegram `download`, sweep
+`minutesInterval`) must be **explicit in the saved JSON** — defaults
+cannot be verified by read-back.
 
 ---
 
@@ -299,9 +309,20 @@ LNI bot only and must not disturb any ElderWise webhook.
    b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `adopted` / `reply_text`.
    c. Mint `asset_id` via the n8n Crypto node (`generate` / `uuid`) — same
       sandbox restriction as `correlation_id`.
-   d. Telegram `getFile`, then download the binary (Telegram node `download: true`).
-   e. Compute `sha256`, `size_bytes`, `mime_type`.
-   f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`.
+   d. Telegram `getFile`, then download the binary. Saved parameters must
+      include `download: true` (and `operation: get`) — do not rely on the
+      node default. Verified 26 Aug 2026: the draft JSON had no `download`
+      flag while runtime still fetched bytes; that is not verified behaviour.
+   e. Compute `sha256` (Crypto node) over those same bytes. `Prep upload`
+      takes **binary from `$('Telegram getFile').item.binary`** and
+      `json.sha256` from the Hash node — never from `$input` after Hash
+      (Crypto emits json-only). `size_bytes` from the getFile binary
+      `bytes` field (not the display `fileSize` string).
+   e2. **Before the PUT:** assert `size_bytes > 0` AND `sha256` is a
+      non-empty 64-character hex string. Fail → `stopAndError` (`Empty
+      binary terminal`). A zero-byte object that later gets an assets row
+      marked `stored` would pass a count check while losing the card.
+   f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`. The PUT body is the getFile bytes, still named `data`.
    g. **ONLY IF** the upload returns success: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
    h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
@@ -356,6 +377,7 @@ file bytes, or message text.
 |---|---|
 | Resolve failed terminal | WF-02 did not return a `capture_id` after media was received |
 | Upload failed terminal | Storage rejected the object |
+| Empty binary terminal | `size_bytes` is 0 or `sha256` is not 64 hex — before the PUT |
 | Insert miss terminal | Upload succeeded, `assets` row did not |
 | Text resolve failed terminal | `resolve_target` failed on the typed-note path |
 | Note miss terminal | Typed-note UPDATE returned no row |

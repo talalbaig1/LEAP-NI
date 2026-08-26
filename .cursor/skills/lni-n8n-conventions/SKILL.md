@@ -80,22 +80,29 @@ literals are dropped; `.join()` binds as one `$1`. Verified 26 Aug 2026
 - Explicit NoOp terminals on correct outcomes
 - `stopAndError` on received-but-not-stored media (and wrong-database), so WF-00 runs
 
-## 12. Never build contract payloads from `$json` after I/O
+## 12. Never read `$json` or `$item.binary` from the previous item after I/O
 
-A Postgres node with `alwaysOutputData: true` emits one empty item on zero
-rows and **replaces** the incoming JSON. Verified 26 Aug 2026: WF-01
-`Duplicate check` → `{}` → `Resolve payload` used `$json.owner_id` → fields
-dropped → WF-02 `malformed_payload` → success NoOp, assets lost.
+Never read `$json` or `$item.binary` from the immediately preceding node
+when any Postgres, HTTP, Crypto, or Code node sits between you and the
+data you need. Source every field from the NAMED node that produced it.
+Postgres with `alwaysOutputData` emits an empty item on zero rows; Crypto
+emits a json-only item. Both look like success and both blank the context.
 
-Source every contract field from the **named node** that produced it:
+Verified 26 Aug 2026 on WF-01:
+
+- `Duplicate check` → `{}` → `Resolve payload` used `$json.owner_id` →
+  WF-02 `malformed_payload` → success NoOp, assets lost.
+- `Hash sha256` → json-only item → `Prep upload` forwarded empty binary →
+  Storage PUT: no binary file `'data'`.
 
 ```
 {{ $('Attach correlation').item.json.owner_id }}
+$('Telegram getFile').item.binary
 ```
 
-`$json` is only safe on the node that just produced those fields. Apply
-the same rule after HTTP and Crypto nodes. This is a standing trap, equal
-in rank to `$env` and MCP auto-assign.
+`$json` is only safe on the node that just produced those fields. Equal
+in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
+`minutesInterval`) must be explicit in the saved JSON.
 
 ## 13. Never log secrets or PII
 
