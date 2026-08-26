@@ -203,6 +203,7 @@ fallback.
 | 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |
 | 10 | Delete stray unconfirmed Auth user `7bf179a8` | Talal | Open | Bootstrap artefact. Needs service_role or dashboard. Harmless. |
 | 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | Turned off to unblock Phase 0 provisioning. |
+| 12 | Re-run the second-user RLS proof when Phase 5 grants SELECT to authenticated | Talal / implementer | Open | The 16 policies are verified correct by inspection but have never been exercised. PostgREST denies on GRANT before RLS is evaluated; `service_role` and `authenticated` both lack table privileges. RLS becomes load-bearing for the first time when the dashboard needs grants. Prove it then. |
 
 ### Apollo credit budget
 
