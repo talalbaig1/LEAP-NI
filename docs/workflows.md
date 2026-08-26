@@ -673,6 +673,20 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
    `waitForSubWorkflow: false`. Replaces the NoOp **"WF-03 dispatch
    (not yet)"**. Do not call WF-03 per asset. A re-run that enqueues
    nothing does not fire WF-03 again — the jobs are already in Postgres.
+
+   **Dispatch is best-effort.** The `Call WF-03` node MUST set
+   `onError: continueRegularOutput` **explicitly in the saved JSON**
+   (not an undocumented default). A throw in that node must take the
+   same regular output as success and continue to **Restore done reply**,
+   so WF-01 still receives the Compose contract and still sends the
+   receipt. Why: enqueue is the durable act — the jobs are already in
+   Postgres and are replayable. Dispatch is not durable. WF-01 waits on
+   WF-02 with `waitForSubWorkflow: true`; an erroring dispatch would
+   cost the owner his receipt. Silence must mean a **storage** failure,
+   never a dispatch failure. A missed dispatch leaves rows in
+   `processing_jobs` at `status='queued'`, which is exactly what
+   **WF-09** (watchdog, Phase 3) is specified to catch
+   (`last_transition_at` staleness, not `created_at`).
 5. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
    `captures.capture_no` and the Postgres asset count (`asset_count_hint`
    never populates `<n>`). Batch: **`N cards received · processing`**.
@@ -684,7 +698,8 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
 The last node on every `/done` path that WF-01 waits on must emit the
 Compose contract (`ok`, `reply_text`, …), sourced from the **named**
 Compose node. Enqueue and executeWorkflow sit between Compose and that
-terminal; they must not become the sub-workflow return.
+terminal; they must not become the sub-workflow return. A failed
+dispatch is not a failed `/done`.
 
 ### `/batch`
 Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
