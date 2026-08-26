@@ -1,7 +1,7 @@
 # rules.md
 
 **LEAP Networking Intelligence (LNI)** · Operating Rules
-Version 2.0 · 25 August 2026
+Version 2.0 · 26 August 2026
 
 These rules govern how the project is run. They override convenience, speed, and
 enthusiasm. Where a rule and a deadline conflict, the rule wins — that is the
@@ -79,6 +79,22 @@ workflows directly, faster than instructing Cursor.
 it, the verification is theatre — the failures most likely to be missed are
 precisely the ones Claude built in. Author and verifier must be different
 parties or the check is decorative.
+
+### Exception — tooling-shaped walls only
+
+Claude may implement **only** when the blocker is tooling-shaped: an operation
+Cursor's tools cannot perform at all, not one it is finding difficult.
+Difficulty is not a wall. A wall is "the tool cannot do this."
+
+All of the following are required:
+
+1. The cause is understood and agreed first (§5). This is never a shortcut
+   past diagnosis.
+2. The handoff and its reason are recorded in the session log.
+3. Cursor reviews Claude's work by independent read-back, **roles reversed**.
+   The check is preserved, not dropped.
+4. The next task reverts to normal: Claude architects and verifies, Cursor
+   implements.
 
 ---
 
