@@ -193,7 +193,7 @@ fallback.
 | # | Item | Owner | Status | Blocks |
 |---|---|---|---|---|
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **DONE** — credential `Leap-NI` in n8n. Token not yet proven on a real chat. | — |
-| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Schema not yet applied. | — |
+| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`008` applied. `009` seed blocked until the owner Auth user exists. | — |
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Open | Phase 1 |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | Open | Phase 2 benchmark, by 29 Aug |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
