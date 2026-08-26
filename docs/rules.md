@@ -160,6 +160,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 15 | **Bind LNI credentials explicitly; verify by read-back before first execution** | n8n MCP auto-assignment reached for an ElderWise credential, and the creation response disagreed with the saved workflow |
 | 16 | **First execution of any workflow must be self-identifying** | A bare `200` or `success` proves nothing about *which* system answered |
 | 17 | **Postgres via the shared Supavisor pooler, SSL `Require`** | Direct and dedicated endpoints are IPv6-only; the n8n container has no IPv6 route |
+| 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here. Repo documents (`workflows.md`, `architecture.md`, this file, `.cursor/skills/lni-n8n-conventions/SKILL.md`) win. |
 
 ---
 
@@ -197,3 +198,27 @@ captured cannot be recovered, and that asymmetry decides every scope argument.
   tested rather than assumed.
 - **State when evidence is weak.** This applies to the system's `/ask` answers
   and to the architect's recommendations equally.
+
+---
+
+## 12. Instance-wide n8n API key
+
+The n8n REST API key is **instance-wide**. It can write or delete all 52
+workflows on the shared container, including ElderWise WhatsApp inbound with
+real users.
+
+**Allowed targets only:**
+
+- workflows whose **name** begins with `LNI ` or `LNI-TEST-`
+- archived orphans `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — verify by
+  **name** before any delete
+
+**Hard constraints:**
+
+- Never list-and-act in one step. Fetch, check the name, then act.
+- Never call a destructive endpoint against an unprefixed workflow.
+- Never restart, upgrade, or change instance settings.
+- Never touch ElderWise.
+
+If an operation would touch anything else: **STOP and report.** Do not
+continue, guess, or "clean up" extras.
