@@ -160,7 +160,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 15 | **Bind LNI credentials explicitly; verify by read-back before first execution** | n8n MCP auto-assignment reached for an ElderWise credential, and the creation response disagreed with the saved workflow |
 | 16 | **First execution of any workflow must be self-identifying** | A bare `200` or `success` proves nothing about *which* system answered |
 | 17 | **Postgres via the shared Supavisor pooler, SSL `Require`** | Direct and dedicated endpoints are IPv6-only; the n8n container has no IPv6 route |
-| 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here. Repo documents (`workflows.md`, `architecture.md`, this file, `.cursor/skills/lni-n8n-conventions/SKILL.md`) win. |
+| 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here: `$env` is blocked instance-wide, and configuration or state outside Postgres violates architecture.md §2 rule 2. Where a skill and this repo disagree, the repo wins, and you say so rather than silently following the skill. |
 
 ---
 
