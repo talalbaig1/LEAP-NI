@@ -1,7 +1,7 @@
 # workflows.md
 
 **LEAP Networking Intelligence (LNI)** · n8n Workflow Specifications
-Version 2.0 · 25 August 2026
+Version 2.0 · 26 August 2026
 
 **Instance:** `<N8N_HOST>`
 **Naming:** all LNI workflows prefixed `LNI WF-nn - <name>`
@@ -18,7 +18,8 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 
 | Convention | Value | Reason |
 |---|---|---|
-| `errorWorkflow` | WF-00 | Every LNI workflow, no exceptions |
+| `errorWorkflow` | LNI WF-00's own ID | Pointing an LNI workflow at ElderWise's error workflow is a defect. Set per workflow; it is not inherited. |
+| `availableInMCP` | `true` on every LNI workflow | A workflow with MCP access off cannot be read back by the architect. Verification then degrades to accepting the implementer's report, which `rules.md` §4 forbids. A false value is a defect, not a preference. |
 | `executionTimeout` | 300 | Matches proven ElderWise setting |
 | Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL |
 | Idempotency | `ON CONFLICT ... DO NOTHING` on the natural key | ElderWise `media_id` pattern |
@@ -53,7 +54,8 @@ Two consequences, both binding:
    *which* system it reached beats one that returns success. The Storage probe
    proved the project via the `sb-project-ref` response header; a bare `200`
    would have proved nothing. An LNI workflow silently bound to ElderWise
-   credentials would go green against the wrong database.
+   credentials would go green against the wrong database. **WF-00b is the
+   workflow specified to carry this principle.**
 
 ---
 
@@ -62,6 +64,7 @@ Two consequences, both binding:
 | ID | Name | Phase | Trigger |
 |---|---|---|---|
 | WF-00 | Central error handler | 0 | Error trigger |
+| WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 |
 | WF-03 | Asset processors | 2 | Called by WF-02 |
@@ -91,6 +94,40 @@ Receives errors from every LNI workflow.
 
 **Must not:** place secrets, signed URLs, media, or personal data in a
 notification.
+
+---
+
+## WF-00b — Credential and connectivity probe
+
+**Phase 0** · **Trigger:** Manual only · **Never activated**
+
+READ-ONLY. No `INSERT`, `UPDATE`, `DELETE`, or DDL on any branch.
+`errorWorkflow` set to LNI WF-00. `availableInMCP` true.
+
+Retained after Phase 0, deactivated. It is the standing re-check after any
+credential change.
+
+### Postgres branch
+Self-identifies by returning the LEAP 2026 seed row (`name`, `timezone`) from
+`public.events` — a row that exists **only** in the LNI project. A credential
+misbound to ElderWise fails loudly with `relation does not exist` instead of
+returning success.
+
+**Do not** self-identify via `current_user`. Under transaction-mode pooling it
+returns plain `postgres`, not the tenant-qualified name (`architecture.md` §9).
+Asserting on it produces a false negative.
+
+### Storage branch
+- The HTTP Request node **must** enable full-response mode so response
+  **headers** are returned, not the body alone. The default discards them.
+  Verified 26 Aug 2026 against the ElderWise credential-check workflow, whose
+  HTTP node has `options: {}` and therefore cannot see `sb-project-ref`.
+  Copying that template verbatim produces a probe that returns `200` and proves
+  nothing.
+- Bind `nodeCredentialType` `httpHeaderAuth` with the LNI Storage credential.
+  The ElderWise template uses `supabaseApi` and is **not** a drop-in copy.
+- Surface the `sb-project-ref` value in the workflow output where a human can
+  read it. A green execution is not the deliverable; the project identifier is.
 
 ---
 
@@ -338,10 +375,11 @@ specifically to cover that gap and must not be cut when Phase 3 is squeezed.**
 | Order | Workflow | Verify by |
 |---|---|---|
 | 1 | WF-00 | Force an error; confirm redacted write, no secrets |
-| 2 | WF-01, WF-02 | 20 real-device captures, 100% asset preservation |
-| 3 | WF-03, WF-04, WF-05 | Benchmark; live JSON read-back for unset `language` |
-| 4 | WF-07, WF-08, WF-09 | Observed execution timestamps in Riyadh local time |
-| 5 | WF-06 | Forced retry loop must not breach the credit ceiling |
+| 2 | WF-00b | Self-identifying execution on both branches; live JSON `errorWorkflow` + `availableInMCP` |
+| 3 | WF-01, WF-02 | 20 real-device captures, 100% asset preservation |
+| 4 | WF-03, WF-04, WF-05 | Benchmark; live JSON read-back for unset `language` |
+| 5 | WF-07, WF-08, WF-09 | Observed execution timestamps in Riyadh local time |
+| 6 | WF-06 | Forced retry loop must not breach the credit ceiling |
 
 **Verification is by read-back, never by report.** The architect reads live
 workflow JSON through MCP and compares against this document. Cursor's summary
