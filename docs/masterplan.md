@@ -1,7 +1,7 @@
 # masterplan.md
 
 **LEAP Networking Intelligence (LNI)**
-Version 2.0 · 25 August 2026 · Owner: Talal Baig
+Version 2.0 · 26 August 2026 · Owner: Talal Baig
 Architect/verifier: Claude · Implementer: Cursor
 
 **Document set:** `masterplan.md` (this) · `architecture.md` · `phases.md` ·
@@ -154,7 +154,7 @@ Full detail in `phases.md`.
 
 | Phase | Contents | Timing |
 |---|---|---|
-| 0 | Foundation: Supabase project, schema, RLS, storage, bot, credentials, error handler | Now |
+| 0 | Foundation: Supabase project, schema, RLS, storage, bot, credentials, error handler | 26 Aug |
 | 1 | Capture path | **Live 30 Aug** |
 | 2 | Extraction | **Live 30 Aug** |
 | 3 | Digests, `/ask`, watchdog | **Live 30 Aug** |
@@ -198,6 +198,8 @@ fallback.
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | Open | Phase 2 benchmark, by 29 Aug |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
 | 6 | Confirm whether anyone else needs access | Talal | Open | — (schema already supports) |
+| 7 | Create owner Auth user on LEAP-NI | Talal | Open | Migration `009` seed; `owner_id` is resolved from `auth.users` and must fail loudly if none exist |
+| 8 | Create second authenticated test user on LEAP-NI | Talal | Open | Phase 0 RLS proof: test user must read zero rows and cannot list/download `lni-assets` |
 
 ### Apollo credit budget
 
