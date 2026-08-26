@@ -172,12 +172,11 @@ that are capture-scoped, not asset-scoped).
 | `created_at` | timestamptz | `now()` | NO |
 | `last_transition_at` | timestamptz | `now()` | NO |
 
-**Enqueue natural key (not yet a live constraint).** WF-02 `/done` will
-`INSERT … ON CONFLICT DO NOTHING` on unique index
-`processing_jobs_asset_job_uniq` `(asset_id, job_type) WHERE asset_id IS NOT
-NULL`. One vision or transcription job per stored asset. Capture-scoped jobs
-(`asset_id` NULL) are outside that key. The index is created in the WF-02
-enqueue packet, not in 014/015. Until it exists, `ON CONFLICT` cannot fire.
+**Enqueue natural key.** Unique index `processing_jobs_asset_job_uniq` on
+`(asset_id, job_type) WHERE asset_id IS NOT NULL` (migration `016`). WF-02
+`/done` `INSERT … ON CONFLICT DO NOTHING` on this key so a re-run or a
+replay enqueues nothing twice. Capture-scoped jobs (`asset_id` NULL) are
+outside the index.
 
 **`extraction_runs`** — immutable model evidence.
 
@@ -417,7 +416,7 @@ Phase 2 (promoted from packet 1.4 leftover, owner decision 27 Aug).
 | `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
-| Index on `processing_jobs (status, last_transition_at)` | WF-09 watchdog query |
+| Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT DO NOTHING` makes a re-run or a replay of stored assets enqueue nothing twice. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** Transliteration is lossy and is the highest-error surface at this event |
 | Merges never cascade-delete raw assets | Replayability |
 
@@ -694,7 +693,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`015`) create the 16 tables, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, and the `captures.flags` object CHECK. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`016`) create the 16 tables, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, and the `/done` enqueue natural key. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -716,6 +715,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 013 | `013_captures_media_group_unique` | Partial unique index `captures_owner_media_group_uniq` so concurrent album-member INSERTs are deterministic |
 | 014 | `014_bot_state_seed_repair` | Catalog repair: idempotent `bot_state` seed using `current_setting(..., true)` (009 pattern). Does not disturb the live row. Asserts exactly one `bot_state` row, owner matches 009, `open_capture_id` consistent. |
 | 015 | `015_captures_flags_object` | `captures.flags` default `'{}'::jsonb`; convert live jsonb arrays to `'{}'`; CHECK `jsonb_typeof(flags) = 'object'`. Does not drop `captures_owner_media_group_uniq`. |
+| 016 | `016_processing_jobs_asset_job_uniq` | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type) WHERE asset_id IS NOT NULL`. Natural key for `/done` enqueue idempotency. |
 
 ### Connection policy — verified 25 Aug 2026
 
