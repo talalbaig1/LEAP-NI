@@ -23,7 +23,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | `executionTimeout` | 300 | Matches proven ElderWise setting |
 | Postgres queries | Parameterised via `queryReplacement` | Never string-concatenate SQL. On this instance (Postgres node v2.5+) the replacement **must be one expression that evaluates to an array**: `{{ [a, b, c] }}` (n8n docs). A CSV that mixes a literal with `{{ }}` drops the literal, so `$1` is the first expression. `.join()` on that array binds as a single `$1`. Verified 26 Aug 2026. |
 | Idempotency | `ON CONFLICT ... DO NOTHING` on the natural key | ElderWise `media_id` pattern |
-| Terminal branches | Explicit NoOp nodes | Makes every path visibly terminal |
+| Terminal branches | Explicit NoOp **or** `stopAndError` | Makes every path visibly terminal. Correct outcomes are silent NoOps. A received-but-not-stored asset is a failure: `stopAndError` so WF-00 runs. |
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
@@ -31,7 +31,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
-### Three traps already identified
+### Four traps already identified
 
 **Never set `language` on a transcription node.** ElderWise WF-5 hardcodes
 `language: "en"`. Forcing English decoding on Arabic or code-switched audio
@@ -69,6 +69,16 @@ Two consequences, both binding:
    of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
    not spend time on them.
 
+**Never build a contract payload from `$json` after a Postgres / HTTP / Crypto
+node.** A Postgres node with `alwaysOutputData: true` emits one empty item
+on zero rows and silently blanks the incoming context. Verified 26 Aug 2026
+on WF-01: `Duplicate check` → `{}` → `Resolve payload` dropped `owner_id` /
+`telegram_user_id` / `correlation_id` → WF-02 `malformed_payload` → success
+NoOp, three assets lost, owner got a `0 items` receipt. Source every
+contract field from the **named node** that produced it
+(`$('Attach correlation').item.json.owner_id`). `$json` is only safe on the
+node that just produced those fields.
+
 ---
 
 ## 2. Workflow inventory
@@ -105,12 +115,17 @@ Receives errors from every LNI workflow.
    degrades diagnostics (error text cannot contain `,` `'` `"`). The better
    fix is a **single `jsonb` parameter** for the whole payload. Do that
    post-event; do not change the workaround during LEAP.
+
 3. Write redacted diagnostics. Every handled error **INSERT**s one
    `audit_log` row (`actor_type = system`, `action = workflow_error`). That
    row is the source of truth for repeat detection (architecture.md §2
    rule 2: Postgres holds state; n8n does not). This is **every** error,
    not an otherwise-only write: the hit counter needs a single complete
-   series. Where a `job_id` is also resolvable, **additionally UPDATE**
+   series. A **lost asset MUST produce an error execution** so this handler
+   runs. A success NoOp after media was received but not stored is a defect
+   (`architecture.md` §2 rule 5). Silence to the owner (`prd.md` §5) is not
+   silence to the operator. Where a `job_id` is also resolvable,
+   **additionally UPDATE**
    `processing_jobs.error_detail` only — do not change `status` or
    `attempt_count`, so the `last_transition_at` trigger does not fire.
    Recording a diagnostic is not a state transition and must not reset
@@ -269,7 +284,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    Code node: this instance's task-runner sandbox has no `crypto` global
    and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
-   before any write. No matching row → stop, no send.
+   before any write. No matching row → **stopAndError** (`Wrong database terminal`).
 5. **Branch:** command | photo | voice/audio | document/video | text | callback.
    Commands are `text` starting with `/` and win over the text branch.
 6. **COMMANDS** (`/new`, `/done`, `/batch`, `/status`; `/start` maps to
@@ -297,7 +312,45 @@ LNI bot only and must not disturb any ElderWise webhook.
 9. **CALLBACK:** no album prompt in this packet. Silent NoOp terminal
    (answer the query only if Telegram would otherwise spin; send no owner
    message).
-10. **Every path ends in an explicit NoOp terminal.**
+10. **Every path ends in an explicit terminal.** Failure terminals are
+    `stopAndError` (WF-00 runs). Correct outcomes are silent NoOps.
+
+Contract payloads for WF-02 (`Command payload`, `Resolve payload`,
+`Text resolve payload`) are built from **named-node** references
+(`$('Attach correlation').item.json.*`), never `$json`. A Postgres node
+with `alwaysOutputData` sits on the media path (`Duplicate check`) and
+emits `{}` on zero rows.
+
+### Terminals — silence to the owner, alarm to the operator
+
+The owner still gets **no Telegram receipt** on storage failure
+(`prd.md` §5). That is not the same as a successful n8n execution.
+WF-00 is the operator alarm.
+
+**`stopAndError` (error execution → WF-00).** Message includes
+`correlation_id` and `file_unique_id` only. Never bot token, signed URL,
+file bytes, or message text.
+
+| Terminal | When |
+|---|---|
+| Resolve failed terminal | WF-02 did not return a `capture_id` after media was received |
+| Upload failed terminal | Storage rejected the object |
+| Insert miss terminal | Upload succeeded, `assets` row did not |
+| Text resolve failed terminal | `resolve_target` failed on the typed-note path |
+| Note miss terminal | Typed-note UPDATE returned no row |
+| Wrong database terminal | Self-identify did not return LEAP 2026 |
+
+**Silent NoOp (correct, not a failure).**
+
+| Terminal | When |
+|---|---|
+| Duplicate terminal | Telegram redelivery; `file_unique_id` already stored |
+| Not allowlisted terminal | Unknown sender; no reply, no row, no log naming the user |
+| Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
+| Adoption skipped terminal | Stored; no adoption message (already-open or batch) |
+| Callback terminal | No album prompt in this packet |
+| Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
+| Command sent / Media stored / Note done | Happy path |
 
 ### Kind mapping (live constraints, 26 Aug 2026)
 
@@ -434,26 +487,39 @@ the signal; it is visible in review.
    The dispatch is an explicit NoOp terminal labelled as such.**
 5. If nothing is open, `reply_text` = `nothing open`. No crash, no phantom
    row.
-6. In batch mode, `/done` exits batch (`bot_state.mode = normal`) and
-   returns the batch summary shape instead of the per-capture receipt
-   (`prd.md` §4): `"<n> cards processed · <clean> clean · <review> need
-   review · <failed> failed"`. Until WF-03 exists, clean / review / failed
-   are counts of sibling batch captures in those statuses (zero in Phase 1).
+6. In batch mode, `/done` closes **all** open `capture_mode='batch'`
+   captures for the owner (`close_reason='explicit'`), sets
+   `bot_state.mode = normal`, and returns the batch summary shape instead
+   of the per-capture receipt (`prd.md` §4): `"<n> cards processed ·
+   <clean> clean · <review> need review · <failed> failed"`. Until WF-03
+   exists, clean / review / failed are counts of sibling batch captures
+   in those statuses (zero in Phase 1).
 
 ### `/batch`
 Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
-photo creates its own capture with `capture_mode = batch`, marked `card_only`.
+photo creates its own capture with `capture_mode = batch`, marked `card_only`
+(`prd.md` §4: "every subsequent photo becomes its own independent capture" —
+that sentence remains true; the implementation is `resolve_target` below).
 **Suppresses per-capture receipts** (WF-01 honours `mode`). `/done` exits
-batch.
+batch by closing **all** open batch captures for the owner.
 
 ### `/status`
 Reports the open capture (`capture_no`), its item count, and the current
 mode. If nothing is open, `reply_text` = `nothing open`.
 
 ### `resolve_target`
-Return the open capture, or open one silently (orphan adoption) and say so
-in `state_echo`. **Never reject.** Media with no open capture must still
-land somewhere (`prd.md` §4 guardrail 3).
+**Never reject.** Media with no open capture must still land somewhere
+(`prd.md` §4 guardrail 3).
+
+- **`bot_state.mode = 'normal'`:** return the existing open capture, or
+  insert one (orphan adoption) and say so in `reply_text` / `state_echo`.
+  Update `bot_state.open_capture_id` and `last_activity_at`.
+- **`bot_state.mode = 'batch'`:** **always** insert a new capture
+  (`capture_mode='batch'`, `card_only=true`, `status='open'`). Do **not**
+  return an existing open capture. Do **not** set `bot_state.open_capture_id`
+  (each photo is independent; `/done` finds them by `capture_mode='batch'`
+  and `status='open'`). Still bump `last_activity_at`. No per-capture
+  `reply_text`.
 
 ### Sweep (Schedule Trigger)
 - Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;

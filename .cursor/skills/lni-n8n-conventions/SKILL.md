@@ -77,19 +77,37 @@ literals are dropped; `.join()` binds as one `$1`. Verified 26 Aug 2026
 
 - `executionTimeout`: 300
 - `retryOnFail: true` on provider and DB nodes
-- Explicit NoOp terminals on every path (`workflows.md` §1)
+- Explicit NoOp terminals on correct outcomes
+- `stopAndError` on received-but-not-stored media (and wrong-database), so WF-00 runs
 
-## 12. Never log secrets or PII
+## 12. Never build contract payloads from `$json` after I/O
+
+A Postgres node with `alwaysOutputData: true` emits one empty item on zero
+rows and **replaces** the incoming JSON. Verified 26 Aug 2026: WF-01
+`Duplicate check` → `{}` → `Resolve payload` used `$json.owner_id` → fields
+dropped → WF-02 `malformed_payload` → success NoOp, assets lost.
+
+Source every contract field from the **named node** that produced it:
+
+```
+{{ $('Attach correlation').item.json.owner_id }}
+```
+
+`$json` is only safe on the node that just produced those fields. Apply
+the same rule after HTTP and Crypto nodes. This is a standing trap, equal
+in rank to `$env` and MCP auto-assign.
+
+## 13. Never log secrets or PII
 
 Never log tokens, keys, signed URLs, transcripts, emails, or phone numbers.
 Request IDs and redacted errors only (`rules.md` §7 rule 8; WF-00 redaction).
 
-## 13. Never touch ElderWise or restart n8n
+## 14. Never touch ElderWise or restart n8n
 
 Never touch the ElderWise project or workflows. Never restart, upgrade, or
 change settings on the shared n8n container (`rules.md` §7 rule 12; §12).
 
-## 14. INSTANCE-WIDE n8n API key guard
+## 15. INSTANCE-WIDE n8n API key guard
 
 The key (`N8N_API_KEY` in gitignored `docs/n8n.local.env`) is
 **instance-wide**: write/delete all 52 workflows, including ElderWise

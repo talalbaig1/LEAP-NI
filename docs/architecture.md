@@ -526,7 +526,7 @@ unfinished one. See `phases.md`, Phase 0 verification.
 | Failure | Behaviour |
 |---|---|
 | Extraction provider down | Capture continues; jobs queue; replay later |
-| Storage unavailable | Telegram retains the message in its outbox; bot does not acknowledge, so the owner sees no receipt |
+| Storage unavailable | Telegram retains the message in its outbox; the bot does not acknowledge, so the owner sees no receipt. **The n8n execution MUST error** (`stopAndError`) so WF-00 writes `audit_log`. A success NoOp after media was received but not stored is a defect (rule 5). |
 | Bad workflow deployed | Deactivate, import previous versioned JSON |
 | Bad migration | Forward-only fix; **no destructive migrations during event week** |
 | Stuck jobs | WF-09 watchdog alerts independently of the digest |
