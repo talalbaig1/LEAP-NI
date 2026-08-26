@@ -316,14 +316,23 @@ LNI bot only and must not disturb any ElderWise webhook.
    e. Compute `sha256` (Crypto node) over those same bytes. `Prep upload`
       takes **binary from `$('Telegram getFile').item.binary`** and
       `json.sha256` from the Hash node — never from `$input` after Hash
-      (Crypto emits json-only). `size_bytes` from the getFile binary
-      `bytes` field (not the display `fileSize` string).
+      (Crypto emits json-only). **`size_bytes` is the decoded buffer
+      length** Prep will send, never `bin.bytes` or `bin.fileSize`
+      (metadata lied at 112 while the buffer was 14 ASCII bytes; verified
+      26 Aug 2026).
    e2. **Before the PUT:** assert `size_bytes > 0` AND `sha256` is a
       non-empty 64-character hex string. Fail → `stopAndError` (`Empty
       binary terminal`). A zero-byte object that later gets an assets row
       marked `stored` would pass a count check while losing the card.
    f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`. The PUT body is the getFile bytes, still named `data`.
-   g. **ONLY IF** the upload returns success: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   f2. **After PUT 200/201 and before the assets INSERT:** read the object
+      back (HEAD first; list `metadata.size` only if HEAD has no usable
+      size). Require reported size **equals** `size_bytes`. Mismatch or
+      missing object → `stopAndError` (`Storage mismatch terminal`). Do
+      **not** write the assets row. PUT `{Key, Id}` is not evidence of
+      size. An object read back from Storage is the only number in this
+      pipeline that did not come from n8n describing itself.
+   g. **ONLY IF** the read-back matches: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
    h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
 8. **TEXT:** if it starts with `/ask`, terminate as out-of-scope for Phase 1
@@ -383,6 +392,7 @@ file bytes, or message text.
 | Resolve failed terminal | WF-02 did not return a `capture_id` after media was received |
 | Upload failed terminal | Storage rejected the object |
 | Empty binary terminal | `size_bytes` is 0 or `sha256` is not 64 hex — before the PUT |
+| Storage mismatch terminal | PUT succeeded but read-back size ≠ `size_bytes`, or object missing |
 | Insert miss terminal | Upload succeeded, `assets` row did not |
 | Text resolve failed terminal | `resolve_target` failed on the typed-note path |
 | Note miss terminal | Typed-note UPDATE returned no row |

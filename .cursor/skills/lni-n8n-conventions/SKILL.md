@@ -104,6 +104,15 @@ $('Telegram getFile').item.binary
 in rank to `$env` and MCP auto-assign. Flags we depend on (`download`,
 `minutesInterval`) must be explicit in the saved JSON.
 
+Sizes and hashes are computed from **buffers**, never from item metadata
+(`bin.bytes`, `bin.fileSize`). Metadata describes the item; the buffer is
+the file. Verified 26 Aug 2026: a pin with `bytes: 112` decoded to 14
+ASCII bytes; Hash and Storage saw 14; Prep trusted metadata and wrote
+`size_bytes=112`. An asset is `upload_status='stored'` **only after** the
+object has been **read back** from Storage and its reported size equals
+that buffer length. The PUT body returns only `Key` and `Id` — not a size.
+That extra round trip is required.
+
 ## 13. Never log secrets or PII
 
 Never log tokens, keys, signed URLs, transcripts, emails, or phone numbers.
