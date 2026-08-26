@@ -336,7 +336,11 @@ is a false reassurance).
 `action=sweep` is produced by the Schedule Trigger, not by WF-01, and does
 not require `owner_id`. Reject `action=sweep` unless `$('Schedule sweep').isExecuted`
 is true; return `error_code=sweep_not_externally_invokable`. A same-owner
-passthrough must not be able to close every open capture.
+passthrough must not be able to close every open capture. On the Execute
+Sub-workflow path, `$('Schedule sweep').isExecuted` evaluates to `false`
+and does not throw (verified packet 1.2b). Validate payload still wraps
+the access in try/catch and treats a throw as not-executed, so a `$()`
+miss cannot crash every WF-01 call.
 
 ### Return contract
 
