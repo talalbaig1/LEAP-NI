@@ -227,11 +227,17 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 Phase 1 does **not** classify image content. Composition is unpredictable, and
 the owner has one hand free — no caption convention, no inline prompt.
 
-At capture time (WF-01) `assets.kind` is the Telegram media type:
+At capture time (WF-01) `assets.kind` is the Telegram media type.
+Live `assets_kind_check` (read 26 Aug 2026) permits
+`business_card | audio | photo | selfie | document` only — there is no
+`video` value. Map onto what exists; never invent a sixth kind:
 
+- Telegram photo (largest size in the `photo[]` array) → `photo` (**unclassified** — contents not yet determined)
 - Telegram voice or audio → `audio`
-- Telegram photo or image → `photo` (**unclassified** — contents not yet determined)
-- Telegram document → `document`
+- Telegram document, video, or video_note → `document`
+
+Live `assets_upload_status_check` permits `pending | stored | failed`.
+WF-01 writes `stored` only after the Storage PUT succeeds.
 
 `'photo'` in Phase 1 means "image, contents not yet determined". Phase 2 WF-03
 looks at every image in its existing vision call; the output contract gains a
@@ -482,6 +488,12 @@ Also `current_user` returns plain `postgres`, not the tenant-qualified name —
 the qualified form routes, the plain role authenticates. Never assert on the
 qualified form.
 
+**n8n `settings.binaryMode` is `"separate"`.** JSON and binary stay on
+separate item properties. A default that is absent from the workflow JSON
+cannot be verified by read-back (`workflows.md` §1). Every LNI workflow
+sets it explicitly. WF-01 needs it for Telegram file download → sha256 →
+Storage PUT.
+
 **Cursor uses this same connection string** for migrations. Most laptops and CI
 runners are IPv4-only and hit the identical wall.
 
@@ -491,7 +503,7 @@ runners are IPv4-only and hit the identical wall.
 |---|---|---|
 | Postgres | `Leap-NI` | Query returned PostgreSQL 17.6 via the shared pooler |
 | Supabase Storage | `Supabase_Leap-NI` | `GET /storage/v1/bucket` → `200`; response header `sb-project-ref` matched the LNI project |
-| Telegram | `Leap-NI` | Unproven until a real-device capture in Phase 1. A bot token means nothing until a real chat exists. |
+| Telegram | `Leap-NI` | Unproven until a real-device capture on WF-01 (packet 1.3). A bot token means nothing until a real chat exists. |
 
 **Storage needs only `Authorization: Bearer <service_role>`** via Header Auth.
 No separate `apikey` header was required, so no Custom Auth credential is

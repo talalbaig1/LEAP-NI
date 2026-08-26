@@ -29,6 +29,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
+| `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
 ### Three traps already identified
 
@@ -236,60 +237,106 @@ Asserting on it produces a false negative.
 
 ## WF-01 — Telegram ingest router
 
-**Phase 1** · **Trigger:** Telegram Trigger
+**Phase 1** · **Trigger:** Telegram Trigger (`updates`: `message`,
+`edited_message`, `callback_query`)
 
 The entry point. Its single most important property: **the raw asset reaches
-storage before anything else happens.**
+storage before anything else happens.** The **order below is the invariant.**
+A capture that never happened cannot be recovered.
 
-1. **Allowlist check.** `SELECT owner_id FROM bot_state WHERE telegram_user_id
-   = <sender>`. A row is admission; `owner_id` comes from that same row. No
-   row means ignore silently — no reply, no row written anywhere. The
-   allowlist **is** `bot_state`; there is no separate table and no `$env`.
-2. Parse the update. Branch on type: command · photo · audio/voice · document ·
-   text · album member (`media_group_id` present) · callback query.
-3. **Commands** → WF-02 with the GAP 1 payload (`action` = the command name).
-   WF-01 is the only workflow that sends Telegram. WF-02 returns `reply_text`;
-   WF-01 sends it. If storage failed, WF-01 sends nothing — that invariant
-   lives in one place.
-4. **Media:**
-   a. Extract `file_unique_id`. **Early exit if it already exists in `assets`**
-      — Telegram redelivery is normal.
-   b. Get file path via `getFile`; download binary.
-   c. **Mint `asset_id`** in n8n (`crypto.randomUUID()`) **before** upload.
-      The storage path contains `asset_id`, but the `assets` row is inserted
-      only after upload succeeds. Ordering: **mint → upload → insert**
-      (`architecture.md` §5).
-   d. **Upload to Supabase Storage** (`httpHeaderAuth`, `x-upsert: true`,
-      deterministic path `{owner_id}/{capture_id}/{asset_id}-{name}` where
-      `{name} = {telegram_file_unique_id}.{ext}` — not an original filename).
-   e. **Only after upload succeeds**, insert the `assets` row using the
-      minted uuid, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
-      Phase 1 `kind` is the Telegram media type, not a content classification
-      (`architecture.md` §4, two-stage kind):
-      - Telegram voice or audio → `audio`
-      - Telegram photo or image → `photo` (unclassified)
-      - Telegram document → `document`
-   f. Resolve or create the target capture via WF-02 (`action=resolve_target`).
-5. **Album handling (mechanism; implementation is packet 1.4).** Telegram
-   delivers each album member as a separate update, so twenty members are
-   twenty WF-01 executions with no shared memory. "Buffer members sharing a
-   `media_group_id`" is not implementable as a local buffer.
-   - The first member creates a capture carrying the group id at
-     `captures.flags->>'media_group_id'`.
-   - Every later member finds that capture by the same key and attaches.
-   - Concurrent INSERTs race; migration `013`'s partial unique index makes
-     the loser re-select the winner. No application-level lock.
-   - When the group exceeds two images, **one** inline prompt:
-     *"N images — separate people, or one person?"* The answer either
-     leaves the capture intact or splits assets into one capture per image.
-     Splitting happens **after** assets are stored, so no answer and no
-     callback can lose an asset.
-6. **Text** → typed note on the open capture, or `/ask` if prefixed.
+**WF-01 is the only workflow that sends Telegram.** WF-02 never does.
+If storage failed, WF-01 sends nothing — that invariant lives in one place.
 
-**Critical:** if step 4c fails, **no receipt is sent**. Silence must mean
+Do not activate until the real-device checklist in packet 1.3 Step 3. This
+is the first Telegram webhook on this instance: it must register against the
+LNI bot only and must not disturb any ElderWise webhook.
+
+### Exact sequence
+
+1. **Telegram Trigger.** Updates: `message`, `edited_message`, `callback_query`.
+   Treat `edited_message` as `message`. Do not restrict the trigger by
+   hardcoded chat/user IDs (allowlist is Postgres). `settings.binaryMode` =
+   `"separate"`.
+2. **Allowlist.** Parameterised
+   `SELECT owner_id, telegram_user_id, mode FROM public.bot_state WHERE telegram_user_id = $1::bigint`.
+   `$1` is the sender id from the update. **No row → silent NoOp terminal.**
+   No reply, no row written anywhere, **no log entry naming the user.**
+   The allowlist **is** `bot_state`; there is no separate table and no `$env`.
+3. **Mint `correlation_id`** = `crypto.randomUUID()`, **once per update**.
+   Carry it on every WF-02 call and every `audit_log` path. Do not use
+   `$execution.id` (numeric string; belongs in `after`, not
+   `audit_log.correlation_id`).
+4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
+   before any write. No matching row → stop, no send.
+5. **Branch:** command | photo | voice/audio | document/video | text | callback.
+   Commands are `text` starting with `/` and win over the text branch.
+6. **COMMANDS** (`/new`, `/done`, `/batch`, `/status`; `/start` maps to
+   `status`). Strip a trailing `@botname`. Call WF-02 with the contract
+   payload (`owner_id`, `telegram_user_id` from the allowlist row, `action`,
+   `correlation_id`). Send `reply_text` (and `state_echo` only when
+   `reply_text` is empty and `state_echo` is not). **Commands never touch
+   Storage.** Gate: do not send if WF-02 `ok` is false or `reply_text` /
+   `state_echo` is empty.
+7. **MEDIA**, in exactly this order — this ordering **is** the invariant:
+   a. Extract `file_unique_id` (photo: largest size in the array). `SELECT id FROM public.assets WHERE telegram_file_unique_id = $1`. If a row exists, **silent duplicate terminal**. Telegram redelivery is normal.
+   b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `adopted` / `reply_text`.
+   c. Mint `asset_id` = `crypto.randomUUID()` in n8n.
+   d. Telegram `getFile`, then download the binary (Telegram node `download: true`).
+   e. Compute `sha256`, `size_bytes`, `mime_type`.
+   f. Upload to Supabase Storage: raw HTTP PUT, `httpHeaderAuth`, header `x-upsert: true`, path `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}` where `{ext}` derives from media type / mime (`jpg`, `oga`, `mp4`, `pdf`, `bin` fallback). Bucket `lni-assets`.
+   g. **ONLY IF** the upload returns success: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   h. **ONLY NOW** send the orphan-adoption message if (b) opened a capture **and** `mode` is not `batch` (batch suppresses per-capture receipts).
+   i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
+8. **TEXT:** if it starts with `/ask`, terminate as out-of-scope for Phase 1
+   (WF-08 is Phase 3) — no reply. Otherwise `resolve_target`, then append to
+   `captures.typed_note` on that capture. Send the adoption message only after
+   the note write succeeds, and only if a capture was opened.
+9. **CALLBACK:** no album prompt in this packet. Silent NoOp terminal
+   (answer the query only if Telegram would otherwise spin; send no owner
+   message).
+10. **Every path ends in an explicit NoOp terminal.**
+
+### Kind mapping (live constraints, 26 Aug 2026)
+
+`assets_kind_check` =
+`business_card | audio | photo | selfie | document`.
+`assets_upload_status_check` = `pending | stored | failed`.
+Phase 1 never classifies content (`architecture.md` §4 two-stage kind):
+
+| Telegram update | `assets.kind` |
+|---|---|
+| photo (largest size in the array) | `photo` |
+| voice, audio | `audio` |
+| document, video, video_note | `document` |
+
+### Interim album rule (packet 1.3)
+
+Packet 1.3 does **not** implement the album prompt. Until packet 1.4, a
+message carrying `media_group_id` is treated as an ordinary photo and
+attached to the resolved open capture. Every member is stored; nothing is
+lost; the only missing behaviour is the separate-people prompt. Storing
+them individually is the safe interim: the failure mode is a grouping
+question deferred, not an asset dropped.
+
+Album mechanism (implementation is packet 1.4): Telegram delivers each
+member as a separate update, so twenty members are twenty WF-01 executions
+with no shared memory. The first member will create a capture carrying the
+group id at `captures.flags->>'media_group_id'`; later members find that
+capture; concurrent INSERTs race and migration `013` makes the loser
+re-select. When the group exceeds two images, one inline prompt after
+assets are stored. Splitting happens after storage, so no unanswered
+callback can lose an asset.
+
+### Must not log
+
+Never log: the bot token, signed URLs, file bytes, the sender's numeric id,
+or message text. Request ids and redacted errors only.
+
+**Critical:** if step 7f fails, **no receipt is sent**. Silence must mean
 failure. The owner is never falsely reassured.
 
 ---
+
 
 ## WF-02 — Capture lifecycle
 
@@ -297,9 +344,11 @@ failure. The owner is never falsely reassured.
 Schedule (inactivity sweep). A sub-workflow cannot hold a schedule, so both
 live on WF-02.
 
-**Do not activate in packet 1.2.** The Schedule Trigger stays inactive until
-packet 1.3 is accepted. An auto-close sweep running before the capture path
-exists can only close things that should not be closed.
+**Do not activate WF-02 in packet 1.3.** Packet 1.3 activates WF-01 only.
+The Schedule Trigger stays inactive until the architect accepts 1.3.
+Carry-forward: `rule.interval` **must** be
+`[{ "field": "minutes", "minutesInterval": 5 }]` — a relied-upon default
+that is absent from the JSON cannot be verified by read-back.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
 **WF-02 never sends a Telegram message.** Every send happens in WF-01, so the
@@ -405,7 +454,8 @@ land somewhere (`prd.md` §4 guardrail 3).
 
 ### Sweep (Schedule Trigger)
 - Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;
-  never inherit the container default).
+  never inherit the container default). Schedule node JSON must include
+  `minutesInterval: 5` — not an implicit default.
 - Close every capture with `status='open'` whose `bot_state.last_activity_at`
   is older than the inactivity window, stamping `close_reason='auto'`.
   `status` leaves `open` so a later sweep does not re-close. Clear
