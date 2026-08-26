@@ -321,6 +321,27 @@ Contract payloads for WF-02 (`Command payload`, `Resolve payload`,
 with `alwaysOutputData` sits on the media path (`Duplicate check`) and
 emits `{}` on zero rows.
 
+**`$json` audit (packet 1.3b, both workflows).** Any expression that
+reads `$json` after a Postgres / HTTP / Crypto node that may have
+replaced the item.
+
+| Location | Verdict |
+|---|---|
+| WF-01 `Command payload`, `Resolve payload`, `Text resolve payload` | **Fixed** — named `Attach correlation` |
+| WF-01 `Telegram getFile` `fileId`, `Upload to Storage` URL / content-type | **Fixed** — named `Mint asset` / `Prep upload` |
+| WF-01 `Allowlist` query (Telegram Trigger item) | Already safe — first I/O, item is the trigger |
+| WF-01 `Allowlisted?` `$json.owner_id`, `Reached LEAP-NI?` `$json.name` | Already safe — gate on the Postgres node it sits on |
+| WF-01 `Route type` `$json.branch` | Already safe — item is `Attach correlation` |
+| WF-01 `Already stored?` / `Asset row returned?` / `Note row returned?` `$json.id` | Already safe — gate on that Postgres output (empty `{}` means miss) |
+| WF-01 `Media capture present?` / `Text capture present?` `$json.capture_id` | Already safe — item is the Execute Workflow result |
+| WF-01 `Upload succeeded?` `$json.statusCode` | Already safe — item is the HTTP response |
+| WF-01 `Command has reply?` / `Send command reply` | Already safe — item is Call WF-02 |
+| WF-01 `Text is ask?` `$json.is_ask` | Already safe — item is `Attach correlation` |
+| WF-01 `Duplicate check` / `Insert asset` `queryReplacement` | Already named nodes |
+| WF-01 `Append typed note` `$json.capture_id` | Already safe — item is Call WF-02; note text / owner_id already named |
+| WF-02 Action SQL `queryReplacement` | Already named `Validate payload` |
+| WF-02 compose / row-returned gates `$json` | Already safe — item is the Action Postgres row just produced |
+
 ### Terminals — silence to the owner, alarm to the operator
 
 The owner still gets **no Telegram receipt** on storage failure
