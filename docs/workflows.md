@@ -124,10 +124,21 @@ Receives errors from every LNI workflow.
 
    If the events lookup returns no `owner_id`, **THROW** rather than skip
    the write. An error handler that silently drops errors is worse than
-   no error handler. If `bot_state` returns no row, `chat_id` is empty
-   and repeated failures take the undeliverable path. `bot_state` is
-   empty until Phase 1, so undeliverable is the expected state now and
-   is correct: visible, not silent.
+   no error handler. The throw is a runtime `CAST` of
+   `events lookup returned no owner_id; refusing to drop the error write`
+   to `uuid`. It must **not** be a constant (or a concatenation of
+   constants): n8n inlines `queryReplacement` as SQL literals under the
+   transaction-mode pooler, and PostgreSQL constant-folds
+   `CAST('…' AS uuid)` at **plan time**, so the CAST fires even when the
+   lookup succeeded — including unused `CASE ELSE` branches (verified 26
+   Aug 2026; `user_name=postgres`, `$1` correctly `'LEAP 2026'`). Wrap
+   the message in a volatile subquery (`WHERE clock_timestamp() IS NOT
+   NULL`) so the CAST is evaluated only when the CASE ELSE runs. Select
+   `FROM guard CROSS JOIN hits`: `FROM hits CROSS JOIN guard` can skip
+   the empty-owner throw when `hits` is empty. If `bot_state` returns no
+   row, `chat_id` is empty and repeated failures take the undeliverable
+   path. `bot_state` is empty until Phase 1, so undeliverable is the
+   expected state now and is correct: visible, not silent.
 
    Implement the two lookups **and** the undeliverable INSERT in the
    **same** parameterised `executeQuery` as the `workflow_error` INSERT
