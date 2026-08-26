@@ -71,12 +71,17 @@ can never lose or mis-attribute data.
 
 1. **`/new` implicitly closes the previous capture.** The most common mistake
    becomes a no-op.
-2. **Inactivity auto-close** after ~10 minutes idle, stamped
-   `close_reason = auto` so it is visible in review.
+2. **Inactivity auto-close** after 10 minutes idle (`bot_state.last_activity_at`),
+   stamped `close_reason = auto` so it is visible in review. Window is a
+   documented constant in the WF-02 sweep query, not `$env`. The sweep is
+   WF-02's Schedule Trigger (every 5 minutes, `Asia/Riyadh`), inactive until
+   the capture path exists.
 3. **Media with no open capture is never rejected.** A capture opens silently
-   and the bot says so. Nothing is dropped for a protocol error.
-4. **Every bot reply echoes current state.** The owner always knows which bucket
-   the next item lands in.
+   (`resolve_target` orphan adoption) and the bot says so. Nothing is dropped
+   for a protocol error.
+4. **Every bot reply echoes current state**, using `captures.capture_no`, never
+   the uuid. WF-02 returns `reply_text` and `state_echo`; **only WF-01 sends**.
+   If storage fails, no receipt is sent.
 
 ### Bulk entry
 
@@ -85,10 +90,15 @@ Two modes, covering genuinely different moments.
 **`/batch`** — deliberate evening data entry. Toggle on, send thirty cards in a
 row, `/done` to exit. No grouping, no commands between.
 
-**Album auto-detect** — an album (shared `media_group_id`) of more than two
-images triggers a single inline prompt: *"20 images — separate people, or one
-person?"* The bot **asks rather than assumes**, so twenty strangers can never be
-silently fused into one contact.
+**Album auto-detect** — Telegram delivers each album member as a separate
+update, so there is no shared in-memory buffer. The first member creates
+the capture keyed by `flags->>'media_group_id'`; later members attach to
+that row (partial unique index, migration `013`). An album of more than
+two images triggers a single inline prompt **after** the assets are stored:
+*"20 images — separate people, or one person?"* The bot **asks rather than
+assumes**, so twenty strangers can never be silently fused into one contact,
+and no unanswered callback can lose an asset. Album implementation is
+packet 1.4; the mechanism is specified now.
 
 Batch-captured cards have no voice note and produce thinner records. They are
 marked `card_only`, so that later the owner can distinguish *"I have no memory
@@ -108,7 +118,8 @@ it, a dead pipeline looks identical to a healthy one, and the failure would
 surface on day four instead of day one.
 
 **If storage fails, no receipt is sent.** Silence means something went wrong.
-The owner must never be falsely reassured.
+The owner must never be falsely reassured. All Telegram sends live in WF-01;
+WF-02 only returns `reply_text`.
 
 ### Flagging is rule-based, not model-reported
 
