@@ -159,8 +159,8 @@ to `normal` / nothing open.
 | WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
-| WF-03 | Asset processors | 2 | Called by WF-02 |
-| WF-04 | Structured extraction | 2 | Called by WF-03 |
+| WF-03 | Asset processors | 2 | Manual (this packet) · called by WF-02 in packet 2.4 |
+| WF-04 | Structured extraction | 2 | Enqueued by WF-03 as `job_type='extraction'`; wired in packet 2.4 |
 | WF-05 | Entity resolution | 2 | Called by WF-04 |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
 | WF-07 | Digests | 3 | Schedule + on demand |
@@ -654,9 +654,10 @@ workflow calls.
    in the WF-02 enqueue packet, not in 014/015.
 3. **Explicit gate on rows returned**, then **ONE** `executeWorkflow`
    call to WF-03 with `waitForSubWorkflow: false`. Replaces the NoOp
-   node **"WF-03 dispatch (not yet)"**. Do not call WF-03 per asset. A
-   re-run that enqueues nothing (all conflicts) does not fire WF-03
-   again — the jobs are already in Postgres.
+   node **"WF-03 dispatch (not yet)"**. **Wiring is packet 2.4** — this
+   packet builds WF-03 standalone against already-stored assets. Do not
+   call WF-03 per asset. A re-run that enqueues nothing (all conflicts)
+   does not fire WF-03 again — the jobs are already in Postgres.
 4. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
    `captures.capture_no` and the Postgres asset count (`asset_count_hint`
    never populates `<n>`). Batch: **`N cards received · processing`**.
@@ -719,47 +720,106 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 
 ## WF-03 — Asset processors
 
-**Phase 2** · **Trigger:** called **once** by WF-02 `/done` (`waitForSubWorkflow:
-false`). Postgres is the queue — WF-03 claims `processing_jobs` rows with
-`status='queued'`. Do not require a per-asset payload; a kick with
-`owner_id` is enough. Reject unknown extra fields if a payload is sent.
+**Phase 2** · **Trigger:** Manual (this packet). Called **once** by WF-02
+`/done` in packet 2.4 (`waitForSubWorkflow: false`). **Do not touch
+WF-01 or WF-02 in this packet.**
 
-WF-03 assigns `assets.kind` from **one** vision call per image. Capture-time
-kind is Telegram media type only — live, all 34 image assets sit at
+**Input contract:** `owner_id` and `correlation_id`. WF-03 is **not**
+handed an asset. It **claims queued jobs from Postgres itself**. Postgres
+is the queue. Reject unknown extra fields if a payload is sent. A kick
+with `owner_id` is enough; `correlation_id` is for trace only.
+
+WF-03 assigns `assets.kind` from **one** vision call per image.
+Capture-time kind is Telegram media type only — live image assets sit at
 `kind='photo'`, so a `business_card` branch would never fire
 (`architecture.md` §4).
 
-1. Claim a `processing_jobs` row already enqueued by WF-02 `/done`
-   (`status='queued'` → `running`); increment `attempt_count`. Do not
-   INSERT a second job for the same `(asset_id, job_type)`.
-2. Generate a **short-lived signed URL**. Never make the bucket public. Never
-   log the URL.
-3. Branch on capture-time `assets.kind`:
+Provisional card engine: **GPT-4o**, behind the adapter. The model id is
+set in **one** named config node (`Card engine config`) and read from
+there. Do not scatter it. The benchmark packet may flip it.
 
-   **`audio`** — Whisper transcription. **`language` unset.** Store the
-   verbatim transcript in `extraction_runs.raw_transcript` regardless of
-   quality.
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued jobs (not a payload of assets):
 
-   **Everything else (image, including live `photo`)** — **one** vision
-   call whose strict schema includes `image_type`:
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id
+     FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
+
+   Concurrent executions never claim the same job. **Explicit gate on
+   rows returned** — zero claimed is a **normal, silent, terminal**
+   NoOp (`No queued jobs`). Do not INSERT a second job for the same
+   `(asset_id, job_type)`.
+3. **Object fetch:** HTTP Request, `httpHeaderAuth`, `responseFormat:
+   file`, named output property (e.g. `asset`). Never read bytes in a
+   Code node. Source `storage_path` from the **named** Load-asset node,
+   never `$json` after HTTP.
+4. **Branch on `job_type`:** `card_vision` | `transcription`. Unhandled
+   `job_type` → `status='failed'`, visible `stopAndError` after the
+   write. Never drop.
+
+   **`card_vision`** — **one** OpenAI vision call. `imageType: base64`
+   from the named binary property (the proven **C3** path).
+   `temperature: 0`. Strict `json_schema` exactly as proven in the spike,
+   including the `image_type` discriminator
    `business_card | scene | other` (`architecture.md` §6). **No
-   OCR-then-parse step.** WF-03 then `UPDATE`s `assets.kind`
-   (`business_card` → `business_card`; `scene`/`other` → `photo`). Store
-   the raw provider response in `extraction_runs.raw_vision_output`. A
-   `scene` image gets contextual description only — **no facial
-   recognition, no identification of people** (`rules.md` §7 rule 13).
+   OCR-then-parse.** Then `UPDATE assets.kind` from `image_type`:
+   `business_card` → `'business_card'`; `scene` → `'photo'`; `other` →
+   `'photo'`. A `scene` (or `other`) image gets contextual
+   `scene_description` only — **no facial recognition, no identification
+   of people** (`rules.md` §7 rule 13).
 
-4. Validate against the versioned schema.
-5. On transient error: exponential retry (1, 5, 20 min; max 3), then `failed`.
-   On malformed content: `needs_review`. **Never silently drop.**
-6. When all sibling jobs for the capture reach a terminal state — or a 15-minute
-   timeout elapses — dispatch WF-04.
+   **`transcription`** — Whisper on the named binary property.
+   **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
+
+   Signed URL (C2/C4) is a **proven fallback, not the default**. A signed
+   URL is **never logged**.
+5. Write the **raw provider response** to `processing_jobs.output`.
+   Set `status` to `succeeded` | `failed` | `needs_review` and
+   `last_transition_at = now()`. **Do not write `extraction_runs`.**
+   WF-03 is per asset; `extraction_runs` is per capture
+   (`architecture.md` §6).
+6. **Retry:** transient errors leave the job `queued` (if
+   `attempt_count < 3`) so a later execution retries. Delays **1, 5, 20
+   minutes** are the intended cadence (watchdog / next kick), not a Wait
+   inside this execution — `executionTimeout` is 300s. After 3 attempts
+   → `failed`. Malformed content (schema missing, empty transcript) →
+   `needs_review`. **Never silently drop.**
+7. When **every sibling job for that capture** is in a terminal state
+   (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
+   capture-level job: `job_type='extraction'`, `asset_id` NULL,
+   `status='queued'`. Insert once (guard on existing `extraction` row
+   for that `capture_id`). Terminate at a NoOp named
+   **`WF-04 dispatch (not yet)`**.
+
+Every path ends in a visible NoOp or `stopAndError`. Every flag the
+workflow depends on is explicit in the saved JSON.
 
 ---
 
 ## WF-04 — Structured extraction
 
-**Phase 2** · **Trigger:** called by WF-03
+**Phase 2** · **Trigger:** `processing_jobs` row `job_type='extraction'`,
+`asset_id` NULL, enqueued by WF-03 when every sibling asset job is
+terminal. **Wiring (executeWorkflow) is packet 2.4.**
+
+WF-04 composes `extraction_runs` from `processing_jobs.output` of that
+capture's asset jobs. It does not call the card/Whisper providers.
 
 1. Compose explicit sources: typed note, card JSON, transcript, photo
    description. Label each so provenance survives.

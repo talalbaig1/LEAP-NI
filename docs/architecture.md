@@ -1,6 +1,6 @@
 # architecture.md
 
-**LEAP Networking Intelligence (LNI)** · Version 2.0 · 25 August 2026
+**LEAP Networking Intelligence (LNI)** · Version 2.0 · 26 August 2026
 
 Companion to `masterplan.md`. Workflow-level detail lives in `workflows.md`.
 
@@ -178,7 +178,9 @@ that are capture-scoped, not asset-scoped).
 replay enqueues nothing twice. Capture-scoped jobs (`asset_id` NULL) are
 outside the index.
 
-**`extraction_runs`** — immutable model evidence.
+**`extraction_runs`** — immutable **capture-level** model evidence.
+Composed by **WF-04** from `processing_jobs.output`. WF-03 does not
+write this table.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -547,7 +549,10 @@ n8n's `service_role` must continue to bypass RLS.
   segment equals `auth.uid()`.
 - Upload via raw REST with `httpHeaderAuth` and `x-upsert: true` — the pattern
   already proven in the owner's n8n instance.
-- Downloads use short-lived signed URLs. Signed URLs are never logged.
+- Downloads: WF-03 fetches the private object with authenticated HTTP GET
+  (`httpHeaderAuth`, `responseFormat: file`). That is the proven default
+  (packet 2.2b C3). Short-lived signed URLs are a proven fallback (C2/C4),
+  not the default. Signed URLs are never logged.
 - Estimated volume: ~2 GB at 350 captures (card ~2 MB + selfie ~3 MB + 30 s
   audio ~250 KB). Likely exceeds a free-tier allowance — verify on creation.
 
@@ -581,12 +586,30 @@ whose strict schema includes:
 }
 ```
 
+WF-03 feeds that vision call the **stored binary** (C3 path:
+`imageType: base64` + named binary property). Signed URL (C4) is a
+proven fallback only. **GPT-4o is the provisional card engine** behind
+the adapter; the model id lives in one named config node so a later
+benchmark can flip it without hunting the graph.
+
 WF-03 `UPDATE`s `assets.kind` from `image_type` (`architecture.md` §4).
 When `image_type` is `business_card`, people/company fields are the card
 extraction. When `scene` or `other`, `scene_description` is contextual
 only — **no facial recognition, no identification of people**.
 
 **No OCR-then-parse pipeline.** One call.
+
+### Where raw per-asset provider output lives
+
+**WF-03 writes the raw provider response to `processing_jobs.output`.**
+`extraction_runs` is composed later by **WF-04** from those outputs.
+
+WF-03 runs **per asset**. `extraction_runs` is **per capture**. Writing a
+partial capture row from a per-asset worker produces a row that is
+neither immutable nor complete — a second image on the same capture
+would either overwrite evidence or invent a second "immutable" run
+before the capture is finished. The queue row is the per-asset place;
+the extraction run is the per-capture place.
 
 Rationale: a business card is a layout puzzle, not a document. Which string is
 the job title versus the company tagline is decided by font size, position, and
@@ -600,8 +623,9 @@ phone number, domain, or date not present in the source.
 ### Transcription
 
 OpenAI Whisper. **`language` left unset** — auto-detect. Arabic/English
-code-switching is expected and normal. Raw transcript stored regardless of
-extraction quality.
+code-switching is expected and normal. Raw transcript is written to
+`processing_jobs.output` by WF-03. WF-04 copies it into
+`extraction_runs.raw_transcript` when composing the capture-level run.
 
 ### Rule-based flagging
 
