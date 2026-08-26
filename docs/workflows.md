@@ -77,7 +77,7 @@ Two consequences, both binding:
 | WF-00 | Central error handler | 0 | Error trigger |
 | WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
-| WF-02 | Capture lifecycle | 1 | Called by WF-01 |
+| WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
 | WF-03 | Asset processors | 2 | Called by WF-02 |
 | WF-04 | Structured extraction | 2 | Called by WF-03 |
 | WF-05 | Entity resolution | 2 | Called by WF-04 |
@@ -247,24 +247,43 @@ storage before anything else happens.**
    allowlist **is** `bot_state`; there is no separate table and no `$env`.
 2. Parse the update. Branch on type: command · photo · audio/voice · document ·
    text · album member (`media_group_id` present) · callback query.
-3. **Commands** → WF-02 with the command name.
+3. **Commands** → WF-02 with the GAP 1 payload (`action` = the command name).
+   WF-01 is the only workflow that sends Telegram. WF-02 returns `reply_text`;
+   WF-01 sends it. If storage failed, WF-01 sends nothing — that invariant
+   lives in one place.
 4. **Media:**
    a. Extract `file_unique_id`. **Early exit if it already exists in `assets`**
       — Telegram redelivery is normal.
    b. Get file path via `getFile`; download binary.
-   c. **Upload to Supabase Storage** (`httpHeaderAuth`, `x-upsert: true`,
-      deterministic path `{owner_id}/{capture_id}/{asset_id}-{name}`).
-   d. **Only after upload succeeds**, insert the `assets` row with
-      `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   c. **Mint `asset_id`** in n8n (`crypto.randomUUID()`) **before** upload.
+      The storage path contains `asset_id`, but the `assets` row is inserted
+      only after upload succeeds. Ordering: **mint → upload → insert**
+      (`architecture.md` §5).
+   d. **Upload to Supabase Storage** (`httpHeaderAuth`, `x-upsert: true`,
+      deterministic path `{owner_id}/{capture_id}/{asset_id}-{name}` where
+      `{name} = {telegram_file_unique_id}.{ext}` — not an original filename).
+   e. **Only after upload succeeds**, insert the `assets` row using the
+      minted uuid, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
       Phase 1 `kind` is the Telegram media type, not a content classification
       (`architecture.md` §4, two-stage kind):
       - Telegram voice or audio → `audio`
       - Telegram photo or image → `photo` (unclassified)
       - Telegram document → `document`
-   e. Resolve or create the target capture via WF-02.
-5. **Album handling:** buffer members sharing a `media_group_id`. If more than
-   two images, send an inline keyboard: *"N images — separate people, or one
-   person?"* and hold the assets against a pending capture until answered.
+   f. Resolve or create the target capture via WF-02 (`action=resolve_target`).
+5. **Album handling (mechanism; implementation is packet 1.4).** Telegram
+   delivers each album member as a separate update, so twenty members are
+   twenty WF-01 executions with no shared memory. "Buffer members sharing a
+   `media_group_id`" is not implementable as a local buffer.
+   - The first member creates a capture carrying the group id at
+     `captures.flags->>'media_group_id'`.
+   - Every later member finds that capture by the same key and attaches.
+   - Concurrent INSERTs race; migration `013`'s partial unique index makes
+     the loser re-select the winner. No application-level lock.
+   - When the group exceeds two images, **one** inline prompt:
+     *"N images — separate people, or one person?"* The answer either
+     leaves the capture intact or splits assets into one capture per image.
+     Splitting happens **after** assets are stored, so no answer and no
+     callback can lose an asset.
 6. **Text** → typed note on the open capture, or `/ask` if prefixed.
 
 **Critical:** if step 4c fails, **no receipt is sent**. Silence must mean
@@ -274,41 +293,122 @@ failure. The owner is never falsely reassured.
 
 ## WF-02 — Capture lifecycle
 
-**Phase 1** · **Trigger:** called by WF-01
+**Phase 1** · **Triggers:** Execute Sub-workflow (called by WF-01) **and**
+Schedule (inactivity sweep). A sub-workflow cannot hold a schedule, so both
+live on WF-02.
+
+**Do not activate in packet 1.2.** The Schedule Trigger stays inactive until
+packet 1.3 is accepted. An auto-close sweep running before the capture path
+exists can only close things that should not be closed.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
+**WF-02 never sends a Telegram message.** Every send happens in WF-01, so the
+rule "if storage fails, no receipt is sent" is enforced in one place. A
+second send point is how that invariant rots.
+
+### Call contract (WF-01 → WF-02)
+
+Execute Sub-workflow Trigger. Accepts **exactly** this shape; any other is
+rejected with `ok=false`, `error_code=malformed_payload`, and **no row
+written anywhere**:
+
+```json
+{
+  "owner_id":         "uuid",
+  "telegram_user_id": 0,
+  "action":           "new | done | batch | status | resolve_target | sweep",
+  "asset_count_hint": 0,
+  "correlation_id":   "text"
+}
+```
+
+`owner_id`, `telegram_user_id`, `action`, and `correlation_id` are required
+on the WF-01 path. `asset_count_hint` is optional (`/done` receipt only).
+`action=sweep` is produced by the Schedule Trigger, not by WF-01, and does
+not require `owner_id`.
+
+The contract types `correlation_id` as text. `audit_log.correlation_id` is
+`uuid` (migration 005). WF-02 always echoes the text into `after.correlation_id`
+and writes the uuid column only when the value is a uuid. No schema change.
+
+### Return contract
+
+```json
+{
+  "ok":            true,
+  "capture_id":    "uuid | null",
+  "capture_no":    0,
+  "mode":          "normal | batch",
+  "item_count":    0,
+  "reply_text":    "WF-01 sends this; WF-02 never does",
+  "state_echo":    "uses capture_no, never the uuid",
+  "error_code":    "text | null"
+}
+```
+
+The sweep branch produces no `reply_text` and sends nothing. The stamp is
+the signal; it is visible in review.
 
 ### `/new`
-1. If an open capture exists, close it (`close_reason = superseded`).
+1. If an open capture exists, close it (`status` leaves `open`,
+   `close_reason = superseded`).
 2. Insert a new `captures` row, `status = open`, `event_id` = LEAP 2026.
-3. Update `bot_state.open_capture_id`.
-4. Reply with the new capture number (`captures.capture_no`, never the uuid).
+   `capture_mode` / `card_only` follow current `bot_state.mode`.
+3. Update `bot_state.open_capture_id` and `last_activity_at`. `RETURNING`
+   `id`, `capture_no`.
+4. `reply_text` uses `captures.capture_no`, never the uuid:
+   `Capture #<n> open`.
 
 ### `/done`
-1. Close the open capture (`close_reason = explicit`).
+1. Close the open capture (`status` leaves `open`, `close_reason = explicit`).
 2. Count attached assets.
-3. Reply `✓ Capture #47 saved · 2 items` using `captures.capture_no`, never
-   the uuid.
+3. `reply_text` = `✓ Capture #<capture_no> saved · <n> items` using
+   `captures.capture_no`, never the uuid. `asset_count_hint` may populate
+   `<n>` when the caller already knows the count.
 4. Dispatch WF-03 for each unprocessed asset. **Do not wait** —
-   `waitForSubWorkflow: false`.
-5. If nothing is open, say so plainly.
+   `waitForSubWorkflow: false`. **Packet 1.2: WF-03 does not exist yet.
+   The dispatch is an explicit NoOp terminal labelled as such.**
+5. If nothing is open, `reply_text` = `nothing open`. No crash, no phantom
+   row.
+6. In batch mode, `/done` exits batch (`bot_state.mode = normal`) and
+   returns the batch summary shape instead of the per-capture receipt
+   (`prd.md` §4): `"<n> cards processed · <clean> clean · <review> need
+   review · <failed> failed"`. Until WF-03 exists, clean / review / failed
+   are counts of sibling batch captures in those statuses (zero in Phase 1).
 
 ### `/batch`
-Sets `bot_state.mode = batch`. Every subsequent photo creates its own capture
-with `capture_mode = batch`, marked `card_only`. **Suppresses per-capture
-receipts.** `/done` exits batch and sends one closing summary:
-*"28 cards processed · 24 clean · 3 need review · 1 failed"*.
+Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
+photo creates its own capture with `capture_mode = batch`, marked `card_only`.
+**Suppresses per-capture receipts** (WF-01 honours `mode`). `/done` exits
+batch.
 
 ### `/status`
-Reports the open capture, its item count, and the current mode.
+Reports the open capture (`capture_no`), its item count, and the current
+mode. If nothing is open, `reply_text` = `nothing open`.
+
+### `resolve_target`
+Return the open capture, or open one silently (orphan adoption) and say so
+in `state_echo`. **Never reject.** Media with no open capture must still
+land somewhere (`prd.md` §4 guardrail 3).
+
+### Sweep (Schedule Trigger)
+- Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;
+  never inherit the container default).
+- Close every capture with `status='open'` whose `bot_state.last_activity_at`
+  is older than the inactivity window, stamping `close_reason='auto'`.
+  `status` leaves `open` so a later sweep does not re-close. Clear
+  `bot_state.open_capture_id`. Send nothing. No `reply_text`.
+- **Inactivity window: 10 minutes** (`prd.md` §4 guardrail 2). Stored as a
+  documented constant in the sweep SQL (`interval '10 minutes'`), **not**
+  in `$env` (denied instance-wide) and not as a new `events` column (no
+  extra migration in this packet).
+- Schedule stays **inactive** until packet 1.3 is accepted.
 
 ### Guardrails
 - **Implicit close on `/new`** — see above.
-- **Inactivity auto-close:** a scheduled sweep closes captures idle beyond the
-  configured window, stamping `close_reason = auto`.
-- **Orphan adoption:** media arriving with no open capture opens one silently
-  and tells the owner. **Never reject.**
-- **State echo:** every reply includes current state, using
+- **Inactivity auto-close** — sweep above.
+- **Orphan adoption** — `resolve_target` above. **Never reject.**
+- **State echo:** every non-sweep return includes current state, using
   `captures.capture_no`, never the uuid.
 
 ---
