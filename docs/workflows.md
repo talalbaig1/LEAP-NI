@@ -342,26 +342,31 @@ Contract payloads for WF-02 (`Command payload`, `Resolve payload`,
 with `alwaysOutputData` sits on the media path (`Duplicate check`) and
 emits `{}` on zero rows.
 
-**`$json` audit (packet 1.3b, both workflows).** Any expression that
-reads `$json` after a Postgres / HTTP / Crypto node that may have
-replaced the item.
+**Named-node audit (packet 1.3c, both workflows).** Every remaining
+expression that reads `$json`, `$input`, or the previous item's `binary`
+rather than a named node. Listed even where currently safe.
 
-| Location | Verdict |
-|---|---|
-| WF-01 `Command payload`, `Resolve payload`, `Text resolve payload` | **Fixed** — named `Attach correlation` |
-| WF-01 `Telegram getFile` `fileId`, `Upload to Storage` URL / content-type | **Fixed** — named `Mint asset` / `Prep upload` |
-| WF-01 `Allowlist` query (Telegram Trigger item) | Already safe — first I/O, item is the trigger |
-| WF-01 `Allowlisted?` `$json.owner_id`, `Reached LEAP-NI?` `$json.name` | Already safe — gate on the Postgres node it sits on |
-| WF-01 `Route type` `$json.branch` | Already safe — item is `Attach correlation` |
-| WF-01 `Already stored?` / `Asset row returned?` / `Note row returned?` `$json.id` | Already safe — gate on that Postgres output (empty `{}` means miss) |
-| WF-01 `Media capture present?` / `Text capture present?` `$json.capture_id` | Already safe — item is the Execute Workflow result |
-| WF-01 `Upload succeeded?` `$json.statusCode` | Already safe — item is the HTTP response |
-| WF-01 `Command has reply?` / `Send command reply` | Already safe — item is Call WF-02 |
-| WF-01 `Text is ask?` `$json.is_ask` | Already safe — item is `Attach correlation` |
-| WF-01 `Duplicate check` / `Insert asset` `queryReplacement` | Already named nodes |
-| WF-01 `Append typed note` `$json.capture_id` | Already safe — item is Call WF-02; note text / owner_id already named |
-| WF-02 Action SQL `queryReplacement` | Already named `Validate payload` |
-| WF-02 compose / row-returned gates `$json` | Already safe — item is the Action Postgres row just produced |
+| Location | What it reads | Verdict |
+|---|---|---|
+| WF-01 `Prep upload` | `$('Telegram getFile').item.binary` + `$('Hash sha256').item.json.sha256` | **Fixed** — no longer `$input` after Hash |
+| WF-01 `Telegram getFile` | `download: true` + `operation: get` explicit; `fileId` from `$('Mint asset')` | **Fixed** |
+| WF-01 `Bytes present?` | `$('Prep upload').item.json.size_bytes` / `sha256` | **New** — named, before PUT |
+| WF-01 `Upload to Storage` URL / content-type | `$('Prep upload')` | Named. PUT *body* is the incoming item field `data` (HTTP node has no named-binary expression). That item is the IF pass-through of Prep, which copied getFile binary. Safe today; inserting Crypto/Code/HTTP between Prep and PUT would drop it again. |
+| WF-01 `Hash sha256` | incoming `binary.data` from getFile | Intended — this node consumes those bytes. It emits json-only; callers must not use its binary. |
+| WF-01 `Mint asset` | `$input.first().json` for the uuid | Currently safe — `Mint asset uuid` (Crypto) sits immediately upstream. Named `$('Mint asset uuid')` would match the rule. |
+| WF-01 `Attach correlation` | `$input.first().json.data` for the uuid | Same as Mint asset, with `Mint correlation`. |
+| WF-01 `Allowlist` `$json.message?.from?.id` | Telegram Trigger item | Safe — first I/O |
+| WF-01 `Allowlisted?` `$json.owner_id`, `Reached LEAP-NI?` `$json.name` | the Postgres node it sits on | Safe |
+| WF-01 `Route type` `$json.branch` | `Attach correlation` item | Safe |
+| WF-01 `Already stored?` / `Asset row returned?` / `Note row returned?` `$json.id` | that Postgres output | Safe — empty `{}` means miss |
+| WF-01 `Media/Text capture present?` `$json.capture_id` | Execute Workflow result | Safe |
+| WF-01 `Upload succeeded?` `$json.statusCode` | the HTTP response | Safe |
+| WF-01 `Command has reply?` / `Send command reply` | Call WF-02 item | Safe |
+| WF-01 `Text is ask?` `$json.is_ask` | `Attach correlation` | Safe |
+| WF-01 `Duplicate check` / `Insert asset` `queryReplacement` | already named | Safe |
+| WF-01 `Append typed note` `$json.capture_id` | Call WF-02; note/owner already named | Safe |
+| WF-02 Action SQL `queryReplacement` | `$('Validate payload')` | Safe |
+| WF-02 compose / row-returned gates `$json` | the Action Postgres row just produced | Safe |
 
 ### Terminals — silence to the owner, alarm to the operator
 
