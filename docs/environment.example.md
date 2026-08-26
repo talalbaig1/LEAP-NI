@@ -9,6 +9,7 @@ credential store and Supabase — never in any file in this repo.
 - ElderWise error workflow ID (pattern reference only): `<ERROR_WF_ID>`
 - LNI error workflow ID (WF-00, created in Phase 0): `TBD`
 - n8n instance env `LNI_OWNER_UUID` (WF-00 `audit_log.owner_id`). Required. Never commit the value. WF-00 reads it via a Set-node expression, not from Code (`$env` is denied in the JS task runner).
+- n8n instance env `N8N_BLOCK_ENV_ACCESS_IN_NODE` must be unset or `false`. Observed 26 Aug 2026: it is enabled, so `$env.LNI_OWNER_UUID` cannot be read and WF-00 fails before the audit write. The owner must disable that block (container env, then restart n8n) before WF-00 can function. This is not an LNI application secret.
 - n8n instance env `LNI_TELEGRAM_CHAT_ID` (WF-00 repeat-failure Telegram). If unset when an alert is owed, WF-00 writes `workflow_error_alert_undeliverable` rather than failing silent.
 
 ## Supabase
