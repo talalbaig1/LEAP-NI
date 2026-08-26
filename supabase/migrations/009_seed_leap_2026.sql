@@ -1,26 +1,38 @@
 -- 009_seed_leap_2026
--- owner_id is resolved from auth.users. Zero users is a hard failure.
--- Re-run must not create a second LEAP 2026 row (unique owner_id, name).
+-- owner_id is resolved by explicit email match on lni.owner_email.
+-- Never by creation order. Never a hardcoded UUID.
+-- Set the GUC at apply time (SET LOCAL / set_config); do not commit the email.
 
 do $$
 declare
   v_owner uuid;
-  v_n integer;
+  v_email text;
+  v_unconfirmed boolean;
 begin
-  select count(*)::integer into v_n from auth.users;
-  if v_n = 0 then
+  v_email := nullif(btrim(current_setting('lni.owner_email', true)), '');
+  if v_email is null then
     raise exception
-      'LNI 009_seed_leap_2026: auth.users is empty. Create the owner Auth user (and the second test user) before seeding. owner_id must not be null or a placeholder.';
+      'LNI 009_seed_leap_2026: lni.owner_email is not set. Set it with SET LOCAL before applying. Do not fall back to earliest auth.users row.';
+  end if;
+
+  select exists (
+    select 1 from auth.users where lower(email) = lower(v_email)
+  ) into v_unconfirmed;
+
+  if not v_unconfirmed then
+    raise exception
+      'LNI 009_seed_leap_2026: no auth.users row matches lni.owner_email.';
   end if;
 
   select id into v_owner
   from auth.users
-  order by created_at asc nulls last, id asc
+  where lower(email) = lower(v_email)
+    and email_confirmed_at is not null
   limit 1;
 
   if v_owner is null then
     raise exception
-      'LNI 009_seed_leap_2026: failed to resolve owner_id from auth.users.';
+      'LNI 009_seed_leap_2026: auth.users row matching lni.owner_email is not email-confirmed.';
   end if;
 
   insert into public.events (
