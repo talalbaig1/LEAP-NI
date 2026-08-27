@@ -27,7 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
-| Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` — never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
+| Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
@@ -111,6 +111,13 @@ those fields. Behaviour we depend on (Telegram `download`, sweep
 `minutesInterval`) must be **explicit in the saved JSON** — defaults
 cannot be verified by read-back.
 
+`$('Node').item` resolves through the paired-item chain and throws
+when that node is not an ancestor of the current item. Across a
+Merge with useDataOfInput, the discarded branch is NOT an ancestor.
+Use `$('Node').first()` for cross-branch reads after a Merge. Named-
+node sourcing is necessary but not sufficient - `.item` still carries
+a lineage dependency that `.first()` does not.
+
 **Empty item vs zero counts (packet 3.6).** A real SQL row with
 captured = 0 is a valid report and SHOULD send.
 An empty item from alwaysOutputData on zero rows is NOT a report and
@@ -121,7 +128,8 @@ them apart. Never gate on captured > 0.
 LNI workflow.** Fan-out from the scheduled-send gate. Send Telegram and
 Gmail in parallel. Merge **after** both attempts, never before (a
 Telegram `retryOnFail` must not delay mail). Delivery is proven by
-Telegram `message_id` or Gmail `id` — never by "the node ran".
+Telegram `message_id` or Gmail `id` via `$('Node').first()` — never
+`.item` across the Merge, never by "the node ran".
 `stopAndError` only when both channels are empty or both failed.
 Empty `chat_id` is not fatal by itself if email is present.
 
@@ -1412,9 +1420,11 @@ must not copy WF-07's old serial graph.**
    - `Email present?` true → Gmail (`continueOnFail: true`,
      `onError: continueRegularOutput`). False → skip email.
 4. After Merge: IF at least one delivered. Delivery is Telegram
-   `message_id` or Gmail `id` from the **named** send node — never
-   "the node ran". A `continueOnFail` item with an `error` is not
-   delivered. True → NoOp `Scheduled done`. False → `stopAndError`
+   `message_id` or Gmail `id` from the **named** send node via
+   `$('Node').first()` — never `.item` (the discarded Merge branch
+   is not an ancestor) and never "the node ran". Keep `isExecuted`
+   guards. A `continueOnFail` item with an `error` is not delivered.
+   True → NoOp `Scheduled done`. False → `stopAndError`
    (both channels empty or both failed) so WF-00 runs.
 5. Empty-item Load digest must not reach compose or send (gate on
    named Load `kind` + `riyadh_date`, not on `captured > 0`).
