@@ -1313,6 +1313,11 @@ scope, not today-only). Same scope lower bound as the day close
 | gaps | `events.target_sectors` minus observed sector keys. Empty array → print `Target sectors not set` — do not invent a list |
 | follow-ups due today | `follow_ups.status = 'open'` AND due date = today Riyadh |
 | unreviewed | `people.review_status = 'unreviewed'` plus `captures.status = 'needs_review'` plus `entity_candidates.decision = 'pending'` |
+| stuck (event to date) | captures with `status='processing'` AND `closed_at IS NOT NULL`, bounded below by the digest `since` |
+
+Day close is today-only, so a capture that jams and stays jammed is
+invisible to that report. Until WF-09 exists, the briefing stuck
+line is the digest's only view of leftover `processing` rows.
 
 **Launch facts (inert, not defects).** `follow_ups` has zero rows.
 Nothing in WF-01 through WF-05 writes one, so "follow-ups due today"
