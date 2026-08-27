@@ -662,13 +662,20 @@ When `image_type` is `business_card`, people/company fields are the card
 extraction. When `scene` or `other`, `scene_description` is contextual
 only — **no facial recognition, no identification of people**.
 
-**QR / screen contact-share (packet 3.7b).** A phone or laptop screen
-showing a QR contact-share code is `business_card` when a proper name
-is printed on that screen, not `scene`. Transcribe printed fields only.
-GPT-4o **cannot** decode QR codes — never attempt it, never invent an
-email or phone that is not printed. Ceiling: recovers name, title and
-company when printed; **never** recovers details encoded only inside
-the code.
+**QR / screen contact-share (packet 3.7b, measured packet 3.13).**
+A QR contact-share screen is captured exactly as well as the app
+prints it. GPT-4o cannot decode the pattern, so only readable text is
+recoverable - but that text often includes the email and phone.
+Two measured points, 27 Aug 2026:
+  Capture 68 - screen showed the code and the app brand `wave` only.
+  `image_type` `other`, zero people, `needs_review`, nothing recoverable.
+  Capture 69 - screen printed name, title, company, email and phone.
+  `image_type` `business_card`, full contact captured, status `ready`,
+  `flag_reasons` empty.
+Operational rule: if the person's details are readable on the screen,
+photograph it. If only a code is visible, scan it and screenshot the
+contact page it opens, or record a voice note.
+Captures **#68** and **#69** stay as evidence and are **not retro-fixed**.
 
 **Name fields on the card JSON (and later on `people`).**
 
