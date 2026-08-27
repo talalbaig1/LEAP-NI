@@ -1493,8 +1493,9 @@ Enqueue is **not** this workflow's job:
 - **Company fallback:** `organizations/enrich` only when a company has
   no enriched person.
 
-Ceilings for both providers are read from a **Postgres config row**,
-never `$env`.
+Ceilings for both providers are read from **`lni_config`**
+(`apollo_daily_ceiling`, `apollo_lifetime_ceiling`,
+`tavily_lifetime_ceiling`), never `$env`.
 
 ### Adapter envelope
 
@@ -1519,13 +1520,17 @@ Successful payload is also stored on `enrichment_records` (`provider`,
 
 ### Credit guard and ledger ordering
 
-1. Read the provider ceiling from the Postgres config row.
-2. Sum today's `credit_ledger` spend for that provider.
+1. Read the provider ceiling from `lni_config`.
+2. Sum today's `credit_ledger` spend for that provider (`status` in
+   `'attempted'` and `'confirmed'` — an attempted row is already a
+   reserved spend).
 3. **If at or above the ceiling, stop.** Log and alert. Do not call the
    provider.
 4. **Write the `credit_ledger` row BEFORE the provider call, never
-   after.** A crash after a 200 must not lose a spend. A retry loop
-   that only books spend on success will double-charge.
+   after.** `status = 'attempted'` on insert; update to `'confirmed'` /
+   `'no_match'` / `'failed'` after the response. A crash after a 200
+   must not lose a spend. Reconcile against the delta in Apollo
+   `num_credits_remaining`, never `num_lead_credits_used`.
 
 ### Person path (automatic, and `/flag`)
 
