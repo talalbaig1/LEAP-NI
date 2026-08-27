@@ -648,6 +648,14 @@ When `image_type` is `business_card`, people/company fields are the card
 extraction. When `scene` or `other`, `scene_description` is contextual
 only — **no facial recognition, no identification of people**.
 
+**QR / screen contact-share (packet 3.7b).** A phone or laptop screen
+showing a QR contact-share code is `business_card` when a proper name
+is printed on that screen, not `scene`. Transcribe printed fields only.
+GPT-4o **cannot** decode QR codes — never attempt it, never invent an
+email or phone that is not printed. Ceiling: recovers name, title and
+company when printed; **never** recovers details encoded only inside
+the code.
+
 **Name fields on the card JSON (and later on `people`).**
 
 | Field | Meaning |

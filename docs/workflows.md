@@ -118,6 +118,21 @@ Use `$('Node').first()` for cross-branch reads after a Merge. Named-
 node sourcing is necessary but not sufficient - `.item` still carries
 a lineage dependency that `.first()` does not.
 
+**Absent Telegram `parse_mode` is NOT plain text on this build.**
+Execution **254927** (WF-09, before `parse_mode` was set) returned
+verbatim: `Bad Request: can't parse entities: Can't find end of the
+entity starting at byte offset 121`. Default Markdown treated `_` in
+`failed_24h` as an unclosed italic. WF-07 `Telegram digest` had
+`parse_mode` **absent** — the day-close line `#n needs_review: …`
+would hit the same failure the first time any capture is flagged
+(first real event day). Packet 3.7b: both scheduled Telegram sends
+set `parse_mode: HTML` explicitly. Compose must HTML-escape `&`,
+then `<`, then `>` **before** the string reaches a Telegram node
+(`telegram_text`). Do not feed that escaped string to Gmail
+(`emailType: text`) — Gmail keeps `reply_text` plain. An ampersand
+in a company name under HTML is the same class of send-break as `_`
+under implicit Markdown.
+
 **Empty item vs zero counts (packet 3.6).** A real SQL row with
 captured = 0 is a valid report and SHOULD send.
 An empty item from alwaysOutputData on zero rows is NOT a report and
@@ -413,6 +428,28 @@ LNI bot only and must not disturb any ElderWise webhook.
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
 5. **Branch:** command | photo | voice/audio | document/video | text | callback.
    Commands are `text` starting with `/` and win over the text branch.
+
+   **Diagnosis only (packet 3.7b) — do not implement until owner rules.**
+
+   - **Telegram `contact`.** Live `Classify update` has no `msg.contact`
+     branch. The update is not command/photo/voice/document/text/
+     callback, so `branch` stays `'unknown'` and `Route type` fallback
+     is `Unknown type terminal` (silent NoOp). A contact payload carries
+     `phone_number`, `first_name`, `last_name`, and sometimes `vcard` —
+     structured data better than OCR. Proposed ingest (not built): new
+     `branch='contact'`; reply immediately so the owner is not silent;
+     persist via WF-02 into `people` with exact phone/name from the
+     payload (no getFile unless `vcard` is present and we choose to
+     store it as an asset). That needs a new `people.source_type`
+     value (live CHECK is `card | voice_note | typed_note | photo |
+     enrichment`) and touches **ACTIVE** WF-01 and WF-02. Wait for
+     the ruling.
+   - **`.vcf` as document.** Live: `msg.document` → `branch='document'`,
+     `kind='document'`, stored. WF-02 enqueue is `audio → transcription`,
+     **everything else → `card_vision`**. A `.vcf` therefore gets a
+     vision call on a text file. Diagnosis only; do not fix in this
+     packet.
+
 6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
    without the leading `/`, is `action`. **Commands never touch Storage.**
    Publish-order: activate the callee before adding the Call on WF-01.
@@ -536,7 +573,7 @@ file bytes, or message text.
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
 | Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
 | Callback terminal | Album callback not yet implemented (packet 2.1 design only). Today a silent NoOp. |
-| Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
+| Unknown type terminal | Update is none of command/photo/voice/document/text/callback. **Live (packet 3.7b):** Telegram `contact` messages have **no branch** in `Classify update` and fall here — silent NoOp, no reply, nothing stored. `.vcf` documents take the **document** branch (stored `kind='document'`), not this terminal. |
 | Command sent / Media stored / Note done | Happy path |
 
 ### Kind mapping (live constraints, 26 Aug 2026)
@@ -908,13 +945,26 @@ node (`Card engine config`) and read from there. Do not scatter it.
    packet 3.6 identity ruling):
    `full_name` is identity and must be non-null. If the card prints a
    Latin name, `full_name` uses it **exactly as printed** and is never
-   re-transliterated. An Arabic-only (non-Latin) `full_name` is
+   re-transliterated. If the card is Arabic-only, **transliterate into
+   `full_name`** and put the original in `name_original_script`. An
+   Arabic-only stored `full_name` (transliteration failed) is still
    **accepted as identity** and does not force `needs_review`.
-   `name_original_script` is the verbatim original. `name_original_script`
-   alone is still not identity (trap 7 unchanged). Never discard the
-   original. Never invent a Latin name the card does not support.
+   `name_original_script` alone is still not identity (trap 7
+   unchanged). Never discard the original. Never invent a Latin name
+   the card does not support.
    A prove re-run INSERTs a **new** `card_vision` row; the original
    succeeded row is not updated (it is evidence).
+
+   **QR / screen contact-share (packet 3.7b).** An image may be a phone
+   or laptop **screen** showing a QR contact-share code. Classify it as
+   `business_card` when a proper name is printed on that screen, not as
+   a `scene`. Transcribe every **printed** field (name, title, company,
+   visible email or phone) into `people[]` under the existing card
+   rules. **Never attempt to decode the QR pattern.** GPT-4o cannot
+   decode QR codes; do not claim it can. Never invent an email or phone
+   that is not printed as readable text. **Ceiling:** this recovers
+   name, title and company when printed. It **never** recovers contact
+   details encoded only inside the code.
 
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
@@ -1038,7 +1088,7 @@ and optional — WF-04 **claims from Postgres itself**.
    labelled source evidence. Preserve `name_original_script`; apply the
    same `full_name` transliteration contract as WF-03
    (`architecture.md` §6). Prompt contract (packet 2.6b `wf04-v2`,
-   packet 3.7 `wf04-v3`):
+   packet 3.7 `wf04-v3`, packet 3.7b `wf04-v4`):
    - **`summary`:** 1–3 sentences of what was said or noted. **Required**
      when a `[TRANSCRIPT]` or `[TYPED_NOTE]` block has text. Null **only**
      when both blocks are empty.
@@ -1068,12 +1118,17 @@ and optional — WF-04 **claims from Postgres itself**.
      two images; `wf04-v2` emitted **two** `people[]` and **two**
      `companies[]` for one human. The prompt previously had **no** dedup
      instruction. Captures **#62** and **#63** are **not retro-fixed**.
-     Live `wf04-v3` system prompt: dropped `non-null Latin full_name` and
-     the "transliterate Arabic-only into full_name" instruction so an
-     Arabic-only card keeps the original in `full_name` (otherwise the
-     informational Non-Latin flag cannot fire). Two-sided addendum
-     appended. No other prompt rewrite. Whisper `language` stays absent
-     (no transcription node in WF-04).
+     Live `wf04-v4` system prompt (packet 3.7b): `full_name` is **not**
+     required to be Latin (requiring Latin would discard people the
+     transliteration fails on). Arabic-only: **transliterate into
+     `full_name`** and keep the verbatim original in
+     `name_original_script`. Reason: `full_name == name_original_script`
+     makes `name_original_script` the identity, which trap 7 forbids.
+     The owner needs a searchable Latin name in the briefing and in
+     `/ask`. Capture **#61** is the target shape. The Non-Latin flag
+     never forces `needs_review` (D4 unchanged) and will now rarely
+     fire — that is success, not a failed test. Do not tune the prompt
+     to make a flag fire.
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
    the labelled sources. **Drop any person with a null or empty
@@ -1092,7 +1147,7 @@ and optional — WF-04 **claims from Postgres itself**.
 7. **Write ONE `extraction_runs` row per (`capture_id`,
    `prompt_version`)** (immutable evidence). Never UPDATE an existing
    row. `INSERT … WHERE NOT EXISTS` that pair so a bumped prompt
-   (e.g. `wf04-v3`) inserts **beside** `wf04-v2`, it does not overwrite.
+   (e.g. `wf04-v4`) inserts **beside** `wf04-v3`, it does not overwrite.
    Columns: `model`, `prompt_version`, `raw_vision_output` (jsonb of the
    labelled card/scene results), `raw_transcript` (concatenated
    `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Then set
@@ -1148,8 +1203,8 @@ Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 
 **Input contract:** a kick is optional — WF-05 **claims from Postgres
 itself**. Reads the **latest** `extraction_runs` row for the capture
-(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v3` re-proof is used
-without touching `wf04-v2`.
+(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v4` re-proof is used
+without touching `wf04-v3`.
 
 1. **Self-identify** before any write: `SELECT name, timezone, owner_id
    FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
@@ -1488,7 +1543,12 @@ reads `unknown`; `events.target_sectors` is the empty array, so the
 gaps line prints `Target sectors not set`. Do not invent a list. Do
 not treat either line as a bug.
 
-Compose. No LLM.
+Compose. No LLM. `Compose digest` emits `reply_text` (plain, for Gmail
+and the `/digest` return) and `telegram_text` (HTML-escaped `&` then
+`<` then `>`). `Telegram digest` sends `telegram_text` with
+`additionalFields.parse_mode: HTML`. Gmail stays `emailType: text` on
+`reply_text`. Absent `parse_mode` is not plain text on this build
+(`workflows.md` §1 trap; exec 254927).
 
 ### `/digest` return contract (source = call)
 
@@ -1700,7 +1760,9 @@ If any finding is non-zero: compose a short text (counts + up to 10
 `capture_no` / `job_type` lines). Telegram `parse_mode` is **HTML**
 explicit — default Markdown treats `_` in `failed_24h` as an unclosed
 italic (`can't parse entities`). Email still delivers in that case;
-set HTML anyway so Telegram is not a paper tiger. Then the **standard scheduled-send
+set HTML anyway so Telegram is not a paper tiger. `Compose findings`
+HTML-escapes `&` then `<` then `>` into `telegram_text`; Gmail keeps
+plain `reply_text`. Then the **standard scheduled-send
 topology** (packet 3.6, same as WF-07): fan-out, parallel Telegram +
 Gmail, Merge after both attempts, delivery proven by Telegram
 `message_id` or Gmail `id` — never by "the node ran". `stopAndError`
