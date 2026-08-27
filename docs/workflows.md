@@ -989,27 +989,22 @@ node (`Card engine config`) and read from there. Do not scatter it.
    succeeded row is not updated (it is evidence).
 
    **QR / screen contact-share (packet 3.7b, measured packet 3.13).**
-   A QR contact-share screen is only usable when the app prints the
-   person's details as readable text beside the code. Many print only
-   the code and their own branding - capture 68, 27 Aug 2026, returned
-   `image_type` `other` with `scene_description` naming only the app
-   brand `wave` and zero people. For those, nothing is recoverable:
-   GPT-4o cannot decode the pattern and there is no text to transcribe.
-   The capture correctly goes `needs_review` and appears in the
-   day-close flagged list, but the owner's `/done` receipt has already
-   been sent, so there is no in-the-moment warning. Operational rule:
-   scan the QR and screenshot the resulting contact page, or record a
-   voice note.
-
-   Live prompt (unchanged on this result): classify as `business_card`
-   **only** when a proper name is printed on that screen; never decode
-   the QR pattern; never invent an email or phone that is not printed
-   as readable text. Capture **#68** is the evidence for the nameless
-   case and is **not retro-fixed**. Capture **#69** (same packet) is the
-   printed-details case: `image_type` `business_card`, `assets.kind`
-   `business_card`, one person, one company, status `ready`, empty
-   `flag_reasons`. Printed name, title, company, email and phone all
-   came through as readable text. The QR pattern was not decoded.
+   A QR contact-share screen is captured exactly as well as the app
+   prints it. GPT-4o cannot decode the pattern, so only readable text is
+   recoverable - but that text often includes the email and phone.
+   Two measured points, 27 Aug 2026:
+     Capture 68 - screen showed the code and the app brand `wave` only.
+     `image_type` `other`, zero people, `needs_review`, nothing recoverable.
+     Capture 69 - screen printed name, title, company, email and phone.
+     `image_type` `business_card`, full contact captured, status `ready`,
+     `flag_reasons` empty.
+   Operational rule: if the person's details are readable on the screen,
+   photograph it. If only a code is visible, scan it and screenshot the
+   contact page it opens, or record a voice note.
+   Captures **#68** and **#69** stay as evidence and are **not
+   retro-fixed**. Live prompt unchanged: `business_card` only when a
+   proper name is printed; never decode the QR; never invent unprinted
+   contact details.
 
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
