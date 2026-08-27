@@ -1593,7 +1593,10 @@ Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 ### Alert (independent of digest)
 
 If any finding is non-zero: compose a short text (counts + up to 10
-`capture_no` / `job_type` lines). Then the **standard scheduled-send
+`capture_no` / `job_type` lines). Telegram `parse_mode` is **HTML**
+explicit — default Markdown treats `_` in `failed_24h` as an unclosed
+italic (`can't parse entities`). Email still delivers in that case;
+set HTML anyway so Telegram is not a paper tiger. Then the **standard scheduled-send
 topology** (packet 3.6, same as WF-07): fan-out, parallel Telegram +
 Gmail, Merge after both attempts, delivery proven by Telegram
 `message_id` or Gmail `id` — never by "the node ran". `stopAndError`
