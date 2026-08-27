@@ -172,3 +172,16 @@ API may be used **ONLY** against workflows whose name begins with `LNI ` or
 - Never restart, upgrade, or change instance settings.
 - If an operation would touch anything else: **STOP and report.**
   `rules.md` §12.
+
+## 16. Backslash escapes in jsCode written through the n8n REST API
+
+Backslash escapes in jsCode written through the n8n REST API must be
+DOUBLED in the JSON payload. Single `\b` is valid JSON for backspace, so
+it succeeds silently with the wrong value - a regex word boundary
+becomes a control character and the pattern never matches. Single `\d`
+`\w` `\s` are invalid JSON escapes and are mangled differently. Proven on
+WF-08 'Guard extra fields', 27 Aug 2026, where want_contact could
+never be true for an English question. WF-01 'Classify update' has
+split(/\\s+/) correctly doubled - the failure is inconsistent
+authoring, which is why it will recur. Prefer patterns with no
+backslash escapes in any jsCode written via REST.
