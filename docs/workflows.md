@@ -26,7 +26,8 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Terminal branches | Explicit NoOp **or** `stopAndError` | Makes every path visibly terminal. Correct outcomes are silent NoOps. A received-but-not-stored asset is a failure: `stopAndError` so WF-00 runs. |
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
-| Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
+| Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
+| Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` — never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
@@ -109,6 +110,25 @@ Two failures, one pattern (verified 26 Aug 2026 on WF-01):
 those fields. Behaviour we depend on (Telegram `download`, sweep
 `minutesInterval`) must be **explicit in the saved JSON** — defaults
 cannot be verified by read-back.
+
+**Empty item vs zero counts (packet 3.6).** A real SQL row with
+captured = 0 is a valid report and SHOULD send.
+An empty item from alwaysOutputData on zero rows is NOT a report and
+must NOT send. These are different things and the gate exists to tell
+them apart. Never gate on captured > 0.
+
+**Scheduled send topology (packet 3.6) — STANDARD for every scheduled
+LNI workflow.** Fan-out from the scheduled-send gate. Send Telegram and
+Gmail in parallel. Merge **after** both attempts, never before (a
+Telegram `retryOnFail` must not delay mail). Delivery is proven by
+Telegram `message_id` or Gmail `id` — never by "the node ran".
+`stopAndError` only when both channels are empty or both failed.
+Empty `chat_id` is not fatal by itself if email is present.
+
+Email exists to survive a Telegram-specific death, and serial wiring
+makes email depend on the thing it insures against. **WF-09 MUST use
+this and must not copy WF-07's old serial graph** (`Telegram digest` →
+`Email present?` → `Gmail digest`).
 
 **Binary and size — three standing rules (verified 26 Aug 2026).**
 
@@ -876,12 +896,14 @@ node (`Card engine config`) and read from there. Do not scatter it.
    `scene_description` only — **no facial recognition, no identification
    of people** (`rules.md` §7 rule 13).
 
-   **Name contract in the vision system prompt** (packet 2.5 defect 2):
-   `full_name` is the Latin transliteration; `name_original_script` is
-   the verbatim original. If the card prints a Latin name, `full_name`
-   uses it **exactly as printed** and is never re-transliterated. If the
-   card is Arabic-only, `full_name` is a transliteration and
-   `name_original_script` holds the original. Never discard the
+   **Name contract in the vision system prompt** (packet 2.5 defect 2,
+   packet 3.6 identity ruling):
+   `full_name` is identity and must be non-null. If the card prints a
+   Latin name, `full_name` uses it **exactly as printed** and is never
+   re-transliterated. An Arabic-only (non-Latin) `full_name` is
+   **accepted as identity** and does not force `needs_review`.
+   `name_original_script` is the verbatim original. `name_original_script`
+   alone is still not identity (trap 7 unchanged). Never discard the
    original. Never invent a Latin name the card does not support.
    A prove re-run INSERTs a **new** `card_vision` row; the original
    succeeded row is not updated (it is evidence).
@@ -1014,8 +1036,13 @@ and optional — WF-04 **claims from Postgres itself**.
    - **`topics`:** short sector or theme tags from that same text. Empty
      array only when both blocks are empty.
    - **People** must be proper names present in the sources. A person row
-     requires a non-null Latin `full_name`. `name_original_script` alone
-     is not identity. A person referred to but not named is omitted.
+     requires a non-null `full_name`. An Arabic-only (non-Latin)
+     `full_name` is **accepted as identity** and does not force
+     `needs_review` (packet 3.6, capture **#62** is the evidence; **not
+     retro-fixed**). The flag reason `Non-Latin script present in the
+     name field` remains in `flag_reasons` as an informational signal
+     only. `name_original_script` alone is still not identity (trap 7
+     unchanged). A person referred to but not named is omitted.
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
    the labelled sources. **Drop any person with a null or empty
@@ -1025,10 +1052,12 @@ and optional — WF-04 **claims from Postgres itself**.
    self-confidence. Set `flag_reasons` to the matching reason strings
    (empty array if none). Conditions: no name extracted (**`full_name`
    only** — `name_original_script` alone does not count); no email AND
-   no phone; non-Latin script present in `full_name`; empty transcript
-   despite audio longer than 5 seconds; two or more people detected on
-   one card; extraction output fails schema validation; capture contains
-   nothing usable.
+   no phone; non-Latin script present in `full_name` (**informational
+   only** as of packet 3.6 — does **not** force `needs_review`; WF-04 /
+   WF-05 status change is packet 3.7); empty transcript despite audio
+   longer than 5 seconds; two or more people detected on one card;
+   extraction output fails schema validation; capture contains nothing
+   usable.
 7. **Write ONE `extraction_runs` row per (`capture_id`,
    `prompt_version`)** (immutable evidence). Never UPDATE an existing
    row. `INSERT … WHERE NOT EXISTS` that pair so a bumped prompt
@@ -1162,8 +1191,15 @@ without touching `wf04-v1`.
    Do not skip the OCR-split path just because both rows have emails.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
-7. **Capture status:** `ready` when `flag_reasons` is empty;
-   `needs_review` otherwise. (`failed` is not set here.)
+7. **Capture status:** `ready` when `flag_reasons` is empty **or
+   contains only informational signals**; `needs_review` otherwise.
+   (`failed` is not set here.) Packet 3.6 ruling: `Non-Latin script
+   present in the name field` is informational and does **not** force
+   `needs_review`. An Arabic-only `full_name` is accepted identity.
+   `full_name` must still be non-null. `name_original_script` alone is
+   still not identity (trap 7 unchanged). Capture **#62** is the
+   evidence and is **not retro-fixed**. Live WF-05 still treats any
+   non-empty `flag_reasons` as `needs_review` until packet 3.7.
 8. **Notify:** WF-01 is the only workflow that sends Telegram
    (`workflows.md` WF-01). WF-05 does **not** add a second send point.
    Flagged → `needs_review` (visible). Unflagged → `ready` and **silent**.
@@ -1233,9 +1269,22 @@ literal. Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
 these — REST PUT after create, then read-back. Postgres credential
 **Leap-NI**. First execution self-identifies
-(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Wrong
-database → `stopAndError` (`Wrong database terminal`). Message: no
-comma, quote, or apostrophe.
+(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Gate
+`Row returned?`: `name` **equals** `LEAP 2026`, `typeValidation:
+strict` (same as WF-03/04/05). Wrong database → `stopAndError`
+(`Wrong database terminal`). Message: no comma, quote, or apostrophe.
+Self identify: `executeOnce: true` and `options.replaceEmptyStrings:
+false` explicit in saved JSON.
+
+After **Load digest** (`alwaysOutputData: true` kept): IF named Load
+`kind` equals `close` or `brief` (`typeValidation: strict`) AND
+`riyadh_date` notEmpty. False → `stopAndError`. Do not compose. Do not
+send. Do not return to WF-01.
+
+A real SQL row with captured = 0 is a valid report and SHOULD send.
+An empty item from alwaysOutputData on zero rows is NOT a report and
+must NOT send. These are different things and the gate exists to tell
+them apart. Never gate on captured > 0.
 
 ### Triggers
 
@@ -1298,6 +1347,11 @@ captured N · clean N · flagged N · failed N · stuck N
 Zero captured is still a real report (not silent). The **stuck** count
 is the figure that saves the project.
 
+A real SQL row with captured = 0 is a valid report and SHOULD send.
+An empty item from alwaysOutputData on zero rows is NOT a report and
+must NOT send. These are different things and the gate exists to tell
+them apart. Never gate on captured > 0.
+
 ### 7:00 AM — Morning briefing (deterministic, no model)
 
 Highest-value output. Highest-risk item. Counts **to date** (event
@@ -1335,22 +1389,39 @@ Compose. No LLM.
 
 ### Scheduled send
 
+Standard LNI scheduled-send topology (packet 3.6). Email exists to
+survive a Telegram-specific death, and serial wiring makes email
+depend on the thing it insures against. **WF-09 MUST use this and
+must not copy WF-07's old serial graph.**
+
 1. After compose: IF `source = schedule` AND `reply_text` notEmpty.
+   Call path (`source = call`) returns `reply_text` and does **not**
+   send.
 2. Resolve `chat_id` and owner email in the **same** Leap-NI Postgres
    node as the counts if possible; otherwise a second Leap-NI node
    (restore-by-name — a *new* node auto-assigns ElderWise).
    `chat_id` ← `bot_state.telegram_user_id`. Email ←
    `auth.users.email` for `events.owner_id`. Never `$env`.
-3. Gate `chat_id` notEmpty before Telegram. Same send node pattern as
-   WF-00 (`sendMessage`, `appendAttribution: false`).
-4. Gate email notEmpty before Gmail. Bind the existing Gmail OAuth
-   credential. `continueOnFail: true` on Gmail — Telegram already
-   delivered. Do not `stopAndError` the digest if mail fails.
-5. Zero-row UPDATE/`{success:true}` must not reach a send (gate on the
-   compose fields, named node).
+3. Fan-out from `Scheduled send?` **true**. Send in **parallel**. Merge
+   **after** both attempts, never before (Telegram `retryOnFail` must
+   not delay mail).
+   - `Chat id present?` true → Telegram (`sendMessage`,
+     `appendAttribution: false`, `retryOnFail: true`,
+     `onError: continueRegularOutput`). False → skip Telegram (not
+     `stopAndError`).
+   - `Email present?` true → Gmail (`continueOnFail: true`,
+     `onError: continueRegularOutput`). False → skip email.
+4. After Merge: IF at least one delivered. Delivery is Telegram
+   `message_id` or Gmail `id` from the **named** send node — never
+   "the node ran". A `continueOnFail` item with an `error` is not
+   delivered. True → NoOp `Scheduled done`. False → `stopAndError`
+   (both channels empty or both failed) so WF-00 runs.
+5. Empty-item Load digest must not reach compose or send (gate on
+   named Load `kind` + `riyadh_date`, not on `captured > 0`).
 
 **Must not:** log emails, phones, transcripts, signed URLs; call WF-06;
-deactivate WF-01–05; send on the `call` path (WF-01 owns that send).
+deactivate WF-01–05; send on the `call` path (WF-01 owns that send);
+deactivate WF-07 (22:00 timezone proof).
 
 ---
 
@@ -1512,8 +1583,18 @@ Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 ### Alert (independent of digest)
 
 If any finding is non-zero: compose a short text (counts + up to 10
-`capture_no` / `job_type` lines). Gate `chat_id` from `bot_state`.
-Telegram send (WF-00 pattern). Email copy, `continueOnFail: true`.
+`capture_no` / `job_type` lines). Then the **standard scheduled-send
+topology** (packet 3.6, same as WF-07): fan-out, parallel Telegram +
+Gmail, Merge after both attempts, delivery proven by Telegram
+`message_id` or Gmail `id` — never by "the node ran". `stopAndError`
+only when both channels are empty or both failed. Empty `chat_id` is
+not fatal if email is present.
+
+**WF-09 MUST use this and must not copy WF-07's old serial graph.**
+Email exists to survive a Telegram-specific death, and serial wiring
+makes email depend on the thing it insures against. WF-09's whole job
+is to speak when the normal path has gone quiet.
+
 `source` is always schedule or manual prove — WF-09 is never called
 by WF-01, so it always sends itself when dirty.
 
