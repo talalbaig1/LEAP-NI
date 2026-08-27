@@ -459,6 +459,13 @@ reasons, awaiting owner approval.
 density of shared family names this would quietly corrupt the dataset —
 and quiet corruption is worse than a visible gap.
 
+**Vision OCR is not reproducible on this card stock at `temperature: 0`
+(packet 3.9).** Same physical card, two runs, disagreed on Latin
+spelling and on phone. Exact email is the only stable join key. A
+stored phone is the first read that landed, not verified truth.
+Re-capturing a person raises a candidate per disagreeing field. Auto-link
+on name stays banned.
+
 **OCR-split emails (packet 2.7).** The same card captured twice can yield two
 unequal `email_normalized` values (a transposition, a dropped letter). That is
 the most likely duplicate-creation mechanism at this event. Exact-email auto-link
