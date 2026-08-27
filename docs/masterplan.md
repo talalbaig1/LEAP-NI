@@ -82,7 +82,7 @@ reason and a document update first.**
 | 5 | Bulk entry | `/batch` **and** album auto-detect | Evening reconciliation of a pocket of cards is the real high-volume pattern. |
 | 6 | Notification | Silent unless rule-based flag; receipt on `/done` | Owner's choice. A receipt is not a review card — it proves the pipeline is alive. |
 | 7 | Data model | Fully normalized at launch | Retrofitting onto 800 hand-corrected flat rows is days of work and risks losing edits. |
-| 8 | Enrichment | Company-first auto, person on demand | 1 credit per match. Six people from one company = 1 credit, not 6. |
+| 8 | Enrichment | Person-by-email auto, company derived from the same response | Apollo People Enrichment returns the person's organization block in one call. Person-first is richer and cheaper than a separate company enrich. |
 | 9 | Primary surface | Telegram-native; dashboard later | 1–9 PM the owner is standing, one hand free. A dashboard is a laptop surface. |
 | 10 | Digests | 10 PM close + 7 AM briefing + `/digest` | Evening = operational health. Morning = actionable intelligence while the event still runs. |
 | 11 | Retention | Indefinite + real per-contact delete | Owner's choice. Delete capability is what makes indefinite defensible. |
@@ -99,6 +99,12 @@ reason and a document update first.**
   (`prd.md` §5).
 - **#11** — Claude recommended 12-month raw retention. Owner chose indefinite.
   Accepted; per-contact delete promoted to a real feature.
+- **#8** — Decision 8 reversed 27 Aug 2026 by the owner. Original rationale was
+  credit economy (1 credit per company covered ~6 people). Apollo Basic
+  grants 2,500 credits/month, so that constraint no longer binds.
+  Apollo People Enrichment returns the person's organization block in
+  the same response, so person-first is both richer and cheaper than
+  company-first. Recorded as a deliberate reversal, not a silent change.
 
 ---
 
@@ -162,7 +168,7 @@ Full detail in `phases.md`.
 | 1 | Capture path | **Live 30 Aug** |
 | 2 | Extraction | **Live 30 Aug** |
 | 3 | Digests, `/ask`, watchdog | **Live 30 Aug** |
-| 4 | Enrichment | Stretch, gated 29 Aug |
+| 4 | Enrichment | Opened 27 Aug (owner override); 29 Aug capture gate unchanged |
 | 5 | Web dashboard | Post-LEAP |
 | 6 | pgvector RAG | Post-LEAP |
 | 7 | Follow-up drafting | Post-LEAP |
