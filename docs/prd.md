@@ -58,7 +58,7 @@ A PWA is built later (Phase 8), sharing the same backend.
 | `/done` | Closes the open capture (batch: all open batch captures). Standard reply: `✓ Capture #47 saved · 2 items`. Batch reply: `N cards received · processing` — extraction has not run yet (`prd.md` §5). |
 | `/batch` | Every subsequent photo becomes its own independent capture. |
 | `/status` | Shows what is currently open and in what mode. |
-| `/digest` | Runs the digest on demand. |
+| `/digest` | Runs the digest on demand. Before 12:00 Riyadh → morning briefing; otherwise → day close. WF-01 sends the `reply_text`. |
 | `/ask <question>` | Natural-language query over captures. |
 | `/fix <n>` | **Post-event** (packet 2.5 cut). Correct fields on a capture. `<n>` is `captures.capture_no`, never the uuid. |
 | `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). `<n>` is `captures.capture_no`, never the uuid. |
@@ -134,8 +134,10 @@ are deferred to the digest (WF-07), which runs after WF-03/04 have actually
 produced them.
 
 **If storage fails, no receipt is sent.** Silence means something went wrong.
-The owner must never be falsely reassured. All Telegram sends live in WF-01;
-WF-02 only returns `reply_text`.
+The owner must never be falsely reassured. Inbound chat replies live in
+WF-01; WF-02 / on-demand WF-07 / WF-08 only return `reply_text`. Scheduled
+digests and watchdog alerts send on their own cron execution (no parent
+WF-01); `chat_id` from `bot_state`, same pattern as WF-00.
 
 ### Flagging is rule-based, not model-reported
 
@@ -157,17 +159,21 @@ unclassified; WF-03 assigns the real `assets.kind` in Phase 2.
 |---|---|---|
 | Day close | 10:00 PM `Asia/Riyadh` | Operational health |
 | Morning briefing | 7:00 AM `Asia/Riyadh` | Actionable intelligence |
-| On demand | `/digest` | Either, any time |
+| On demand | `/digest` | The report matching Riyadh time of day |
 
 **10 PM close** — captured, clean, flagged, failed, **stuck**. The stuck count
 is the figure that saves the project: it is how the owner learns on day one that
-something is jammed, rather than on day four. Also copied to email as a durable
-record independent of Telegram history.
+something is jammed, rather than on day four. Scheduled close is copied to
+email as a durable record independent of Telegram history. `/digest` is
+Telegram-only (WF-01 sends).
 
 **7 AM briefing** — people met, companies, sector distribution, coverage gaps
-against targets, follow-ups due today. This is the only moment the collected
-data can change how the next eight hours are spent. After Thursday the event is
-over and the information is only useful for follow-up.
+against `events.target_sectors`, follow-ups due today, unreviewed count.
+Empty `target_sectors` prints "Target sectors not set" rather than inventing
+gaps. `companies.industry` is empty until Phase 4; the mix then reads
+`unknown`. This is the only moment the collected data can change how the
+next eight hours are spent. After Thursday the event is over and the
+information is only useful for follow-up.
 
 Example shape: *"14 people, 9 companies, mostly systems integrators. Nobody yet
 from your target sectors. 3 people asked you to follow up today."*
