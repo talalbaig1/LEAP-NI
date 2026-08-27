@@ -29,10 +29,10 @@ start, not by sliding the gate.
 | 31 Aug – 3 Sep | Event operations |
 | Sep onward | Phases 5–8 |
 
-**Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete (41/41
-assets preserved). Phase 2 in progress. Phase 3 remains **launch-blocking
-and untouched**. Phase 4 is dropped pre-event — enrichment on a 31 Aug
-capture works identically on 5 September. Phases 5–8 stay post-LEAP.
+**Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete. Phase
+2 complete. Phase 3 closed (WF-07/08/09 ACTIVE). Owner opened Phase 4
+on 27 Aug against the architect's gate recommendation; the **29 August
+capture gate does not move**. Phases 5–8 stay post-LEAP.
 
 **If Phase 2 threatens Phase 3, Phase 2 scope is cut first.** Phase 3
 (digests, `/ask`, watchdog) is not squeezed to finish Phase 2 extras. The
@@ -244,23 +244,43 @@ how a day is spent while the event is still running. **Test with real data on
 
 ## Phase 4 — Enrichment
 
-**Timing:** 30 Aug **only if Phases 0–3 are green on 29 Aug** · otherwise post-event
+**Timing:** Owner opened Phase 4 on 27 Aug 2026, before the 29 August gate
+(decision 8 reversal; recorded). The **29 August capture gate does not
+move.** If capture reliability is threatened, Phase 4 yields
+(`rules.md` §8). WF-01 stays untouched until the 07:00 28 Aug briefing
+is observed.
 
 ### Scope
-- WF-06: Apollo company enrichment by domain
-- `/flag` triggering person enrichment
-- Credit guard with daily ceiling and `credit_ledger`
-- Tavily fallback on no-match
+- WF-06 drains an enrichment job queue on a **schedule**. WF-05
+  **enqueues**; it does not dispatch per capture.
+- Auto-enrich any person with a non-null `email_normalized` whose
+  capture is not `needs_review`.
+- `/flag` force-enriches a person the guard skipped.
+- `organizations/enrich` fires only as a fallback for a company with no
+  enriched person.
+- Both provider ceilings read from a Postgres config row (never `$env`).
+- Credit guard with `credit_ledger`: ledger row **before** the provider
+  call.
+- Tavily company-website fallback only (`provider = 'tavily'`). Never
+  people data. Never merged into an Apollo row.
+- Writes land in `enrichment_records` only, except the LinkedIn-null
+  fill documented in `architecture.md` §7.
 
 ### Definition of done
-- Company enrichment fires automatically on domain availability
-- Person enrichment fires **only** on `/flag`
+- Person enrichment fires automatically on non-null `email_normalized`
+  when the capture is not `needs_review`
+- `/flag` force-enriches a person the auto-guard skipped
+- `organizations/enrich` runs only as the company fallback
 - Credit ceiling proven to hold under a forced retry loop
 - `credit_ledger` total reconciles against Apollo's reported balance
-- Tavily results labelled `provider = 'tavily'`, never conflated with Apollo data
+- Tavily results labelled `provider = 'tavily'`, never conflated with
+  Apollo data, never written as people fields
+- Captured `people.email` / `full_name` / `title` / `phone` are never
+  overwritten by enrichment
 
-**Deferring this costs nothing.** Company enrichment on a contact captured on
-31 August works identically on 5 September. The data is already in the building.
+**Capture still wins.** Enrichment on a contact captured on 31 August
+works identically on 5 September. The data is already in the building.
+Do not let this phase compete with ingest.
 
 ---
 
