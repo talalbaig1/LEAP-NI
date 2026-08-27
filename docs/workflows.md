@@ -1068,6 +1068,12 @@ and optional — WF-04 **claims from Postgres itself**.
      two images; `wf04-v2` emitted **two** `people[]` and **two**
      `companies[]` for one human. The prompt previously had **no** dedup
      instruction. Captures **#62** and **#63** are **not retro-fixed**.
+     Live `wf04-v3` system prompt: dropped `non-null Latin full_name` and
+     the "transliterate Arabic-only into full_name" instruction so an
+     Arabic-only card keeps the original in `full_name` (otherwise the
+     informational Non-Latin flag cannot fire). Two-sided addendum
+     appended. No other prompt rewrite. Whisper `language` stays absent
+     (no transcription node in WF-04).
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
    the labelled sources. **Drop any person with a null or empty
