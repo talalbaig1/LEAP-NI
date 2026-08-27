@@ -173,8 +173,9 @@ before digest/watchdog).
 
 ### Definition of done
 - `language` unset on the transcription node — verified in the live JSON
-- Arabic name preserved in `name_original_script`; `full_name` is Latin
-  transliteration when the card is Arabic-only (`architecture.md` §6)
+- Arabic name preserved in `name_original_script`; `full_name` must be
+  non-null. An Arabic-only `full_name` is accepted identity
+  (`architecture.md` §6, packet 3.6)
 - A card plus a 30-second voice note produces a reviewable record within
   2 minutes
 - Raw vision output, transcript, and structured output all traceable from one
