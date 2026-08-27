@@ -988,23 +988,24 @@ node (`Card engine config`) and read from there. Do not scatter it.
    A prove re-run INSERTs a **new** `card_vision` row; the original
    succeeded row is not updated (it is evidence).
 
-   **QR / screen contact-share (packet 3.7b).** An image may be a phone
-   or laptop **screen** showing a QR contact-share code. Classify it as
-   `business_card` when a proper name is printed on that screen, not as
-   a `scene`. Transcribe every **printed** field (name, title, company,
-   visible email or phone) into `people[]` under the existing card
-   rules. **Never attempt to decode the QR pattern.** GPT-4o cannot
-   decode QR codes; do not claim it can. Never invent an email or phone
-   that is not printed as readable text. **Ceiling:** this recovers
-   name, title and company when printed. It **never** recovers contact
-   details encoded only inside the code.
+   **QR / screen contact-share (packet 3.7b, measured packet 3.13).**
+   A QR contact-share screen is only usable when the app prints the
+   person's details as readable text beside the code. Many print only
+   the code and their own branding - capture 68, 27 Aug 2026, returned
+   `image_type` `other` with `scene_description` naming only the app
+   brand `wave` and zero people. For those, nothing is recoverable:
+   GPT-4o cannot decode the pattern and there is no text to transcribe.
+   The capture correctly goes `needs_review` and appears in the
+   day-close flagged list, but the owner's `/done` receipt has already
+   been sent, so there is no in-the-moment warning. Operational rule:
+   scan the QR and screenshot the resulting contact page, or record a
+   voice note.
 
-   **Live prove (packet 3.13, capture #68).** A Wave contact-share QR
-   with the word `wave` in the code and **no printed name/title/company**
-   returned `image_type: other`, `people[]` empty. `assets.kind` stayed
-   `photo`. Capture `needs_review` (`No name extracted`, `No email and
-   no phone`). No person row. Email and phone did not come through.
-   Ceiling confirmed: without printed text, the QR is not a card.
+   Live prompt (unchanged on this result): classify as `business_card`
+   **only** when a proper name is printed on that screen; never decode
+   the QR pattern; never invent an email or phone that is not printed
+   as readable text. Capture **#68** is the evidence for the nameless
+   case and is **not retro-fixed**.
 
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
