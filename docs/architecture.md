@@ -366,9 +366,9 @@ phases. The schema is built once.
 **`processing_jobs.last_transition_at`.** `timestamptz NOT NULL`, default
 `now()`, maintained by a `BEFORE UPDATE` trigger whenever `status` or
 `attempt_count` changes. WF-09 measures staleness from **this column, never
-from `created_at`**. A job healthily in its third WF-03 retry (1/5/20 min) at
-minute 25 is not stale; a `created_at` threshold under 20 minutes would
-false-alarm. The trigger lives in the database so a workflow author cannot
+from `created_at`**. A job healthily in its second WF-03 retry (1 then
+5 min) is not stale; a `created_at` threshold would false-alarm.
+The 20-minute backoff tier is deleted (packet 3.3). The trigger lives in the database so a workflow author cannot
 forget to set the column.
 
 **`processing_jobs.error_detail`.** `jsonb`. `audit_log` receives one row for

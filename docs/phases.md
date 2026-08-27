@@ -189,9 +189,16 @@ before digest/watchdog).
 benchmark on GPT-4o / Gemini / Mistral; `/fix` → `field_corrections`.
 
 ### Named Phase 3 item — retry backoff
-A requeued job returns to `queued` with **no backoff delay** inside
-WF-03/04/05 (300 s timeout, no Wait). WF-09 implements the 1/5/20
-minute cadence from `last_transition_at` before it re-dispatches.
+A requeued job returns to `queued` with **no Wait** inside WF-03/04/05
+(300 s timeout). **The delay is the worker claim**, not WF-09. Delays
+are 1 and 5 minutes from `last_transition_at`. Ceiling stays 3.
+**The 20 minutes is deleted:** claim bumps `attempt_count`, so a job
+is claimed at 1, 2, 3 and failed at 3 — exactly two waits. A third
+delay is unreachable. A twice-failed job at a four-day event is
+poison and belongs in the watchdog alert, not in a third retry
+(`workflows.md` WF-03 / WF-09; same recording style as `rules.md`
+§7 rule 14). WF-09 remains the kicker for missed initial dispatch,
+stuck `running`, and post-event quiet.
 
 ---
 
@@ -202,8 +209,10 @@ minute cadence from `last_transition_at` before it re-dispatches.
 ### Scope
 - WF-07 digests: 10 PM close, 7 AM briefing, `/digest` on demand
 - WF-08 `/ask` natural-language query
-- WF-09 stuck-job watchdog, including the 1/5/20 minute requeue backoff
-  (measure from `last_transition_at`; do not Wait inside WF-03/04/05)
+- WF-09 stuck-job watchdog. Claim predicate (1 and 5 minute delays,
+  ceiling 3) lives on WF-03/04/05. WF-09 kicks; it does not delay.
+  Measure from `last_transition_at`. Do not Wait inside WF-03/04/05.
+  The 20-minute tier is deleted.
 
 ### Definition of done
 - Both schedules fire at the correct **`Asia/Riyadh`** local time — verified by

@@ -32,7 +32,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
-### Four traps already identified
+### Five traps already identified
 
 **Never set `language` on a transcription node.** ElderWise WF-5 hardcodes
 `language: "en"`. Forcing English decoding on Arabic or code-switched audio
@@ -42,18 +42,38 @@ produces confident garbage rather than an error.
 fires at 10 AM Riyadh — after the owner has left for the venue, making it
 worthless. One line, classic silent failure.
 
-**Never trust MCP credential auto-assignment.** Observed 25 Aug 2026: creating
-an LNI workflow through the n8n MCP interface returned
-`autoAssignedCredentials: ElderWise Supabase (Postgres)` — n8n reached for an
-existing credential by name similarity. Reading the live workflow JSON back
-showed *no* credential bound at all, so the creation response and the saved
-state disagreed outright.
+`n8n-nodes-base.scheduleTrigger` **v1.3** on this build has **no
+node-level timezone property**. The TypeScript schema is only
+`rule.interval` (field / cron expression / minutesInterval / …).
+**`settings.timezone` is the only lever.** Corroborated 27 Aug 2026
+against live WF-02 `Schedule sweep` (minutes interval, no timezone on
+the node; workflow `settings.timezone` = `Asia/Riyadh`). Proof of
+timezone is an **observed execution `startedAt`**, never the cron
+string and never a node parameter.
+
+**MCP `create_workflow_from_code` persists NEITHER settings NOR
+credentials.** It injects `availableInMCP` and platform-default
+`executionOrder`, drops `timezone` / `errorWorkflow` /
+`executionTimeout`, and auto-binds the FIRST credential of each type
+on the instance — which is ElderWise Postgres (`WH9oLDfKfOX6KW5F`) and
+an unrelated Telegram bot. Proven on WF-07, 27 Aug 2026. Every
+MCP-created LNI workflow REQUIRES a REST PUT of settings and an
+explicit credential rebind before first execution. The create response
+is not evidence. Self-identify is what caught it — keep that node on
+every workflow that reads Postgres.
+
+This supersedes the 25 Aug observation (creation response named
+ElderWise Postgres while saved JSON had no credential). The 27 Aug
+read-back is stronger: REST GET showed ElderWise Postgres and
+`Laila_neversleeps_bot` actually bound. Same procedure for WF-08 and
+WF-09.
 
 Two consequences, both binding:
 
-1. **Bind every LNI credential explicitly in the n8n UI**, then confirm by
-   read-back before the first execution. Never accept the creation response as
-   evidence.
+1. **REST PUT settings and credentials** (GET-name-check first; no
+   `active`; strip `binaryMode`), then confirm by read-back before the
+   first execution. Never accept the creation response as evidence.
+   The n8n UI bind is an equivalent if a human does it.
 2. **Make the first execution self-identifying.** A read-only probe that returns
    *which* system it reached beats one that returns success. The Storage probe
    proved the project via the `sb-project-ref` response header; a bare `200`
@@ -822,6 +842,10 @@ node (`Card engine config`) and read from there. Do not scatter it.
      WHERE p.status = 'queued'
        AND p.owner_id = $1
        AND p.attempt_count < 3
+       AND (p.attempt_count = 0
+            OR p.last_transition_at < now() - (CASE p.attempt_count
+                 WHEN 1 THEN interval '1 minute'
+                 ELSE interval '5 minutes' END))
      ORDER BY p.created_at ASC
      LIMIT 10
      FOR UPDATE SKIP LOCKED
@@ -876,16 +900,25 @@ node (`Card engine config`) and read from there. Do not scatter it.
    `extraction_runs`.** WF-03 is per asset; `extraction_runs` is per
    capture. WF-04 must not know any provider's envelope.
 6. **Retry:** transient errors leave the job `queued` (if
-   `attempt_count < 3`) so a later execution retries. Delays **1, 5, 20
-   minutes** are the intended cadence (watchdog / next kick), not a Wait
-   inside this execution — `executionTimeout` is 300s. After 3 attempts
+   `attempt_count < 3`) so a later execution retries. After 3 attempts
    → `failed`. Malformed content (schema missing, empty transcript) →
    `needs_review`. **Never silently drop.**
 
-   **Backoff lives in WF-09, not in this execution.** A requeued job
-   returns to `queued` with no Wait (300 s timeout). WF-09 will not
-   re-dispatch until `last_transition_at` is older than the delay for
-   that `attempt_count` (1 / 5 / 20 minutes). Do not add a Wait here.
+   **Backoff lives on the worker claim, not in this execution and not
+   in WF-09.** A requeued job returns to `queued` with no Wait (300 s
+   timeout). Do not add a Wait here. Every kick routes through claim
+   (`/done`, sweep, watchdog, manual), so the claim is the only
+   chokepoint all four paths share. WF-09-only backoff is bypassed by
+   WF-02 dispatch. WF-09 remains the **kicker** for missed initial
+   dispatch, stuck `running`, and post-event quiet. It is not the delay.
+
+   Delays are **1 and 5 minutes**. The **20 minutes is deleted.** Claim
+   bumps `attempt_count`, so a job is claimed at 1, 2, 3 and failed at
+   3 — exactly two waits. A third delay is unreachable under a
+   3-attempt ceiling. The ceiling stays 3 because a job that has failed
+   twice at a four-day event is a poison job and belongs in the
+   watchdog alert, not in a third retry. Recorded the same way
+   `rules.md` §7 rule 14 was recorded, not quietly dropped.
 7. When **every sibling job for that capture** is in a terminal state
    (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
    capture-level job: `job_type='extraction'`, `asset_id` NULL,
@@ -941,6 +974,10 @@ and optional — WF-04 **claims from Postgres itself**.
        AND p.asset_id IS NULL
        AND p.job_type = 'extraction'
        AND p.attempt_count < 3
+       AND (p.attempt_count = 0
+            OR p.last_transition_at < now() - (CASE p.attempt_count
+                 WHEN 1 THEN interval '1 minute'
+                 ELSE interval '5 minutes' END))
      ORDER BY p.created_at ASC
      LIMIT 10
      FOR UPDATE SKIP LOCKED
@@ -1021,8 +1058,11 @@ and optional — WF-04 **claims from Postgres itself**.
 Same failure discipline as WF-03: `succeeded` / `failed` / `needs_review`,
 never silent, every branch visibly terminal. `retryOnFail: true` on
 provider and DB nodes. Transient provider error → requeue if
-`attempt_count < 3`, else `failed`. The 1/5/20 minute backoff is
-WF-09 (same as WF-03). Do not add a Wait here.
+`attempt_count < 3`, else `failed`. Backoff is the **claim predicate**
+(same as WF-03): delays 1 and 5 minutes, ceiling 3. The 20 minutes is
+deleted (unreachable under a 3-attempt ceiling; a twice-failed job is
+poison and belongs in the watchdog alert). WF-09 is the kicker, not
+the delay. Do not add a Wait here.
 
 **Must not:** unwrap `output.raw`; overwrite any field present in
 `field_corrections` (table exists; `/fix` is post-event); log
@@ -1069,6 +1109,10 @@ without touching `wf04-v1`.
        AND p.asset_id IS NULL
        AND p.job_type = 'entity_resolution'
        AND p.attempt_count < 3
+       AND (p.attempt_count = 0
+            OR p.last_transition_at < now() - (CASE p.attempt_count
+                 WHEN 1 THEN interval '1 minute'
+                 ELSE interval '5 minutes' END))
      ORDER BY p.created_at ASC
      LIMIT 10
      FOR UPDATE SKIP LOCKED
@@ -1077,7 +1121,9 @@ without touching `wf04-v1`.
    ```
 
    Zero claimed → silent NoOp (`No queued resolution jobs`). Not an
-   error. **This query does not pick up the older captures sitting at
+   error. The claim carries the same backoff predicate as WF-03/04
+   (attempt 0 immediate; attempt 1 waits 1 minute; attempt 2 waits 5;
+   ceiling 3). WF-09 kicks; it does not delay. **This query does not pick up the older captures sitting at
    `status='processing'`.** Those have no `entity_resolution` job. They
    stay `processing` until a later packet enqueues one (or WF-04 dispatch
    is wired). WF-05 will not sweep them.
@@ -1173,16 +1219,19 @@ timestamped, and separately reviewable.
 
 ## WF-07 — Digests
 
-**Phase 3** · **Triggers:** two Schedule Triggers + Execute Workflow Trigger
-**Both schedules explicitly `timezone: Asia/Riyadh` in the saved JSON.**
-A UTC container with no timezone fires 7 AM at 10 AM Riyadh. Proof of
-timezone is an **observed execution `startedAt`**, not the cron string.
-WF-09's 15-minute tick is the soonest observed proof; 22:00 / 07:00 are
-proven when they first fire.
+**Phase 3** · **Triggers:** two Schedule Triggers + Execute Workflow Trigger.
+
+`scheduleTrigger` v1.3 has **no node-level timezone**. Both crons are
+bare expressions (`0 22 * * *`, `0 7 * * *`). Timezone is
+**`settings.timezone: Asia/Riyadh` only.** A UTC container with no
+workflow timezone fires 7 AM at 10 AM Riyadh. Proof of timezone is an
+**observed execution `startedAt`**, never the cron string.
 
 Workflow ID on the instance: `<WF-07_WORKFLOW_ID>`. Never commit the
 literal. Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
-`executionTimeout: 300`, timezone `Asia/Riyadh`. Postgres credential
+`executionTimeout: 300`, timezone `Asia/Riyadh`,
+`callerPolicy: workflowsFromSameOwner`. MCP create does not persist
+these — REST PUT after create, then read-back. Postgres credential
 **Leap-NI**. First execution self-identifies
 (`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Wrong
 database → `stopAndError` (`Wrong database terminal`). Message: no
@@ -1194,11 +1243,20 @@ comma, quote, or apostrophe.
 |---|---|---|---|
 | Cron `0 22 * * *` Asia/Riyadh | `close` | `schedule` | Telegram + email |
 | Cron `0 7 * * *` Asia/Riyadh | `brief` | `schedule` | Telegram + email |
-| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close` | `call` | no — return `reply_text` |
+| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text` |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared
 self-identify node. Source every later field from the **named** node
 that produced it, never `$json` after Postgres.
+
+Optional Execute Workflow inputs (call path only; production `/digest`
+omits them):
+
+- `since` — timestamptz text. Empty → `events.starts_at` for LEAP 2026
+  (read at runtime). Never hardcode a date. The 29 Aug gate test
+  passes `since` so counts are non-zero before the event window
+  opens.
+- `kind` — `close` or `brief`. Empty → hour rule above.
 
 ### Day (`today`) is Riyadh
 
@@ -1213,7 +1271,8 @@ without the zone (that is UTC date).
 ### 10:00 PM — Day close (deterministic, no model)
 
 One parameterised query, owner-scoped from the self-id `owner_id`.
-Counts for **today Riyadh**:
+**Scope lower bound** = `COALESCE($since::timestamptz, events.starts_at)`.
+Counts for **today Riyadh** that also satisfy `opened_at >= scope`:
 
 | Key | Definition |
 |---|---|
@@ -1242,7 +1301,9 @@ is the figure that saves the project.
 ### 7:00 AM — Morning briefing (deterministic, no model)
 
 Highest-value output. Highest-risk item. Counts **to date** (event
-scope, not today-only):
+scope, not today-only). Same scope lower bound as the day close
+(`COALESCE($since::timestamptz, events.starts_at)`). Rows with
+`created_at` / `opened_at` before the bound are out of the briefing.
 
 | Key | Definition |
 |---|---|
@@ -1365,15 +1426,41 @@ in a retry window is not stale.
 ### Backoff (named Phase 3 item)
 
 WF-03/04/05 requeue to `queued` with **no Wait** inside the 300 s
-execution. WF-09 is the delay. Do not tight-loop.
+execution. **The delay is the worker claim**, not WF-09. Do not
+tight-loop. Do not add a Wait inside the workers.
 
-Dispatch a `queued` row only when `last_transition_at` is older than:
+**The 20 minutes is deleted.** Claim bumps `attempt_count`, so a job
+is claimed at 1, 2, 3 and failed at 3 — exactly two waits. A third
+delay is unreachable under a 3-attempt ceiling. The ceiling stays 3
+because a job that has failed twice at a four-day event is a poison
+job and belongs in the watchdog alert, not in a third retry. Delays
+are 1 and 5. Recorded the same way `rules.md` §7 rule 14 was
+recorded, not quietly dropped.
 
-| `attempt_count` | Delay |
+WF-09 is the **kicker** for missed initial dispatch (attempt 0 sitting
+`queued` because Call WF-03 never ran), stuck `running`, and
+post-event quiet. It is not the delay. WF-09-only backoff is
+bypassed by WF-02 `/done` and sweep, which claim through the worker.
+
+Worker claim predicate (implement on WF-03/04/05 in packet 3.4; do
+not edit those workflows in packet 3.3):
+
+```
+status = 'queued'
+AND attempt_count < 3
+AND (attempt_count = 0
+     OR last_transition_at < now() - (CASE attempt_count
+          WHEN 1 THEN interval '1 minute'
+          ELSE interval '5 minutes' END))
+```
+
+WF-09 dispatch eligibility (so it does not waste kicks):
+
+| `attempt_count` | When WF-09 may kick |
 |---|---|
-| 0 | 1 minute (missed initial dispatch) |
-| 1 | 1 minute |
-| 2 | 5 minutes |
+| 0 | `last_transition_at` older than 1 minute (missed initial dispatch) |
+| 1 | older than 1 minute |
+| 2 | older than 5 minutes |
 | ≥ 3 | **do not dispatch.** If still `queued` or `running`, `UPDATE` to `failed` and include in the alert |
 
 `running` older than **10 minutes** (2× `executionTimeout` 300 s) and

@@ -47,19 +47,32 @@ not an error. ElderWise WF-5 hardcodes `language: "en"` — never copy that
 Never inherit the container default. A UTC container fires the 7 AM briefing
 at 10 AM Riyadh (`rules.md` §7 rule 2; `workflows.md` §1).
 
+`scheduleTrigger` v1.3 has **no node-level timezone property**.
+`settings.timezone` is the only lever. Corroborated against WF-02
+`Schedule sweep`. Timezone proof is an observed execution `startedAt`,
+never the cron string.
+
 ## 7. Postgres only via Supavisor pooler, transaction mode
 
 Shared pooler, port 6543, SSL `Require`. No prepared statements. A
 `prepared statement does not exist` error is the pooler, not a bad query
 (`architecture.md` §9; `rules.md` §7 rule 17).
 
-## 8. MCP credential auto-assignment is not proof
+## 8. MCP `create_workflow_from_code` persists NEITHER settings NOR credentials
 
-MCP strips credential refs and auto-assigns the first credential of a type.
-Observed: creation response named an ElderWise Postgres credential while
-saved JSON had none. Bind explicitly in the n8n UI. Binding is proven
-**only** by a self-identifying execution, never by the creation response
-(`workflows.md` §1 trap 3; `rules.md` §7 rules 15–16).
+It injects `availableInMCP` and platform-default `executionOrder`,
+drops `timezone` / `errorWorkflow` / `executionTimeout`, and
+auto-binds the FIRST credential of each type on the instance — which
+is ElderWise Postgres (`WH9oLDfKfOX6KW5F`) and an unrelated Telegram
+bot. Proven on WF-07, 27 Aug 2026. Every MCP-created LNI workflow
+REQUIRES a REST PUT of settings and an explicit credential rebind
+before first execution. The create response is not evidence.
+Self-identify is what caught it — keep that node on every workflow
+that reads Postgres.
+
+Binding is proven **only** by a self-identifying execution
+(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`), never by
+the creation response (`workflows.md` §1; `rules.md` §7 rules 15–16).
 
 ## 9. Explicit gate before any send node
 
