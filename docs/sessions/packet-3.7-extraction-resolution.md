@@ -88,3 +88,46 @@ retries. `Write fingerprint` sits only on Any delivered? **true**. If
 the INSERT throws, no fingerprint row, next tick retries.
 `onError: continueRegularOutput` here would mark the tick “sent”
 without a durable fingerprint and could re-storm.
+
+---
+
+## Packet 3.7b
+
+### Step 1 Telegram HTML (WF-07 / WF-09 stayed active)
+
+WF-07 `Telegram digest` `parse_mode: HTML`, text = `telegram_text`.
+Compose digest / Compose findings escape `&` then `<` then `>` into
+`telegram_text`. Gmail keeps plain `reply_text`.
+
+| WF | versionId = activeVersionId |
+|---|---|
+| WF-07 | `fb9ee1c4-6b40-4064-af22-950b78a45544` |
+| WF-09 | `4747cd4f-ea03-451b-bf76-f09e5a6544db` |
+
+### Step 2 WF-04 `wf04-v4`
+
+Restored Arabic-only transliterate into `full_name`; Latin requirement
+stays dropped. versionId `50d16506-3bc4-458b-b088-73e2ba118bbc`.
+
+### Step 3 WF-03 QR
+
+Vision prompt addendum: screen QR with printed name → `business_card`;
+never decode the pattern. versionId `852f300b-069e-4763-b97b-3068fbf06a9b`.
+Whisper `language` still absent.
+
+### P2 / P3 (wf04-v3, before 3.7b prompt restore)
+
+Capture **64** two images, `people[]=1` `companies[]=1`, status
+`ready`, `flag_reasons=[]`. Jeraisy two-sided (not Huawei).
+Executions: WF-01 `255178`/`255180`, WF-02 `255184`, WF-03 `255185`,
+WF-04 `255188`, WF-05 `255189`. Wall ~`07:52:00Z`–`07:52:44Z`.
+
+Capture **65** one image, `people[]=1`, status `ready`,
+`flag_reasons=[]`. `full_name` `Mohamed Joudeh` /
+`name_original_script` `محمد جودة`. Executions: WF-01 `255194`,
+WF-02 `255197`, WF-03 `255198`, WF-04 `255200`, WF-05 `255201`.
+Wall ~`07:53:01Z`–`07:53:18Z`.
+
+62/63 still `needs_review`. Wang person unchanged. New companies
+Jeraisy and MDS only — no new Huawei row.
+
