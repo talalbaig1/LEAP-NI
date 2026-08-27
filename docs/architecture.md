@@ -611,6 +611,8 @@ only — **no facial recognition, no identification of people**.
 | `full_name` | **Latin transliteration.** If the card prints a Latin name, copy it **exactly as printed** — never re-transliterate a name that is already Latin. If the card is Arabic-only (no Latin name on the card), transliterate into Latin. Never invent a Latin name the card does not support. |
 | `name_original_script` | **Verbatim original** as printed. Arabic stays Arabic. Latin-only cards may set this equal to the printed Latin, or null if there is no second script. **Never discard the original.** |
 
+**A person row requires a non-null `full_name`.** `name_original_script` alone is not identity (packet 2.6b). Arabic-only card: the model transliterates, `full_name` is present, the row survives. Speech that names a real person: same. Speech that only refers ("هذا الرجال", "this man", "some lady from Aramco"): `full_name` stays null, the person is **omitted**, not guessed. WF-04 drops any person with a null or empty `full_name` before write; "No name extracted" tests `full_name` only.
+
 Live defect (packet 2.5): both fields were identical Arabic (`عمران خالد`). That is a lost transliteration, not preservation.
 
 **No OCR-then-parse pipeline.** One call.
@@ -672,7 +674,16 @@ second model to guess it back from a wall of text. A `kind='business_card'`
 gate would skip every live image (34 of 34 are `photo`).
 
 Nullable fields, never guessed strings. The model must never invent an email,
-phone number, domain, or date not present in the source.
+phone number, domain, or date not present in the source. A person referred to
+but not named is omitted rather than guessed.
+
+**`summary` and `topics` are required when a `[TRANSCRIPT]` or `[TYPED_NOTE]`
+block has text** (packet 2.6b). `summary` is 1–3 sentences of what was said or
+noted. `topics` are short sector or theme tags from that same text. Both may
+be null / empty **only** when those labelled blocks are empty. These two
+fields feed `interactions.summary` (WF-08 trigram `/ask`) and the 7 AM
+briefing sector distribution (WF-07). Empty on a real conversation is a
+defect, not conservatism.
 
 ### Transcription
 
