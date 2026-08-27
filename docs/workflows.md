@@ -1005,7 +1005,11 @@ node (`Card engine config`) and read from there. Do not scatter it.
    **only** when a proper name is printed on that screen; never decode
    the QR pattern; never invent an email or phone that is not printed
    as readable text. Capture **#68** is the evidence for the nameless
-   case and is **not retro-fixed**.
+   case and is **not retro-fixed**. Capture **#69** (same packet) is the
+   printed-details case: `image_type` `business_card`, `assets.kind`
+   `business_card`, one person, one company, status `ready`, empty
+   `flag_reasons`. Printed name, title, company, email and phone all
+   came through as readable text. The QR pattern was not decoded.
 
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).

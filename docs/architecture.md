@@ -677,6 +677,8 @@ screenshot the resulting contact page, or record a voice note.
 Live prompt: `business_card` only when a proper name is printed on that
 screen; never decode the QR; never invent an unprinted email or phone.
 Capture **#68** is the nameless-code evidence and is **not retro-fixed**.
+Capture **#69** is the printed-details case (`business_card`, one person,
+`ready`; printed name/title/company/email/phone all present as text).
 
 **Name fields on the card JSON (and later on `people`).**
 
