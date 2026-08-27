@@ -33,7 +33,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
-### Five traps already identified
+### Traps already identified
 
 **Never set `language` on a transcription node.** ElderWise WF-5 hardcodes
 `language: "en"`. Forcing English decoding on Arabic or code-switched audio
@@ -90,6 +90,17 @@ Two consequences, both binding:
    `LNI ` (`LNI-TEST-` allowed for disposable tests). Owner handles deletion
    of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
    not spend time on them.
+
+**Backslash escapes in jsCode written through the n8n REST API must be
+DOUBLED in the JSON payload.** Single `\b` is valid JSON for backspace, so
+it succeeds silently with the wrong value - a regex word boundary
+becomes a control character and the pattern never matches. Single `\d`
+`\w` `\s` are invalid JSON escapes and are mangled differently. Proven on
+WF-08 'Guard extra fields', 27 Aug 2026, where want_contact could
+never be true for an English question. WF-01 'Classify update' has
+split(/\\s+/) correctly doubled - the failure is inconsistent
+authoring, which is why it will recur. Prefer patterns with no
+backslash escapes in any jsCode written via REST.
 
 **Never read `$json` or `$item.binary` from the immediately preceding node
 when any Postgres, HTTP, Crypto, or Code node sits between you and the
@@ -444,6 +455,11 @@ LNI bot only and must not disturb any ElderWise webhook.
    `{ ok, reply_text }`; WF-01 sends. Gate: `ok` true AND `reply_text`
    notEmpty. Empty `reply_text` is a defect in the callee, not a
    silent WF-01 success.
+
+   **`Ask out of scope terminal` is now dead code (packet 3.11).**
+   `is_ask` is hard-coded `false` in `Classify update`. The live `/ask`
+   path is `branch = 'ask'` → Call WF-08. Harmless Phase 1 scaffolding.
+   Leave it.
 
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
@@ -1559,6 +1575,19 @@ WF-01 sends the hint).
    identification.
 5. Return `{ ok: true, reply_text: "<answer>" }`. WF-01 sends.
    WF-08 has **no** Telegram node.
+
+**Known characteristic (packet 3.11) — no relevance floor.**
+`Retrieve corpus` orders by trigram-hit DESC then `occurred_at` DESC
+with LIMIT 80, and has no relevance floor. While any interaction exists
+the corpus is never empty, so the `The corpus has nothing. Do not guess.`
+sentinel can never fire, and an off-topic question still ships 80 real
+rows to the model. Acceptable at launch scale and within the merged spec.
+A confident answer to an unsupported question is not a retrieval success.
+
+**`want_contact` (packet 3.11).** `Guard extra fields` uses
+`/(email|e-mail|phone|mobile|cell|tel|جوال|هاتف)/i` — no backslash
+escapes in the stored jsCode. Over-matching (`telephone` matching `tel`)
+is a phone question and is acceptable. Under-matching was the defect.
 
 **No vector store at launch.** pgvector is Phase 6.
 
