@@ -1608,9 +1608,79 @@ is to speak when the normal path has gone quiet.
 `source` is always schedule or manual prove — WF-09 is never called
 by WF-01, so it always sends itself when dirty.
 
+### A2. `needs_review` is not a watchdog finding
+
+The scan list above is exhaustive. `processing_jobs.status = 'needs_review'`
+is **not** a finding. The digest's unreviewed count already covers it.
+Live entity_resolution rows at `needs_review` (captures 59, 62, 63) must
+not make the first tick loud. Do not add a fifth kind. Do not "helpfully"
+include them.
+
+### A1. Alert-storm suppression (fingerprint, not n8n state)
+
+The Phase 2 deliberate forced-failure job (`transcription` / `failed` /
+`attempt_count` 3 / capture #36) sits inside the 24-hour failed window
+until `last_transition_at + 24h`. Do **not** touch that row, requeue it,
+or retarget it. Under the scan alone, a 15-minute cron would re-alert
+that unchanged set until it ages out (~56 messages). The owner would
+mute the watchdog and it would protect nothing.
+
+**Mechanism.** Fingerprint the finding set in the **same** Leap-NI scan
+query. Canonical identity tuples, sorted, `md5` of the joined string —
+not counts. A different job with the same counts is a different set.
+
+Tuple format (no PII):
+
+```
+kind|capture_no|id|job_type|status|attempt_count
+```
+
+`kind` is one of `stuck_queued`, `stuck_running`, `ceiling_failed`,
+`failed_24h`, `leftover_processing`, `asset_not_stored`. Job findings
+use `processing_jobs.id`. Leftover uses `captures.id`. Assets use
+`assets.id`. `needs_review` is never in the set.
+
+On **successful** delivery (Any delivered? true), INSERT `audit_log`:
+
+- `actor_type = 'system'`
+- `action = 'watchdog_alert'` (no CHECK on `action`; do not invent a
+  migration)
+- `entity_type = 'watchdog'`
+- `after = { fingerprint, finding_count }` — no chat_id, no email, no
+  names, no transcripts
+- `correlation_id` = this tick's Crypto uuid (`$execution.id` is not a
+  uuid)
+
+Lookup the latest `watchdog_alert` for this `owner_id` (named Postgres
+node, `ORDER BY created_at DESC LIMIT 1`). Suppress the send when:
+
+1. `finding_count > 0`, and
+2. `after.fingerprint` equals this tick's fingerprint, and
+3. that row's `created_at` is within **N = 6 hours**
+
+Escalate immediately when the set **changes** (a new tuple appears, one
+drops, or a field in a tuple changes) even inside N. Empty findings do
+not write an "all clear" row — zero findings → Silent clean NoOp, no
+audit write.
+
+Do **not** write the fingerprint if both channels fail. The next tick
+must retry the send.
+
+**N = 6 hours.** 15-minute ticks × 6 h = 24 suppressed repeats of an
+unchanged set, so at most four identical reminders per day. 24 h would
+go quiet until the next calendar day — too long for a watchdog whose
+job is to speak when the digest is silent. 1 h is still ~10 overnight
+messages of the same poison job. 6 h leaves a midday reminder and
+keeps packet C3 (two dirty runs minutes apart) suppressed. State lives
+in Postgres. Never `$getWorkflowStaticData`. Never n8n staticData.
+
+Dispatch is independent of suppression. A suppressed tick still kicks
+eligible `queued` workers and still marks `attempt_count >= 3` failed.
+The alert is what is suppressed, not the kicker.
+
 **Must not:** log PII; rewrite vision job `1564abc3`; auto-merge;
 delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
->= 3`.
+>= 3`; mutate the Phase 2 forced-failure transcription job.
 
 ---
 
