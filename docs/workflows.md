@@ -160,8 +160,8 @@ to `normal` / nothing open.
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres (packet 2.5) |
-| WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres (packet 2.6b). Called by WF-04 — **not yet** |
+| WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
+| WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
@@ -876,8 +876,14 @@ node (`Card engine config`) and read from there. Do not scatter it.
    (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
    capture-level job: `job_type='extraction'`, `asset_id` NULL,
    `status='queued'`. Insert once (guard on existing `extraction` row
-   for that `capture_id`). Terminate at a NoOp named
-   **`WF-04 dispatch (not yet)`**.
+   for that `capture_id`). Then **ONE** `executeWorkflow` call to WF-04
+   (`<WF-04_WORKFLOW_ID>`), named **`Call WF-04`**, replacing the NoOp
+   **"WF-04 dispatch (not yet)"**. `waitForSubWorkflow: false`.
+   `onError: continueRegularOutput` **explicit in the saved JSON**.
+   Dispatch is best-effort — enqueue is the durable act (same reasoning
+   as WF-02 → WF-03). A throw must not fail WF-03. Zero rows enqueued
+   (siblings still running, or extraction already exists) is a silent
+   terminal, not an error, and does not fire WF-04.
 
 Every path ends in a visible NoOp or `stopAndError`. Every flag the
 workflow depends on is explicit in the saved JSON.
@@ -982,8 +988,21 @@ and optional — WF-04 **claims from Postgres itself**.
    the job `succeeded` | `failed` | `needs_review` with the adapter-free
    job row (extraction `output` may hold the structured_output +
    flag_reasons). `last_transition_at = now()`.
-8. Terminate at a NoOp named **`WF-05 dispatch (not yet)`**. Do not call
-   WF-05.
+8. Enqueue **ONE** capture-level `job_type='entity_resolution'` row
+   (`asset_id` NULL, `status='queued'`). Insert once (guard on an
+   existing `entity_resolution` row for that `capture_id`). Then **ONE**
+   `executeWorkflow` call to WF-05 (`<WF-05_WORKFLOW_ID>`), named
+   **`Call WF-05`**, replacing the NoOp **"WF-05 dispatch (not yet)"**.
+   `waitForSubWorkflow: false`. `onError: continueRegularOutput`
+   **explicit in the saved JSON**. Dispatch is best-effort — enqueue is
+   the durable act. Do this on both the `succeeded` and `needs_review`
+   extraction paths (a flagged capture still needs a person/interaction
+   row and a terminal capture status). Do **not** enqueue or call WF-05
+   on the extraction failed/requeue path.
+
+   **Publish order:** WF-05 must be active before WF-04 may reference it;
+   WF-04 must be active before WF-03 may reference it. A parent cannot
+   be published while it references an unpublished child.
 
 Same failure discipline as WF-03: `succeeded` / `failed` / `needs_review`,
 never silent, every branch visibly terminal. `retryOnFail: true` on
@@ -1004,9 +1023,9 @@ in WF-04.
 
 **Phase 2** · **Triggers:** Manual **and** Execute Workflow Trigger.
 Claims capture-level `processing_jobs` rows (`job_type='entity_resolution'`,
-`asset_id` NULL) the same way WF-04 claims extraction. Enqueued for prove
-by SQL this packet; **WF-04 does not call WF-05 yet** (terminal remains
-`WF-05 dispatch (not yet)`). Workflow ID on the instance:
+`asset_id` NULL) the same way WF-04 claims extraction. Enqueued by WF-04
+when an extraction job reaches `succeeded` or `needs_review`. Called by
+WF-04 (`Call WF-05`, best-effort). Workflow ID on the instance:
 `<WF-05_WORKFLOW_ID>`. Never commit the literal.
 
 Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
@@ -1063,11 +1082,26 @@ without touching `wf04-v1`.
    capture. A capture with zero people still gets an interaction
    (`person_id` NULL) so the summary is not lost, and still gets a
    terminal capture status.
-6. **Non-exact match:** if a new person was inserted (no email/LinkedIn
-   hit) and another owner person has a trigram-similar `full_name`,
-   write `entity_candidates` pointing at that existing row with
-   **visible `reasons`** (e.g. `name_trgm`) and `score = similarity(...)`.
-   No threshold tuning — any similar row is a suggestion, never a merge.
+6. **Non-exact match** writes a scored `entity_candidates` row with
+   **visible `reasons`**. Never a merge, at any score.
+
+   - **OCR-split (packet 2.7, primary):** whenever another owner person
+     shares **exact `full_name` AND exact `company_id`**, even if both
+     rows carry emails, when those emails are **not equal**. `reasons`
+     is human-readable and **names the two differing emails** (e.g.
+     `same_full_name`, `same_company`,
+     `emails_differ: a@x vs b@x`). `score = 1`. This is the visibility
+     for the most likely duplicate-creation mechanism at the event
+     (same card, two OCR readings).
+   - **No auto-link key (secondary):** if the extracted person has no
+     email and no LinkedIn, and another owner person has a
+     trigram-similar `full_name`, write a suggestion with
+     `reasons = {name_trgm}` and `score = similarity(...)`. No
+     threshold tuning.
+
+   Do not skip the OCR-split path just because both rows have emails.
+   A pair of silent unlinked people with `entity_candidates` empty is
+   a defect.
 7. **Capture status:** `ready` when `flag_reasons` is empty;
    `needs_review` otherwise. (`failed` is not set here.)
 8. **Notify:** WF-01 is the only workflow that sends Telegram
