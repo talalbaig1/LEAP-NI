@@ -258,7 +258,9 @@ is observed.
 - `/flag` force-enriches a person the guard skipped.
 - `organizations/enrich` fires only as a fallback for a company with no
   enriched person.
-- Both provider ceilings read from a Postgres config row (never `$env`).
+- Both provider ceilings read from `lni_config` (never `$env`).
+  Keys: `apollo_daily_ceiling`, `apollo_lifetime_ceiling`,
+  `tavily_lifetime_ceiling`.
 - Credit guard with `credit_ledger`: ledger row **before** the provider
   call.
 - Tavily company-website fallback only (`provider = 'tavily'`). Never
@@ -272,7 +274,12 @@ is observed.
 - `/flag` force-enriches a person the auto-guard skipped
 - `organizations/enrich` runs only as the company fallback
 - Credit ceiling proven to hold under a forced retry loop
-- `credit_ledger` total reconciles against Apollo's reported balance
+- `credit_ledger` total reconciles against the DELTA in Apollo's
+  `num_credits_remaining`. Do NOT reconcile against
+  `num_lead_credits_used`: measured 27 Aug 2026, an
+  `organizations/enrich` call moved `num_credits_remaining`
+  2605 → 2604 while `num_lead_credits_used` stayed 0. The usage
+  counter does not track API enrichment on this account.
 - Tavily results labelled `provider = 'tavily'`, never conflated with
   Apollo data, never written as people fields
 - Captured `people.email` / `full_name` / `title` / `phone` are never
