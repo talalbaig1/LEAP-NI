@@ -27,7 +27,7 @@ Supabase Postgres  ── source of truth
         ├─► WF-03 Asset processors    vision (card→JSON) · Whisper (audio)
         ├─► WF-04 Structured extraction   strict JSON schema, temp 0
         ├─► WF-05 Entity resolution       suggest, never silently merge
-        ├─► WF-06 Enrichment (Phase 4)    Apollo company-first · Tavily fallback
+        ├─► WF-06 Enrichment (Phase 4)    Apollo person-by-email · org from same response · Tavily website fallback
         ├─► WF-07 Digests                 10 PM close · 7 AM briefing · /digest
         ├─► WF-08 /ask                    natural-language query
         └─► WF-09 Watchdog                stuck-job detector
@@ -76,7 +76,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Vision / OCR | Card → structured JSON | Provider adapter; engine chosen by benchmark |
 | STT | Voice note transcription | OpenAI Whisper, `language` **unset** |
 | Extraction | Normalize into entities | OpenAI, strict JSON schema, `temperature: 0` |
-| Enrichment | Company and person context | Apollo (primary) → Tavily (fallback) |
+| Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
 
@@ -89,8 +89,9 @@ user-owned table — single owner at launch, designed for multi-user.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
 on 27 August 2026.** Every column below exists on LEAP-NI with the type and
-default stated. Types are Postgres (`uuid`, `timestamptz`, `jsonb`, `text[]`,
-etc.), not application nicknames.
+default stated, **except** `people.linkedin_source` (Phase 4 specified in
+packet 4.0; not migrated yet). Types are Postgres (`uuid`, `timestamptz`,
+`jsonb`, `text[]`, etc.), not application nicknames.
 
 ### Tables
 
@@ -227,6 +228,7 @@ write this table.
 | `phone` | text | — | YES |
 | `linkedin_url` | text | — | YES |
 | `linkedin_url_normalized` | text | `GENERATED ALWAYS AS (lower(regexp_replace(TRIM(BOTH FROM linkedin_url), '/+$', ''))) STORED` | YES |
+| `linkedin_source` | text | `'card'` | NO — **Phase 4 specified, not live.** Packet 4.0. Do not treat this row as a live `information_schema` column until a numbered migration lands. |
 | `review_status` | text | `'unreviewed'` | NO |
 | `source_type` | text | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
@@ -450,7 +452,11 @@ that statement.
 
 Auto-link **only** on:
 - exact normalized email, or
-- exact LinkedIn profile URL.
+- exact LinkedIn profile URL **and** `people.linkedin_source = 'card'`.
+
+A provider-supplied LinkedIn URL (`linkedin_source = 'apollo'`) must **never**
+be able to auto-merge two people. WF-05 ignores `linkedin_url_normalized` for
+auto-link unless the source is the card.
 
 Everything else becomes a scored suggestion in `entity_candidates`, with visible
 reasons, awaiting owner approval.
@@ -523,6 +529,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
 | `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
 | `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
+| `people.linkedin_source` | `card` \| `apollo` (default `card`). **Specified packet 4.0; not live until migrated.** |
 | `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
 | `entity_candidates.decision` | `pending` \| `accepted` \| `rejected` |
 | `bot_state.mode` | `normal` \| `batch` |
@@ -803,21 +810,53 @@ the cut is visible.
 
 ## 7. Enrichment architecture (Phase 4)
 
-**Company-first.** On capture, derive the domain from the card email and enrich
-the *company*. One credit covers everyone from that organisation — six people
-from stc costs one credit, not six. Company context also answers the question
-that actually matters at an event: *is this organisation worth my time?*
+**Person-by-email auto** (decision 8 reversed 27 Aug 2026). Auto-enrich any
+person with a non-null `email_normalized` whose capture is not
+`needs_review`. Apollo People Enrichment returns the person's organization
+block in the **same** response, so company context is derived from that
+call — not from a prior company-only enrich.
 
-**Person on demand only**, via `/flag`.
+**`/flag` force-enriches** a person the guard skipped. It is not the only
+person path.
 
-**Tavily fallback.** Startups and smaller Saudi firms are often absent from
-Apollo's index. On a no-match, a web-search pass yields a description and
-website — stored with `provider = 'tavily'` and clearly labelled web-sourced,
-never conflated with provider data.
+**`organizations/enrich` is a fallback only**, for a company that still has
+no enriched person. It is not the default.
 
-**Hard credit guard.** A daily spend ceiling enforced in-workflow, plus a
-`credit_ledger` counter independent of Apollo's reporting. A retry loop burning
-175 non-refundable credits at midnight is an entirely plausible failure.
+**Tavily is a company-website fallback only.** `provider = 'tavily'`. Never
+a source of people data. Never merged into an Apollo row.
+
+**Hard credit guard.** Both provider ceilings are read from a Postgres
+config row (never `$env`). A `credit_ledger` counter is independent of
+Apollo's reporting. The ledger row is written **before** the provider
+call — a crash must not lose a spend. A retry loop burning the month's
+credits at midnight is an entirely plausible failure, and this guard is
+the only thing standing in front of it.
+
+**WF-06 drains a queue on a schedule.** WF-05 **enqueues**
+`job_type = 'enrichment'`; it does not dispatch WF-06 per capture.
+
+### Enrichment data boundary
+
+Apollo and Tavily output lands in `enrichment_records` **only**.
+
+Enrichment **never** overwrites captured `people.email`, `people.full_name`,
+`people.title`, or `people.phone`. Card and voice are evidence; provider
+data is inference.
+
+**Single exception:** `people.linkedin_url` may be written when the column
+is NULL **and** Apollo matched on exact normalized email. Column
+`people.linkedin_source` (`'card'` \| `'apollo'`, default `'card'`) records
+provenance. A card-supplied URL stays `'card'` and is never replaced by
+Apollo.
+
+WF-05 auto-links on `linkedin_url_normalized` **only** where
+`linkedin_source = 'card'`. A provider-supplied LinkedIn URL must never
+be able to auto-merge two people — that is the reason the source column
+exists.
+
+**Domain normalisation** is a Postgres function over a public-suffix
+table, not a Code node. It must leave `jccs.com.sa` intact and reduce
+`sa.qatarairways.com` to `qatarairways.com`.
 
 ---
 

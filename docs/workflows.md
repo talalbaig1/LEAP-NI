@@ -243,7 +243,7 @@ to `normal` / nothing open.
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
+| WF-06 | Enrichment | 4 | Schedule: drain `job_type='enrichment'` queue. WF-05 enqueues; `/flag` force-enqueues |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
 | WF-09 | Watchdog | 3 | Schedule, every 15 min |
@@ -1446,8 +1446,12 @@ without touching `wf04-v3`.
 9. Mark the `entity_resolution` job `succeeded` | `failed` |
    `needs_review`. Same failure discipline as WF-03/WF-04.
    `retryOnFail: true` on DB nodes.
-10. Terminate at a NoOp named **`WF-06 dispatch (not yet)`**. Phase 4 is
-    dropped pre-event. Do not call WF-06.
+10. Terminate at a NoOp named **`WF-06 dispatch (not yet)`**. Packet 4.0
+    does **not** change this live node. Intended Phase 4 behaviour:
+    WF-05 **enqueues** `job_type='enrichment'` and does **not** dispatch
+    WF-06 per capture. WF-06 drains the queue on a schedule. Do not call
+    WF-06 from this workflow until a later packet replaces the NoOp with
+    an INSERT.
 
 **Must not:** auto-merge on name; overwrite `field_corrections`; unwrap
 `extraction_runs` provider envelopes (there are none — read
@@ -1462,32 +1466,104 @@ in WF-05.
 
 ## WF-06 — Enrichment
 
-**Phase 4** · **Trigger:** called by WF-05, or by `/flag`
+**Phase 4** · **Trigger:** Schedule (drain the enrichment queue). Not called
+per capture.
 
-### Credit guard — runs first, always
-1. Sum today's `credit_ledger` spend.
-2. **If at or above the daily ceiling, stop.** Log and alert. Do not call the
+Packet 4.0 specifies this contract. Do **not** create, modify, publish, or
+bind the workflow in this packet.
+
+### Inputs
+
+WF-06 claims `processing_jobs` rows:
+
+| Field | Role |
+|---|---|
+| `job_type` | `'enrichment'` |
+| `status` | `'queued'` |
+| `owner_id` | from the job row (Postgres), never `$env` |
+| `capture_id` | nullable; person-scoped jobs may still carry it |
+| `asset_id` | NULL (capture/person/company scoped) |
+| `output` | adapter envelope written on completion (same shape as WF-03) |
+
+Enqueue is **not** this workflow's job:
+
+- **WF-05 auto-enqueue:** any person with non-null `email_normalized`
+  whose capture is not `needs_review`.
+- **`/flag`:** force-enqueues a person the guard skipped.
+- **Company fallback:** `organizations/enrich` only when a company has
+  no enriched person.
+
+Ceilings for both providers are read from a **Postgres config row**,
+never `$env`.
+
+### Adapter envelope
+
+Same Phase 2 envelope (`architecture.md` §6). Provider wrappers stay
+inside `raw`. Downstream reads `result` only.
+
+```json
+{
+  "provider":     "apollo | tavily",
+  "model":        "<endpoint or engine id>",
+  "job_type":     "enrichment",
+  "result":       {},
+  "raw":          {},
+  "error":        null,
+  "completed_at": "<timestamptz>"
+}
+```
+
+Successful payload is also stored on `enrichment_records` (`provider`,
+`payload`, `fetched_at`). That table is the enrichment record.
+`processing_jobs.output` is the adapter audit of the call.
+
+### Credit guard and ledger ordering
+
+1. Read the provider ceiling from the Postgres config row.
+2. Sum today's `credit_ledger` spend for that provider.
+3. **If at or above the ceiling, stop.** Log and alert. Do not call the
    provider.
+4. **Write the `credit_ledger` row BEFORE the provider call, never
+   after.** A crash after a 200 must not lose a spend. A retry loop
+   that only books spend on success will double-charge.
 
-A retry loop burning 175 non-refundable credits at midnight is an entirely
-plausible failure, and this guard is the only thing standing in front of it.
+### Person path (automatic, and `/flag`)
 
-### Company path (automatic)
-3. Derive domain from the card email.
-4. Skip if a fresh `enrichment_records` row already exists.
-5. Apollo organization enrichment by domain. **One credit covers everyone from
-   that organisation.**
-6. On no-match: **Tavily fallback** — description and website, written with
-   `provider = 'tavily'` and clearly labelled web-sourced. Never conflated with
-   Apollo data.
-7. Write `enrichment_records` with source, timestamp, confidence. Write
-   `credit_ledger`.
+5. Apollo People Enrichment by exact normalized email.
+6. Organization block in that **same** response is company context.
+   Do not spend a second people-credit to learn the company.
+7. Skip if a fresh `enrichment_records` row already exists for that
+   person and provider.
 
-### Person path (`/flag` only)
-8. Apollo person match. Never automatic.
+### Company path (fallback only)
 
-**Must not:** treat enrichment as user-provided fact. It is always sourced,
-timestamped, and separately reviewable.
+8. `organizations/enrich` only for a company with no enriched person.
+9. Derive / normalise domain with the **Postgres public-suffix
+   function**, not a Code node (`jccs.com.sa` stays intact;
+   `sa.qatarairways.com` → `qatarairways.com`).
+
+### Tavily path (company website only)
+
+10. On Apollo no-match for a **company website**: Tavily search.
+    `provider = 'tavily'`. Never a source of people data. Never merged
+    into an Apollo `enrichment_records` row.
+
+### Writes
+
+11. `enrichment_records` only, plus the ledger row already written.
+    **Never** overwrite `people.email`, `people.full_name`,
+    `people.title`, `people.phone`.
+12. **Single exception:** `people.linkedin_url` may be set when it is
+    NULL and Apollo matched on exact normalized email;
+    `people.linkedin_source = 'apollo'`. Card-supplied URLs stay
+    `'card'` and are never replaced.
+13. Mark the enrichment job `succeeded` | `failed` | `needs_review`.
+
+**Must not:** treat enrichment as user-provided fact; auto-merge on an
+Apollo LinkedIn URL; bind HTTP credentials via MCP create (the first
+`httpHeaderAuth` on this instance is Storage, not Apollo — REST PUT
+then read-back in a later packet); use `$env` or
+`$getWorkflowStaticData`; log emails, phones, or payloads.
 
 ---
 
