@@ -88,10 +88,10 @@ UUID primary keys. `timestamptz` throughout. `owner_id` and RLS on every
 user-owned table — single owner at launch, designed for multi-user.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
-on 27 August 2026.** Every column below exists on LEAP-NI with the type and
-default stated, **except** `people.linkedin_source` (Phase 4 specified in
-packet 4.0; not migrated yet). Types are Postgres (`uuid`, `timestamptz`,
-`jsonb`, `text[]`, etc.), not application nicknames.
+on 27 August 2026, plus packet 4.1 migrations `018`–`021`.** Every column
+below exists on LEAP-NI with the type and default stated. Types are
+Postgres (`uuid`, `timestamptz`, `jsonb`, `text[]`, etc.), not
+application nicknames.
 
 ### Tables
 
@@ -228,7 +228,7 @@ write this table.
 | `phone` | text | — | YES |
 | `linkedin_url` | text | — | YES |
 | `linkedin_url_normalized` | text | `GENERATED ALWAYS AS (lower(regexp_replace(TRIM(BOTH FROM linkedin_url), '/+$', ''))) STORED` | YES |
-| `linkedin_source` | text | `'card'` | NO — **Phase 4 specified, not live.** Packet 4.0. Do not treat this row as a live `information_schema` column until a numbered migration lands. |
+| `linkedin_source` | text | `'card'` | NO |
 | `review_status` | text | `'unreviewed'` | NO |
 | `source_type` | text | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
@@ -340,7 +340,38 @@ write this table.
 | `operation` | text | — | NO |
 | `entity_id` | uuid | — | YES |
 | `spent_at` | timestamptz | `now()` | NO |
+| `status` | text | `'attempted'` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+
+**`credit_ledger.status`.** Written as `'attempted'` **before** the provider
+call; then `'confirmed'` / `'no_match'` / `'failed'` after. Reconcile spend
+against the delta in Apollo `num_credits_remaining`, never
+`num_lead_credits_used` (measured 27 Aug 2026: enrich 2605→2604,
+usage counter stayed 0).
+
+**`lni_config`** — owner-scoped key/value. Packet 4.1 live read-back found
+**no** existing config table (`pg_class` name match `%config%` /
+`%setting%` / `%ceiling%` returned zero rows). This is the first
+mechanism, not a second. UNIQUE `(owner_id, key)`.
+
+| Column | Type | Default | Null |
+|---|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` | NO |
+| `owner_id` | uuid → `auth.users` | — | NO |
+| `key` | text | — | NO |
+| `value` | integer | — | NO |
+| `created_at` | timestamptz | `now()` | NO |
+
+Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
+`apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
+
+**`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
+Not owner-scoped. RLS enabled; `SELECT` for `authenticated`; writes are
+service_role / owner migrations only.
+
+| Column | Type | Default | Null |
+|---|---|---|---|
+| `suffix` | text PK | — | NO |
 
 **`audit_log`** — every AI write and user edit.
 
@@ -529,7 +560,8 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
 | `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
 | `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
-| `people.linkedin_source` | `card` \| `apollo` (default `card`). **Specified packet 4.0; not live until migrated.** |
+| `people.linkedin_source` | `card` \| `apollo` (default `card`) |
+| `credit_ledger.status` | `attempted` \| `confirmed` \| `no_match` \| `failed` (default `attempted`) |
 | `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
 | `entity_candidates.decision` | `pending` \| `accepted` \| `rejected` |
 | `bot_state.mode` | `normal` \| `batch` |
@@ -825,12 +857,13 @@ no enriched person. It is not the default.
 **Tavily is a company-website fallback only.** `provider = 'tavily'`. Never
 a source of people data. Never merged into an Apollo row.
 
-**Hard credit guard.** Both provider ceilings are read from a Postgres
-config row (never `$env`). A `credit_ledger` counter is independent of
-Apollo's reporting. The ledger row is written **before** the provider
-call — a crash must not lose a spend. A retry loop burning the month's
-credits at midnight is an entirely plausible failure, and this guard is
-the only thing standing in front of it.
+**Hard credit guard.** Both provider ceilings are read from
+`lni_config` (never `$env`). Keys: `apollo_daily_ceiling`,
+`apollo_lifetime_ceiling`, `tavily_lifetime_ceiling`. A `credit_ledger`
+counter is independent of Apollo's reporting. The ledger row is written
+**before** the provider call (`status = 'attempted'`) — a crash must not
+lose a spend. Reconcile against the delta in `num_credits_remaining`,
+never `num_lead_credits_used`.
 
 **WF-06 drains a queue on a schedule.** WF-05 **enqueues**
 `job_type = 'enrichment'`; it does not dispatch WF-06 per capture.
@@ -857,6 +890,13 @@ exists.
 **Domain normalisation** is a Postgres function over a public-suffix
 table, not a Code node. It must leave `jccs.com.sa` intact and reduce
 `sa.qatarairways.com` to `qatarairways.com`.
+
+**SEQUENCING:** migration `018` (`people.linkedin_source`) and the WF-05
+auto-link guard must **both** be live before WF-06 is permitted to write
+`people.linkedin_url`. Until then WF-06 writes LinkedIn only into
+`enrichment_records.payload`. Packet 4.1 numbered this column 017;
+live catalog already had `017_events_target_sectors`, so the column
+is `018`.
 
 ---
 
@@ -903,7 +943,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`017`) create the 16 tables, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, and `events.target_sectors`. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`021`) create the 16 original tables plus `lni_config` / `lni_public_suffixes`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, and `credit_ledger.status`. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -927,6 +967,10 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 015 | `015_captures_flags_object` | `captures.flags` default `'{}'::jsonb`; convert live jsonb arrays to `'{}'`; CHECK `jsonb_typeof(flags) = 'object'`. Does not drop `captures_owner_media_group_uniq`. |
 | 016 | `016_processing_jobs_asset_job_uniq` | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type) WHERE asset_id IS NOT NULL`. Natural key for `/done` enqueue idempotency. |
 | 017 | `017_events_target_sectors` | `events.target_sectors text[] NOT NULL DEFAULT '{}'` for the 7 AM coverage-gap list. Empty = not set. No guessed seed. |
+| 018 | `018_people_linkedin_source` | `people.linkedin_source text NOT NULL DEFAULT 'card'` + CHECK `card` \| `apollo`. Packet 4.1 called this 017; 017 was already taken. |
+| 019 | `019_lni_normalize_domain` | `lni_public_suffixes` + `lni_normalize_domain(text)`. |
+| 020 | `020_lni_config_credit_ceilings` | `lni_config` + seed ceilings. First config table; none existed. |
+| 021 | `021_credit_ledger_status` | `credit_ledger.status` default `'attempted'`, CHECK `attempted` \| `confirmed` \| `no_match` \| `failed`. |
 
 ### Connection policy — verified 25 Aug 2026
 
