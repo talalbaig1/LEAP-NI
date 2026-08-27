@@ -459,6 +459,13 @@ LNI bot only and must not disturb any ElderWise webhook.
    | `ask` | WF-08 | `owner_id`, `correlation_id`, `question` = remainder of the text after `/ask` |
    | `fix` `flag` | none | post-event; silent NoOp, no reply |
 
+   **`waitForSubWorkflow: true` on `/ask` and `/digest` (packet 3.10).**
+   These are request/response for text the owner is waiting on, not a
+   durable enqueue. Explicit in the saved JSON. WF-08 / WF-07 return
+   `{ ok, reply_text }`; WF-01 sends. Gate: `ok` true AND `reply_text`
+   notEmpty. Empty `reply_text` is a defect in the callee, not a
+   silent WF-01 success.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
@@ -1086,7 +1093,7 @@ and optional — WF-04 **claims from Postgres itself**.
    labelled source evidence. Preserve `name_original_script`; apply the
    same `full_name` transliteration contract as WF-03
    (`architecture.md` §6). Prompt contract (packet 2.6b `wf04-v2`,
-   packet 3.7 `wf04-v3`, packet 3.7b `wf04-v4`):
+   packet 3.7 `wf04-v3`, packet 3.7b `wf04-v4`, packet 3.10 `wf04-v5`):
    - **`summary`:** 1–3 sentences of what was said or noted. **Required**
      when a `[TRANSCRIPT]` or `[TYPED_NOTE]` block has text. Null **only**
      when both blocks are empty.
@@ -1127,6 +1134,17 @@ and optional — WF-04 **claims from Postgres itself**.
      never forces `needs_review` (D4 unchanged) and will now rarely
      fire — that is success, not a failed test. Do not tune the prompt
      to make a flag fire.
+   - **Phone when several are printed (packet 3.10, `wf04-v5`).**
+     Capture **#66** (Jeraisy two-sided, `wf04-v4`) stored `phone` null
+     while evidence listed four distinct numbers (6839333 / 6915840 /
+     562650565 / 6183933). Nullable-beats-guessed was working as
+     designed, but a first capture of a multi-phone card stored no
+     number at all. Live prompt: prefer the number labelled mobile or
+     جوال or cell; else the first printed. Do not return null merely
+     because more than one number is present. Nullable beats guessed
+     still applies when no number is legible. Both `Insert
+     extraction_runs` nodes write `prompt_version='wf04-v5'`. Do not
+     rewrite capture 66.
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
    the labelled sources. **Drop any person with a null or empty
@@ -1619,11 +1637,43 @@ Workflow ID: `<WF-08_WORKFLOW_ID>`. Never commit the literal.
 Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 `executionTimeout: 300`, timezone `Asia/Riyadh`. Postgres **Leap-NI**.
 OpenAI: same instance credential WF-03/04 already use. `temperature: 0`.
+Self-identify: `executeOnce: true`, `replaceEmptyStrings: false`.
+Empty `reply_text` after compose is a **defect** (`stopAndError`), not
+a silent success.
 
 **Input:** `owner_id`, `correlation_id`, `question` (string). Reject
 unknown extra fields if present. Empty / missing `question` →
 `ok: true`, `reply_text` = `Usage: /ask <question>` (non-empty, so
 WF-01 sends the hint).
+
+1. **Self-identify** before any read that is not the events probe.
+   Wrong database → `stopAndError`.
+2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
+   structured filters:
+   - `people.full_name % $q` OR `companies.name % $q` OR
+     `interactions.summary % $q` (pg_trgm, already indexed)
+   - Always also load recent interactions with `capture_no`, person
+     `full_name` / `name_original_script` / `title`, company `name`,
+     `summary`, `topics`, follow-up titles. Cap 80 interaction rows
+     by `occurred_at DESC`. A few hundred rows fit; this cap is the
+     launch ceiling.
+   - Do **not** select `email`, `phone`, transcripts, or signed URLs
+     into the model context if a name+company+capture_no answer will
+     do. If the question is clearly about an email or phone, include
+     those fields for the matched rows only.
+3. **Compose context** in Code from the **named** retrieve node.
+   If zero rows: context is the empty-corpus sentence, not a guessed
+   contact.
+4. **Answer** with one OpenAI call (`gpt-4o-mini`, `temperature: 0`).
+   System instructions: cite capture numbers; state plainly when
+   evidence is weak; never invent a person, company, or meeting;
+   Arabic names in `name_original_script` may be quoted; no facial
+   identification.
+5. Return `{ ok: true, reply_text: "<answer>" }`. WF-01 sends.
+   WF-08 has **no** Telegram node. WF-01 calls WF-08 with
+   `waitForSubWorkflow: true` — this is request/response for text the
+   owner is waiting on, not a durable enqueue. Same for `/digest` →
+   WF-07.
 
 1. **Self-identify** before any read that is not the events probe.
    Wrong database → `stopAndError`.
