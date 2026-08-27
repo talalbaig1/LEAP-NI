@@ -1467,7 +1467,7 @@ in WF-05.
 ## WF-06 — Enrichment
 
 **Phase 4** · **Triggers:** Manual + Schedule `*/15 * * * *`.
-**Live:** built **INACTIVE**. Packet 4.2 does not publish. Timezone is
+**Live:** built **INACTIVE**. Packet 4.4 does not publish. Timezone is
 `settings.timezone: Asia/Riyadh` only. `availableInMCP: true`,
 `errorWorkflow` = LNI WF-00, `executionTimeout: 300`,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
@@ -1510,54 +1510,83 @@ Queued job `output.person_id` is the person uuid (no new column).
 7. **Person has email?** — `email_normalized` notEmpty. False →
    **No email terminal** (`stopAndError`).
 8. **Load ceilings** — `lni_config` keys `apollo_daily_ceiling` and
-   `apollo_lifetime_ceiling`; counts of `credit_ledger` rows with
-   `provider='apollo'` and `status IN ('attempted','confirmed')` for
-   today Riyadh and lifetime.
+   `apollo_lifetime_ceiling`; `sum(credits_spent)` of `credit_ledger`
+   rows with `provider='apollo'` and `status IN
+   ('attempted','confirmed')` for today Riyadh and lifetime. Not
+   `count(*)`. `'no_match'` stays off the IN list.
 9. **Ceiling ok?** — `daily_used < daily_ceiling` AND
    `lifetime_used < lifetime_ceiling`. False → **Mark ceiling
    reached** (job `needs_review`, `error_code='ceiling_reached'`,
    envelope error class `ceiling_reached`) → **Ceiling stop** NoOp.
    **No HTTP. No ledger row.**
-10. **Insert ledger** — `credit_ledger` `provider='apollo'`,
-    `credits_spent=1`, `operation='people_match'`,
-    `status='attempted'`, `entity_id` = person. **Before the HTTP
-    call.** `alwaysOutputData: true`. `retryOnFail: true`.
-11. **Apollo people match** — POST
+10. **Read credits before** — GET
+    `https://api.apollo.io/api/v1/users/api_profile?include_credit_usage=true`.
+    Official Apollo docs: Get Current User Profile, 0 credits.
+    `httpHeaderAuth` **Apollo Leap-NI** (REST PUT bind; re-GET proof).
+    `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
+    Placed **before Insert ledger**. Named-node sourcing:
+    `body.num_credits_remaining`. Do not log the profile email.
+11. **Insert ledger** — `credit_ledger` `provider='apollo'`,
+    `credits_spent=1` (conservative hold), `operation='people_match'`,
+    `status='attempted'`, `entity_id` = person. **Before the enrich
+    HTTP call.** `alwaysOutputData: true`. `retryOnFail: true`.
+12. **Apollo people match** — POST
     `https://api.apollo.io/api/v1/people/match` JSON `{email}` from
     **Load person**. `httpHeaderAuth` **Apollo Leap-NI**.
     `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
     `onError: continueRegularOutput`. Do not reveal personal emails
     or phones (`reveal_*` absent / false).
-12. **HTTP ok?** — `statusCode` >= 200 AND < 300. False →
-    **Write HTTP failed** (ledger `'failed'`, job `'failed'`,
-    envelope error class `http`) → **HTTP failed** NoOp.
-13. **Person matched?** — `body.person.id` notEmpty. False →
-    **Write no match** (ledger `'no_match'`, job `'succeeded'`,
-    envelope `result` null) → **No match** NoOp.
-14. **Write match** — ledger `'confirmed'`;
-    `enrichment_records` `entity_type='person'` `provider='apollo'`
-    payload = person object; **second** row `entity_type='company'`
-    only when `person.organization` is present AND `email_domain`
-    is **not** in `lni_free_email_domains`. Job `'succeeded'`.
-    Envelope `result` = person. **Do not write
-    `people.linkedin_url`.**
-15. **Match done** NoOp.
+13. **Read credits after** — same GET as **Read credits before**,
+    after the Apollo call, before the write nodes.
+14. **HTTP ok?** — `statusCode` of **Apollo people match** >= 200 AND
+    < 300. False → **Write HTTP failed** (ledger `'failed'`, job
+    `'failed'`, envelope error class `http`) → **HTTP failed** NoOp.
+15. **Person matched?** — Apollo `body.person.name` non-empty after
+    trim, coerced to string. **Never `person.id`.** Apollo mints an
+    id for a hollow shell (packet 4.3, `.example` domain).
+    `typeValidation: strict`. False → **Write no match**.
+16. **Write no match** — hollow response. Ledger `'no_match'`,
+    `credits_spent=0` (overwrite the attempted hold). Job
+    `'succeeded'`. Envelope `result` null. **No
+    `enrichment_records` row.** → **No match** NoOp.
+17. **Write match** — `credits_spent` = measured delta (`Read credits
+    before` minus `Read credits after`, floored at 0). Status
+    `'confirmed'` when the name is non-empty — including
+    `'confirmed'` / `credits_spent=0` when a named reveal cost
+    nothing. That is honest. `enrichment_records`
+    `entity_type='person'` `provider='apollo'` payload = person
+    object; **second** row `entity_type='company'` only when
+    `person.organization` is present AND `email_domain` is **not**
+    in `lni_free_email_domains`. Job `'succeeded'`. Envelope
+    `result` = person. **Do not write `people.linkedin_url`.**
+18. **Match done** NoOp.
 
 Adapter envelope on `processing_jobs.output` (Phase 2 shape):
 `provider`, `model` (`people/match`), `job_type` (`enrichment`),
 `result`, `raw`, `error`, `completed_at`.
 
-**OPEN QUESTION.** Ceiling accounting counts `credit_ledger` rows with
-status IN (`attempted`,`confirmed`). A `no_match` row is NOT counted.
-This is correct ONLY if an Apollo no-match consumes zero credits.
-Measured in packet 4.3; the result decides whether `no_match` joins
-the IN list.
+**Match test is `name` non-empty after trim, never `person.id`.**
+Apollo bills on reveal. A hollow response costs 0 credits.
+`credits_spent` is **measured** from the delta in
+`num_credits_remaining`, not assumed to be 1.
 
-**Must not:** publish/activate this workflow in packet 4.2; touch
+**Ceiling OPEN QUESTION from packet 4.3: closed.** `'no_match'` does
+not join the IN list, because a no-match costs nothing. Keep
+`status IN ('attempted','confirmed')`. Sum `credits_spent`, do not
+`count(*)`.
+
+**Known discrepancy (evidence, not edited).** Ledger row
+`73fc2831-2231-40f4-9013-8a67d5dc4074` is `confirmed` / 1 for a call
+that cost 0. Lifetime ledger over-counts by 1 from packet 4.3
+onward. Do not edit or delete that row, the three existing
+`enrichment_records` rows, or the probe person.
+
+**Must not:** publish/activate this workflow in packet 4.4; touch
 WF-01 / WF-05 / the dispatch NoOp; write `people.linkedin_url`;
 overwrite captured email / full_name / title / phone; `$env`;
 `$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
-phones, or payloads; treat enrichment as card evidence.
+phones, or payloads; treat enrichment as card evidence; call
+`organizations/enrich`; edit ledger `73fc2831`.
 
 ---
 
