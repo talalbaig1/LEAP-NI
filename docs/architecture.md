@@ -445,6 +445,18 @@ reasons, awaiting owner approval.
 density of shared family names this would quietly corrupt the dataset —
 and quiet corruption is worse than a visible gap.
 
+**OCR-split emails (packet 2.7).** The same card captured twice can yield two
+unequal `email_normalized` values (a transposition, a dropped letter). That is
+the most likely duplicate-creation mechanism at this event. Exact-email auto-link
+will not merge them; name-merge is forbidden. A scored `entity_candidates` row
+**must** be written whenever another owner person shares **exact `full_name`
+AND exact `company_id`**, even if both rows carry emails, when those emails are
+**not equal**. `reasons` is visible and human-readable and **names the two
+differing emails**. Still a suggestion — never an automatic link, never a
+name-merge. A pair of silent unlinked people with `entity_candidates` empty is
+a defect (`architecture.md` §4: everything that is not an exact match becomes
+a scored suggestion).
+
 All merges are reversible, preserve source captures, and write an audit event.
 
 ### Status vocabularies
