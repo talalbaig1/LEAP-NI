@@ -1253,8 +1253,15 @@ scope, not today-only):
 | follow-ups due today | `follow_ups.status = 'open'` AND due date = today Riyadh |
 | unreviewed | `people.review_status = 'unreviewed'` plus `captures.status = 'needs_review'` plus `entity_candidates.decision = 'pending'` |
 
-Compose. No LLM. `companies.industry` is null until Phase 4 — the mix
-will read `unknown`. That is honest, not a defect.
+**Launch facts (inert, not defects).** `follow_ups` has zero rows.
+Nothing in WF-01 through WF-05 writes one, so "follow-ups due today"
+reads 0 at launch. Both sector lines are also inert by design:
+`companies.industry` is null on every row until Phase 4, so the mix
+reads `unknown`; `events.target_sectors` is the empty array, so the
+gaps line prints `Target sectors not set`. Do not invent a list. Do
+not treat either line as a bug.
+
+Compose. No LLM.
 
 ### `/digest` return contract (source = call)
 
@@ -1399,7 +1406,11 @@ Zero findings → silent NoOp terminal. Do not send. Do not email.
 If any `queued` row is eligible under backoff:
 
 - `job_type` in (`card_vision`, `transcription`, `photo_description`)
-  → **one** `Call WF-03`
+  → **one** `Call WF-03`.
+  The CHECK constraint allows `photo_description`. No job of that
+  type has ever been created. Absence in live data is not a bug.
+  WF-09 still lists it so a future enqueue is dispatchable; WF-01–05
+  do not write it.
 - `extraction` → **one** `Call WF-04`
 - `entity_resolution` → **one** `Call WF-05`
 - `enrichment` → **do not call WF-06**
