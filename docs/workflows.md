@@ -999,6 +999,13 @@ node (`Card engine config`) and read from there. Do not scatter it.
    name, title and company when printed. It **never** recovers contact
    details encoded only inside the code.
 
+   **Live prove (packet 3.13, capture #68).** A Wave contact-share QR
+   with the word `wave` in the code and **no printed name/title/company**
+   returned `image_type: other`, `people[]` empty. `assets.kind` stayed
+   `photo`. Capture `needs_review` (`No name extracted`, `No email and
+   no phone`). No person row. Email and phone did not come through.
+   Ceiling confirmed: without printed text, the QR is not a card.
+
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
 
