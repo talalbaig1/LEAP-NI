@@ -27,7 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends |
-| Who decides what the owner is told | **WF-02 decides; WF-01 only sends** | WF-01 never re-derives a condition WF-02 has already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field (`adopted`) that must stay in agreement with `reply_text` — that is the same bug waiting to recur. Verified 26 Aug 2026 (exec 245471: Compose dropped `adopted`; WF-01 tested a field that never arrived). |
+| Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -329,8 +329,16 @@ The entry point. Its single most important property: **the raw asset reaches
 storage before anything else happens.** The **order below is the invariant.**
 A capture that never happened cannot be recovered.
 
-**WF-01 is the only workflow that sends Telegram.** WF-02 never does.
-If storage failed, WF-01 sends nothing — that invariant lives in one place.
+**Inbound chat replies: WF-01 is the only sender.** WF-02 never sends.
+On-demand `/digest` and `/ask` return `reply_text`; WF-01 sends.
+If storage failed, WF-01 sends nothing — that inbound invariant lives in
+one place.
+
+**Scheduled operational messages (packet 3.1):** WF-07 (10 PM / 7 AM) and
+WF-09 (watchdog) send Telegram themselves. A cron tick has no parent
+WF-01 execution. `chat_id` is resolved from `bot_state` the same way
+WF-00 does. Gate on non-empty `chat_id` before any send. Email copy is
+scheduled-only.
 
 Do not activate until the real-device checklist in packet 1.3 Step 3. This
 is the first Telegram webhook on this instance: it must register against the
@@ -357,13 +365,20 @@ LNI bot only and must not disturb any ElderWise webhook.
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
 5. **Branch:** command | photo | voice/audio | document/video | text | callback.
    Commands are `text` starting with `/` and win over the text branch.
-6. **COMMANDS** (`/new`, `/done`, `/batch`, `/status`; `/start` maps to
-   `status`). Strip a trailing `@botname`. Call WF-02 with the contract
-   payload (`owner_id`, `telegram_user_id` from the allowlist row, `action`,
-   `correlation_id`). Send `reply_text` (and `state_echo` only when
-   `reply_text` is empty and `state_echo` is not). **Commands never touch
-   Storage.** Gate: do not send if WF-02 `ok` is false or `reply_text` /
-   `state_echo` is empty.
+6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
+   without the leading `/`, is `action`. **Commands never touch Storage.**
+   Publish-order: activate the callee before adding the Call on WF-01.
+
+   | `action` | Callee | Payload |
+   |---|---|---|
+   | `new` `done` `batch` `status` (`start` → `status`) | WF-02 | existing contract (`owner_id`, `telegram_user_id`, `action`, `correlation_id`) |
+   | `digest` | WF-07 | `owner_id`, `correlation_id`, `source='call'` |
+   | `ask` | WF-08 | `owner_id`, `correlation_id`, `question` = remainder of the text after `/ask` |
+   | `fix` `flag` | none | post-event; silent NoOp, no reply |
+
+   Send `reply_text` (and `state_echo` only when `reply_text` is empty and
+   `state_echo` is not). Gate: do not send if the callee `ok` is false or
+   `reply_text` / `state_echo` is empty. Do not re-test a second field.
 7. **MEDIA**, in exactly this order — this ordering **is** the invariant:
    a. Extract `file_unique_id` (photo: largest size in the array). `SELECT id FROM public.assets WHERE telegram_file_unique_id = $1`. If a row exists, **silent duplicate terminal**. Telegram redelivery is normal.
    b. Call WF-02 `action=resolve_target` to obtain `capture_id`. Orphan adoption may open a capture here — **do not send its message yet.** Hold `reply_text` only. Do not re-test `adopted` or `mode`.
@@ -398,8 +413,8 @@ LNI bot only and must not disturb any ElderWise webhook.
       duplicates a decision already encoded in that string (defect 10,
       exec 245471).
    i. If (f) fails: send **NOTHING**. Silence must mean failure. Do not send the adoption message either — telling the owner a capture opened when nothing was stored is the false reassurance `prd.md` §5 forbids.
-8. **TEXT:** if it starts with `/ask`, terminate as out-of-scope for Phase 1
-   (WF-08 is Phase 3) — no reply. Otherwise `resolve_target`, then append to
+8. **TEXT:** commands already won in step 5 (text starting with `/`).
+   Remaining text is a typed note: `resolve_target`, then append to
    `captures.typed_note` on that capture. **ONLY AFTER** the note write
    succeeds: send if `reply_text` is a non-empty string. Same rule as media.
    Do not re-test `adopted` through a different operator than the photo path.
@@ -867,11 +882,10 @@ node (`Card engine config`) and read from there. Do not scatter it.
    → `failed`. Malformed content (schema missing, empty transcript) →
    `needs_review`. **Never silently drop.**
 
-   **KNOWN LIMITATION (named Phase 3 item, do not fix now):** a requeued
-   job returns to `queued` with **no backoff delay**. The 1/5/20 minute
-   cadence is specified, not implemented. Safe today because WF-03 only
-   runs on dispatch (WF-02 `/done` and sweep). It becomes live when
-   WF-09 re-dispatches in Phase 3 (`phases.md` Phase 2, named item).
+   **Backoff lives in WF-09, not in this execution.** A requeued job
+   returns to `queued` with no Wait (300 s timeout). WF-09 will not
+   re-dispatch until `last_transition_at` is older than the delay for
+   that `attempt_count` (1 / 5 / 20 minutes). Do not add a Wait here.
 7. When **every sibling job for that capture** is in a terminal state
    (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
    capture-level job: `job_type='extraction'`, `asset_id` NULL,
@@ -1007,8 +1021,8 @@ and optional — WF-04 **claims from Postgres itself**.
 Same failure discipline as WF-03: `succeeded` / `failed` / `needs_review`,
 never silent, every branch visibly terminal. `retryOnFail: true` on
 provider and DB nodes. Transient provider error → requeue if
-`attempt_count < 3`, else `failed`. The 1/5/20 minute backoff
-limitation named under WF-03 applies here too.
+`attempt_count < 3`, else `failed`. The 1/5/20 minute backoff is
+WF-09 (same as WF-03). Do not add a Wait here.
 
 **Must not:** unwrap `output.raw`; overwrite any field present in
 `field_corrections` (table exists; `/fix` is post-event); log
@@ -1159,70 +1173,255 @@ timestamped, and separately reviewable.
 
 ## WF-07 — Digests
 
-**Phase 3** · **Trigger:** two schedules + on demand
-**Both schedules explicitly `Asia/Riyadh`**
+**Phase 3** · **Triggers:** two Schedule Triggers + Execute Workflow Trigger
+**Both schedules explicitly `timezone: Asia/Riyadh` in the saved JSON.**
+A UTC container with no timezone fires 7 AM at 10 AM Riyadh. Proof of
+timezone is an **observed execution `startedAt`**, not the cron string.
+WF-09's 15-minute tick is the soonest observed proof; 22:00 / 07:00 are
+proven when they first fire.
 
-### 10:00 PM — Day close
-Operational. Reports: captured today · clean · flagged · failed · **stuck**.
-Plus a list of flagged captures with reasons.
+Workflow ID on the instance: `<WF-07_WORKFLOW_ID>`. Never commit the
+literal. Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone `Asia/Riyadh`. Postgres credential
+**Leap-NI**. First execution self-identifies
+(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Wrong
+database → `stopAndError` (`Wrong database terminal`). Message: no
+comma, quote, or apostrophe.
 
-Sent via Telegram **and copied to email** as a durable record independent of
-Telegram history.
+### Triggers
 
-The **stuck** count is the figure that saves the project — it is how the owner
-learns on day one that something is jammed rather than on day four.
+| Trigger | `kind` | `source` | Sends? |
+|---|---|---|---|
+| Cron `0 22 * * *` Asia/Riyadh | `close` | `schedule` | Telegram + email |
+| Cron `0 7 * * *` Asia/Riyadh | `brief` | `schedule` | Telegram + email |
+| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close` | `call` | no — return `reply_text` |
 
-### 7:00 AM — Morning briefing
-Intelligence. Reports: people met to date · distinct companies · sector
-distribution · coverage gaps against target sectors · follow-ups due today ·
-unreviewed count.
+Each trigger feeds a named Set (`kind`, `source`) then the shared
+self-identify node. Source every later field from the **named** node
+that produced it, never `$json` after Postgres.
 
-**This is the highest-value output in the system** — the only thing that changes
-how the next eight hours are spent while the event is still running.
+### Day (`today`) is Riyadh
 
-It is also the **highest-risk item**, depending on a cron timezone, a query, and
-extraction having worked overnight — three things that can each fail silently.
-**Test with real data on 29 Aug.**
+```sql
+(opened_at AT TIME ZONE 'Asia/Riyadh')::date
+  = (now() AT TIME ZONE 'Asia/Riyadh')::date
+```
 
-### `/digest`
-Either report, on demand.
+Same pattern for `due_at`, `closed_at`. Never `::date` on timestamptz
+without the zone (that is UTC date).
+
+### 10:00 PM — Day close (deterministic, no model)
+
+One parameterised query, owner-scoped from the self-id `owner_id`.
+Counts for **today Riyadh**:
+
+| Key | Definition |
+|---|---|
+| `captured` | captures opened today |
+| `clean` | those with `status = 'ready'` |
+| `flagged` | those with `status = 'needs_review'` |
+| `failed` | those with `status = 'failed'` |
+| `stuck` | those with `status = 'processing'` AND `closed_at` not null |
+
+Plus a flagged list: `capture_no` and `flag_reasons` from the latest
+`extraction_runs` row per capture. Cap 20 lines. No emails, phones,
+transcripts. `queryReplacement` is one array expression.
+
+Compose text in a Code node from that named query. Shape:
+
+```
+LNI day close (Riyadh date)
+captured N · clean N · flagged N · failed N · stuck N
+#12 needs_review: No name extracted
+#59 needs_review: No email and no phone
+```
+
+Zero captured is still a real report (not silent). The **stuck** count
+is the figure that saves the project.
+
+### 7:00 AM — Morning briefing (deterministic, no model)
+
+Highest-value output. Highest-risk item. Counts **to date** (event
+scope, not today-only):
+
+| Key | Definition |
+|---|---|
+| people | `count(*)` on `people` |
+| companies | `count(*)` on `companies` |
+| sectors | `coalesce(nullif(btrim(industry), ''), 'unknown')` grouped |
+| gaps | `events.target_sectors` minus observed sector keys. Empty array → print `Target sectors not set` — do not invent a list |
+| follow-ups due today | `follow_ups.status = 'open'` AND due date = today Riyadh |
+| unreviewed | `people.review_status = 'unreviewed'` plus `captures.status = 'needs_review'` plus `entity_candidates.decision = 'pending'` |
+
+Compose. No LLM. `companies.industry` is null until Phase 4 — the mix
+will read `unknown`. That is honest, not a defect.
+
+### `/digest` return contract (source = call)
+
+```json
+{ "ok": true, "reply_text": "<composed report>" }
+```
+
+`reply_text` is a string. `capture_no` is not required. Empty
+`reply_text` is a defect (a digest always has counts). WF-01 sends.
+
+### Scheduled send
+
+1. After compose: IF `source = schedule` AND `reply_text` notEmpty.
+2. Resolve `chat_id` and owner email in the **same** Leap-NI Postgres
+   node as the counts if possible; otherwise a second Leap-NI node
+   (restore-by-name — a *new* node auto-assigns ElderWise).
+   `chat_id` ← `bot_state.telegram_user_id`. Email ←
+   `auth.users.email` for `events.owner_id`. Never `$env`.
+3. Gate `chat_id` notEmpty before Telegram. Same send node pattern as
+   WF-00 (`sendMessage`, `appendAttribution: false`).
+4. Gate email notEmpty before Gmail. Bind the existing Gmail OAuth
+   credential. `continueOnFail: true` on Gmail — Telegram already
+   delivered. Do not `stopAndError` the digest if mail fails.
+5. Zero-row UPDATE/`{success:true}` must not reach a send (gate on the
+   compose fields, named node).
+
+**Must not:** log emails, phones, transcripts, signed URLs; call WF-06;
+deactivate WF-01–05; send on the `call` path (WF-01 owns that send).
 
 ---
 
 ## WF-08 — Query (`/ask`)
 
-**Phase 3** · **Trigger:** called by WF-01
+**Phase 3** · **Trigger:** Execute Workflow Trigger (called by WF-01)
+Workflow ID: `<WF-08_WORKFLOW_ID>`. Never commit the literal.
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone `Asia/Riyadh`. Postgres **Leap-NI**.
+OpenAI: same instance credential WF-03/04 already use. `temperature: 0`.
 
-1. Parse the question.
-2. Retrieve owner-scoped candidate records — structured filters plus trigram
-   search over `people.full_name`, `companies.name`, `interactions.summary`.
-3. Compose context and answer with citations back to capture numbers.
-4. **State plainly when evidence is weak.** Never confabulate a contact.
+**Input:** `owner_id`, `correlation_id`, `question` (string). Reject
+unknown extra fields if present. Empty / missing `question` →
+`ok: true`, `reply_text` = `Usage: /ask <question>` (non-empty, so
+WF-01 sends the hint).
 
-**No vector store at launch.** A few hundred rows fit comfortably in context.
-pgvector hybrid retrieval arrives in Phase 6, when the corpus outgrows it.
+1. **Self-identify** before any read that is not the events probe.
+   Wrong database → `stopAndError`.
+2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
+   structured filters:
+   - `people.full_name % $q` OR `companies.name % $q` OR
+     `interactions.summary % $q` (pg_trgm, already indexed)
+   - Always also load recent interactions with `capture_no`, person
+     `full_name` / `name_original_script` / `title`, company `name`,
+     `summary`, `topics`, follow-up titles. Cap 80 interaction rows
+     by `occurred_at DESC`. A few hundred rows fit; this cap is the
+     launch ceiling.
+   - Do **not** select `email`, `phone`, transcripts, or signed URLs
+     into the model context if a name+company+capture_no answer will
+     do. If the question is clearly about an email or phone, include
+     those fields for the matched rows only.
+3. **Compose context** in Code from the **named** retrieve node.
+   If zero rows: context is the empty-corpus sentence, not a guessed
+   contact.
+4. **Answer** with one OpenAI call (`gpt-4o-mini`, `temperature: 0`).
+   System instructions: cite capture numbers; state plainly when
+   evidence is weak; never invent a person, company, or meeting;
+   Arabic names in `name_original_script` may be quoted; no facial
+   identification.
+5. Return `{ ok: true, reply_text: "<answer>" }`. WF-01 sends.
+   WF-08 has **no** Telegram node.
+
+**No vector store at launch.** pgvector is Phase 6.
+
+**Must not:** log the raw question if it contains an email or phone
+(redact before any audit write; audit is optional and not required
+for `/ask`); confabulate; auto-merge; call WF-06.
 
 ---
 
 ## WF-09 — Watchdog
 
-**Phase 3** · **Trigger:** Schedule, every 15 minutes, `Asia/Riyadh`
+**Phase 3** · **Triggers:** Schedule `*/15 * * * *` `Asia/Riyadh` +
+Execute Workflow Trigger (manual prove)
+Workflow ID: `<WF-09_WORKFLOW_ID>`. Never commit the literal.
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone `Asia/Riyadh`. Postgres **Leap-NI**.
 
-1. Find `processing_jobs` in a non-terminal state past a staleness threshold.
-   Measure from `last_transition_at`, **never** from `created_at`. That column
-   is maintained by a `BEFORE UPDATE` trigger on `status` or `attempt_count`
-   changes (architecture.md §4). A job in a healthy WF-03 retry window must
-   not trip the watchdog.
-2. Find `captures` closed but with no `extraction_runs` after a grace period.
-3. Find `assets` with `upload_status != 'stored'`.
-4. Alert the owner via Telegram **and** email if any are found. Silent when
-   clean.
+Launch-blocking. Independent of WF-07. Silent when clean.
 
 ### Why this is launch-blocking
 The owner chose low-confidence-only notification, which makes the 10 PM digest
 the single point of failure detection. If that digest does not fire on the 31st,
 there is no signal at all until the owner goes looking. **This workflow exists
 specifically to cover that gap and must not be cut when Phase 3 is squeezed.**
+
+### Staleness clock
+
+Measure from `processing_jobs.last_transition_at`, **never**
+`created_at` (migration `010`, architecture.md §4). A job healthily
+in a retry window is not stale.
+
+### Backoff (named Phase 3 item)
+
+WF-03/04/05 requeue to `queued` with **no Wait** inside the 300 s
+execution. WF-09 is the delay. Do not tight-loop.
+
+Dispatch a `queued` row only when `last_transition_at` is older than:
+
+| `attempt_count` | Delay |
+|---|---|
+| 0 | 1 minute (missed initial dispatch) |
+| 1 | 1 minute |
+| 2 | 5 minutes |
+| ≥ 3 | **do not dispatch.** If still `queued` or `running`, `UPDATE` to `failed` and include in the alert |
+
+`running` older than **10 minutes** (2× `executionTimeout` 300 s) and
+`attempt_count < 3`: `UPDATE` status back to `queued` (status change
+refreshes `last_transition_at`; do not bump `attempt_count` here —
+the worker claim does that). Then it is eligible on the next tick
+after the delay for its count.
+
+### Scan (one Leap-NI query)
+
+Owner from self-id. Return json counts + sample ids (job `id`,
+`job_type`, `status`, `attempt_count`, capture `capture_no` only —
+no PII):
+
+1. Non-terminal jobs (`queued` / `running`) past the backoff (or the
+   10-minute running rule).
+2. Closed captures (`closed_at` not null, older than 15 minutes,
+   `status = 'processing'`) with **at least one** `processing_jobs`
+   row and **no** `extraction_runs` row. **Zero-job Phase 1 leftovers
+   (including capture #9) are out of scope.** Do not alert on them.
+   Do not backfill. Do not delete #9.
+3. `assets.upload_status != 'stored'`.
+4. `processing_jobs.status = 'failed'` with `last_transition_at`
+   in the last 24 hours (surface poison jobs).
+
+Zero findings → silent NoOp terminal. Do not send. Do not email.
+
+### Dispatch (best-effort, not the alert)
+
+If any `queued` row is eligible under backoff:
+
+- `job_type` in (`card_vision`, `transcription`, `photo_description`)
+  → **one** `Call WF-03`
+- `extraction` → **one** `Call WF-04`
+- `entity_resolution` → **one** `Call WF-05`
+- `enrichment` → **do not call WF-06**
+
+Input contract matches the workers: `owner_id`, `correlation_id`
+(Crypto uuid on this execution). `waitForSubWorkflow: false`.
+`onError: continueRegularOutput` explicit. Workers claim from
+Postgres. One call per worker, not per job.
+
+Publish-order: WF-03/04/05 are already active. Do not deactivate them.
+
+### Alert (independent of digest)
+
+If any finding is non-zero: compose a short text (counts + up to 10
+`capture_no` / `job_type` lines). Gate `chat_id` from `bot_state`.
+Telegram send (WF-00 pattern). Email copy, `continueOnFail: true`.
+`source` is always schedule or manual prove — WF-09 is never called
+by WF-01, so it always sends itself when dirty.
+
+**Must not:** log PII; rewrite vision job `1564abc3`; auto-merge;
+delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
+>= 3`.
 
 ---
 
@@ -1234,7 +1433,7 @@ specifically to cover that gap and must not be cut when Phase 3 is squeezed.**
 | 2 | WF-00b | Self-identifying execution on both branches; live JSON `errorWorkflow` + `availableInMCP` |
 | 3 | WF-01, WF-02 | 20 real-device captures, 100% asset preservation |
 | 4 | WF-03, WF-04 | Live JSON read-back for unset `language`; envelope keys; extraction_runs row |
-| 5 | WF-07, WF-08, WF-09 | Observed execution timestamps in Riyadh local time |
+| 5 | WF-07, WF-08, WF-09 | Observed execution `startedAt` in Riyadh; `/digest` and `/ask` on the production bot; watchdog silent when clean and loud when a TEST-stuck job is planted then restored |
 | 6 | WF-06 | Forced retry loop must not breach the credit ceiling |
 
 **Verification is by read-back, never by report.** The architect reads live

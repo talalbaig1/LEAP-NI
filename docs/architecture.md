@@ -55,6 +55,13 @@ These are invariants. Violating one is a defect regardless of test results.
 6. **User corrections are canonical** and are never overwritten by a re-run.
 7. **All cron schedules explicitly pinned to `Asia/Riyadh`.** Never inherit the
    container default.
+8. **Telegram send paths are enumerated, not implied.** Inbound chat replies
+   are WF-01 only. WF-00 alerts on repeated errors. Scheduled WF-07 / WF-09
+   send operational messages because a cron tick has no parent WF-01
+   execution. WF-02 never sends. On-demand `/digest` and `/ask` return
+   `reply_text`; WF-01 sends. `chat_id` always from `bot_state`, never
+   `$env`. Email copy is scheduled-only; recipient is `auth.users.email`
+   for the events owner, never committed.
 
 ---
 
@@ -101,6 +108,13 @@ Purpose, then every live column (`NULL` = nullable, no default unless shown).
 | `location` | text | — | YES |
 | `timezone` | text | — | NO |
 | `created_at` | timestamptz | `now()` | NO |
+| `target_sectors` | text[] | `'{}'` | NO |
+
+**`events.target_sectors` (packet 3.1).** Owner-configured industry labels
+the 7 AM briefing compares against `companies.industry`. Empty means
+**not set** — the briefing says so; it does not invent a list. Do not
+seed guessed sectors. `companies.industry` is filled by enrichment
+(Phase 4); until then the mix is `unknown`.
 
 **`bot_state`** — which capture is open; batch mode; **WF-01 allowlist**.
 UNIQUE `(owner_id, telegram_user_id)`.
@@ -801,7 +815,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`016`) create the 16 tables, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, and the `/done` enqueue natural key. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`017`) create the 16 tables, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, and `events.target_sectors`. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -824,6 +838,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 014 | `014_bot_state_seed_repair` | Catalog repair: idempotent `bot_state` seed using `current_setting(..., true)` (009 pattern). Does not disturb the live row. Asserts exactly one `bot_state` row, owner matches 009, `open_capture_id` consistent. |
 | 015 | `015_captures_flags_object` | `captures.flags` default `'{}'::jsonb`; convert live jsonb arrays to `'{}'`; CHECK `jsonb_typeof(flags) = 'object'`. Does not drop `captures_owner_media_group_uniq`. |
 | 016 | `016_processing_jobs_asset_job_uniq` | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type) WHERE asset_id IS NOT NULL`. Natural key for `/done` enqueue idempotency. |
+| 017 | `017_events_target_sectors` | `events.target_sectors text[] NOT NULL DEFAULT '{}'` for the 7 AM coverage-gap list. Empty = not set. No guessed seed. |
 
 ### Connection policy — verified 25 Aug 2026
 
