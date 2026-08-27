@@ -189,10 +189,9 @@ before digest/watchdog).
 benchmark on GPT-4o / Gemini / Mistral; `/fix` → `field_corrections`.
 
 ### Named Phase 3 item — retry backoff
-A requeued job returns to `queued` with **no backoff delay**.
-`workflows.md` specifies 1/5/20 minutes. Safe today because WF-03 only
-runs on dispatch; it becomes live when WF-09 re-dispatches in Phase 3.
-Do not "fix" it in Phase 2.
+A requeued job returns to `queued` with **no backoff delay** inside
+WF-03/04/05 (300 s timeout, no Wait). WF-09 implements the 1/5/20
+minute cadence from `last_transition_at` before it re-dispatches.
 
 ---
 
@@ -203,7 +202,8 @@ Do not "fix" it in Phase 2.
 ### Scope
 - WF-07 digests: 10 PM close, 7 AM briefing, `/digest` on demand
 - WF-08 `/ask` natural-language query
-- WF-09 stuck-job watchdog
+- WF-09 stuck-job watchdog, including the 1/5/20 minute requeue backoff
+  (measure from `last_transition_at`; do not Wait inside WF-03/04/05)
 
 ### Definition of done
 - Both schedules fire at the correct **`Asia/Riyadh`** local time — verified by
