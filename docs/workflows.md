@@ -1223,6 +1223,12 @@ without touching `wf04-v1`.
    Do not skip the OCR-split path just because both rows have emails.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
+
+   **Packet 3.9 C** applied an **owner-confirmed** merge of the Imran
+   OCR-split pair (survivor = the `ikhalid@` row; absorbed title
+   carried) and collapsed three Huawei company rows onto the
+   `huawei.com` survivor. That is data. WF-05 still never auto-merges.
+   MDS transliteration and phone candidates stay `pending`.
 7. **Capture status:** `ready` when `flag_reasons` is empty **or
    contains only informational signals**; `needs_review` otherwise.
    (`failed` is not set here.) Packet 3.6 ruling: `Non-Latin script

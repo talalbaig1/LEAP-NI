@@ -478,6 +478,13 @@ name-merge. A pair of silent unlinked people with `entity_candidates` empty is
 a defect (`architecture.md` §4: everything that is not an exact match becomes
 a scored suggestion).
 
+**Owner-confirmed merge is data, not code (packet 3.9 C).** The Imran
+OCR-split pair was merged onto the `ikhalid@` row and the absorbed title
+was carried across because the owner confirmed that email. Three Huawei
+company rows were collapsed onto the `huawei.com` survivor. That does
+**not** license WF-05 to auto-merge. Transliteration / phone
+disagreements on a later card stay `pending` until the owner rules.
+
 All merges are reversible, preserve source captures, and write an audit event.
 
 ### Status vocabularies
