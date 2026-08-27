@@ -126,15 +126,15 @@ will not sweep them. Leave them unless the architect orders a backfill.
 ## Named Phase 3 item — requeue has no backoff
 
 A failed provider call with `attempt_count < 3` returns the job to
-`queued` **immediately**. `workflows.md` specifies delays 1, 5, 20
-minutes. There is no Wait in the 300 s execution, by design.
+`queued` **immediately**. Packet 3.3 moved the delay onto the worker
+claim (1 and 5 minutes; ceiling 3). **The 20 minutes is deleted.**
+There is no Wait in the 300 s execution, by design.
 
-This was safe in Phase 2 because workflows ran on dispatch. **It
-becomes live the moment WF-09 re-dispatches** a stale `queued` row.
-WF-09 must not tight-loop: measure staleness from
+This was safe in Phase 2 because workflows ran on dispatch. WF-09 is
+the kicker, not the delay. Measure staleness from
 `processing_jobs.last_transition_at`, never `created_at` (migration
-`010`). Implement backoff as part of the watchdog design, or you will
-burn the provider budget on a single poison job.
+`010`). A twice-failed job is poison — surface it, do not spend a
+third retry.
 
 ## Hard-won traps (do not re-learn)
 

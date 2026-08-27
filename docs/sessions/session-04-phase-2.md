@@ -166,7 +166,9 @@ Awaiting owner decision. Do not auto-accept it.
 ### Requeue without backoff — named Phase 3 item, do not “fix” now
 
 A transient failure returns the job to `queued` with **no delay**.
-`workflows.md` specifies 1 / 5 / 20 minutes. Safe in Phase 2 because
+`workflows.md` then specified 1 / 5 / 20 minutes. **Superseded packet
+3.3:** delays are 1 and 5; the 20 is deleted; the predicate lives on
+the worker claim; WF-09 kicks. Safe in Phase 2 because
 WF-03/04/05 run on dispatch. It becomes live the moment **WF-09**
 re-dispatches a stale `queued` row. Do not add a Wait inside the
 300 s execution.
