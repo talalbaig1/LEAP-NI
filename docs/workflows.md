@@ -118,6 +118,21 @@ Use `$('Node').first()` for cross-branch reads after a Merge. Named-
 node sourcing is necessary but not sufficient - `.item` still carries
 a lineage dependency that `.first()` does not.
 
+**Absent Telegram `parse_mode` is NOT plain text on this build.**
+Execution **254927** (WF-09, before `parse_mode` was set) returned
+verbatim: `Bad Request: can't parse entities: Can't find end of the
+entity starting at byte offset 121`. Default Markdown treated `_` in
+`failed_24h` as an unclosed italic. WF-07 `Telegram digest` had
+`parse_mode` **absent** — the day-close line `#n needs_review: …`
+would hit the same failure the first time any capture is flagged
+(first real event day). Packet 3.7b: both scheduled Telegram sends
+set `parse_mode: HTML` explicitly. Compose must HTML-escape `&`,
+then `<`, then `>` **before** the string reaches a Telegram node
+(`telegram_text`). Do not feed that escaped string to Gmail
+(`emailType: text`) — Gmail keeps `reply_text` plain. An ampersand
+in a company name under HTML is the same class of send-break as `_`
+under implicit Markdown.
+
 **Empty item vs zero counts (packet 3.6).** A real SQL row with
 captured = 0 is a valid report and SHOULD send.
 An empty item from alwaysOutputData on zero rows is NOT a report and
@@ -427,6 +442,12 @@ LNI bot only and must not disturb any ElderWise webhook.
    **deferred post-event**: it needs a new `people.source_type`,
    touches two **ACTIVE** workflows (WF-01 and WF-02), and the event
    is four days away.
+
+   **`.vcf` as document (packet 3.7b diagnosis, still live).**
+   `msg.document` → `branch='document'`, `kind='document'`, stored.
+   WF-02 enqueue is `audio → transcription`, **everything else →
+   `card_vision`**. A `.vcf` therefore gets a vision call on a text
+   file. Not fixed.
 6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
    without the leading `/`, is `action`. **Commands never touch Storage.**
    Publish-order: activate the callee before adding the Call on WF-01.
@@ -922,13 +943,26 @@ node (`Card engine config`) and read from there. Do not scatter it.
    packet 3.6 identity ruling):
    `full_name` is identity and must be non-null. If the card prints a
    Latin name, `full_name` uses it **exactly as printed** and is never
-   re-transliterated. An Arabic-only (non-Latin) `full_name` is
+   re-transliterated. If the card is Arabic-only, **transliterate into
+   `full_name`** and put the original in `name_original_script`. An
+   Arabic-only stored `full_name` (transliteration failed) is still
    **accepted as identity** and does not force `needs_review`.
-   `name_original_script` is the verbatim original. `name_original_script`
-   alone is still not identity (trap 7 unchanged). Never discard the
-   original. Never invent a Latin name the card does not support.
+   `name_original_script` alone is still not identity (trap 7
+   unchanged). Never discard the original. Never invent a Latin name
+   the card does not support.
    A prove re-run INSERTs a **new** `card_vision` row; the original
    succeeded row is not updated (it is evidence).
+
+   **QR / screen contact-share (packet 3.7b).** An image may be a phone
+   or laptop **screen** showing a QR contact-share code. Classify it as
+   `business_card` when a proper name is printed on that screen, not as
+   a `scene`. Transcribe every **printed** field (name, title, company,
+   visible email or phone) into `people[]` under the existing card
+   rules. **Never attempt to decode the QR pattern.** GPT-4o cannot
+   decode QR codes; do not claim it can. Never invent an email or phone
+   that is not printed as readable text. **Ceiling:** this recovers
+   name, title and company when printed. It **never** recovers contact
+   details encoded only inside the code.
 
    **`transcription`** — Whisper on the named binary property.
    **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
@@ -1051,7 +1085,8 @@ and optional — WF-04 **claims from Postgres itself**.
    value. Reject any email, phone, domain, or date not present in the
    labelled source evidence. Preserve `name_original_script`; apply the
    same `full_name` transliteration contract as WF-03
-   (`architecture.md` §6). Prompt contract (packet 2.6b, `wf04-v2`):
+   (`architecture.md` §6). Prompt contract (packet 2.6b `wf04-v2`,
+   packet 3.7 `wf04-v3`, packet 3.7b `wf04-v4`):
    - **`summary`:** 1–3 sentences of what was said or noted. **Required**
      when a `[TRANSCRIPT]` or `[TYPED_NOTE]` block has text. Null **only**
      when both blocks are empty.
@@ -1060,11 +1095,38 @@ and optional — WF-04 **claims from Postgres itself**.
    - **People** must be proper names present in the sources. A person row
      requires a non-null `full_name`. An Arabic-only (non-Latin)
      `full_name` is **accepted as identity** and does not force
-     `needs_review` (packet 3.6, capture **#62** is the evidence; **not
-     retro-fixed**). The flag reason `Non-Latin script present in the
-     name field` remains in `flag_reasons` as an informational signal
-     only. `name_original_script` alone is still not identity (trap 7
-     unchanged). A person referred to but not named is omitted.
+     `needs_review` (packet 3.6 ruling; packet 3.7 implements the capture
+     status. Capture **#62** is the evidence; **not retro-fixed**). The
+     flag reason `Non-Latin script present in the name field` remains in
+     `flag_reasons` as an informational signal only and **no longer
+     forces `needs_review`**. Every **other** flag still does. `full_name`
+     must still be non-null. `name_original_script` alone is still not
+     identity (trap 7 unchanged). A person referred to but not named is
+     omitted.
+   - **Two-sided card (packet 3.7, `wf04-v3`).** Multiple `[CARD]` blocks
+     may be two sides or two photographs of the **same physical card**.
+     The `[CARD]` label carries only an `asset_id`; it conveys nothing
+     about side or language. A person appearing in more than one block is
+     **one** entry in `people[]`, not two. When merging blocks for one
+     person: prefer a printed Latin `full_name` over a transliteration;
+     keep the original script in `name_original_script`; **union** the
+     contact fields rather than choosing one block. The same applies to
+     `companies[]`: one physical card is one company. Evidence: capture
+     **#63** — one physical card, English front and Arabic back, sent as
+     two images; `wf04-v2` emitted **two** `people[]` and **two**
+     `companies[]` for one human. The prompt previously had **no** dedup
+     instruction. Captures **#62** and **#63** are **not retro-fixed**.
+     Live `wf04-v4` system prompt (packet 3.7b): `full_name` is **not**
+     required to be Latin (requiring Latin would discard people the
+     transliteration fails on). Arabic-only: **transliterate into
+     `full_name`** and keep the verbatim original in
+     `name_original_script`. Reason: `full_name == name_original_script`
+     makes `name_original_script` the identity, which trap 7 forbids.
+     The owner needs a searchable Latin name in the briefing and in
+     `/ask`. Capture **#61** is the target shape. The Non-Latin flag
+     never forces `needs_review` (D4 unchanged) and will now rarely
+     fire — that is success, not a failed test. Do not tune the prompt
+     to make a flag fire.
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
    the labelled sources. **Drop any person with a null or empty
@@ -1075,15 +1137,15 @@ and optional — WF-04 **claims from Postgres itself**.
    (empty array if none). Conditions: no name extracted (**`full_name`
    only** — `name_original_script` alone does not count); no email AND
    no phone; non-Latin script present in `full_name` (**informational
-   only** as of packet 3.6 — does **not** force `needs_review`; WF-04 /
-   WF-05 status change is packet 3.7); empty transcript despite audio
-   longer than 5 seconds; two or more people detected on one card;
-   extraction output fails schema validation; capture contains nothing
-   usable.
+   only** — packet 3.6 ruling, packet 3.7 status: this flag alone does
+   **not** force `needs_review`; every other flag still does); empty
+   transcript despite audio longer than 5 seconds; two or more people
+   detected on one card; extraction output fails schema validation;
+   capture contains nothing usable.
 7. **Write ONE `extraction_runs` row per (`capture_id`,
    `prompt_version`)** (immutable evidence). Never UPDATE an existing
    row. `INSERT … WHERE NOT EXISTS` that pair so a bumped prompt
-   (e.g. `wf04-v2`) inserts **beside** `wf04-v1`, it does not overwrite.
+   (e.g. `wf04-v4`) inserts **beside** `wf04-v3`, it does not overwrite.
    Columns: `model`, `prompt_version`, `raw_vision_output` (jsonb of the
    labelled card/scene results), `raw_transcript` (concatenated
    `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Then set
@@ -1139,8 +1201,8 @@ Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 
 **Input contract:** a kick is optional — WF-05 **claims from Postgres
 itself**. Reads the **latest** `extraction_runs` row for the capture
-(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v2` re-proof is used
-without touching `wf04-v1`.
+(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v4` re-proof is used
+without touching `wf04-v3`.
 
 1. **Self-identify** before any write: `SELECT name, timezone, owner_id
    FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
@@ -1203,6 +1265,80 @@ without touching `wf04-v1`.
    capture. A capture with zero people still gets an interaction
    (`person_id` NULL) so the summary is not lost, and still gets a
    terminal capture status.
+
+   **Company matcher (packet 3.7).** Cause of the live orphans (accepted):
+   Prepare resolution unioned `companies[].name` and `people[].company_name`
+   by exact lowercase with **no precedence**. Link `person_companies` and
+   Insert interaction join **only** `people[].company_name`. Result: a
+   `companies[]` name that no person uses becomes an orphan row. Live
+   proof — three rows for one company, **not retro-fixed**:
+
+   - `'شركة هواوي تك انفستمنت العربية السعودية المحدودة'` (capture 62, linked)
+   - `'Huawei'` (capture 62, orphan — `companies[]` only)
+   - `'Huawei Tech. Investment Saudi Arabia Co., Ltd.'` (capture 63, has domain)
+
+   Required properties:
+
+   - A company row is created **only when a person links to it**. No row
+     from `companies[]` that no person references.
+   - `companies[]` **enriches** the linked row (domain; website maps to
+     `companies.domain` when domain is empty). It does **not** create a
+     parallel row.
+   - **No fuzzy auto-merge on name alone.** Substring matching is
+     **banned** — `'BT'` inside `'BTGroup'` is exactly the failure this
+     project already knows about. Match key is **exact**
+     `lower(trim(name))` only.
+   - When you cannot match confidently, write an `entity_candidates` row.
+     **Never** a second silent company.
+
+   Matcher:
+
+   1. Person-linked key = exact `lower(trim(people[].company_name))`.
+      Empty `company_name` → that person does not create a company.
+   2. If the person **auto-links** (exact email or exact LinkedIn) and
+      already has a current `person_companies` row: **reuse that
+      `company_id`**. Do not INSERT from a disagreeing incoming
+      `company_name`. If the incoming key differs from the stored
+      company name, write `entity_candidates` (`entity_type='company'`,
+      `candidate_entity_id` = stored company) with visible reasons
+      naming both strings. Packet 3.9 reconciles aliases.
+   3. Else lookup an owner company by that exact key. Found → reuse id.
+      Not found → INSERT from `people[].company_name` only.
+   4. Enrichment: apply `companies[]` domain (and website-as-domain)
+      **only** when `lower(trim(companies[].name))` equals the **linked**
+      company's exact key. Upgrade null domain; never overwrite
+      non-null. A `companies[]` entry whose exact key is **not** the
+      linked key is **not inserted**. Write `entity_candidates` on the
+      person (`unlinked_company_payload`, name visible in `reasons`).
+   5. `roles[]` is ignored (unchanged).
+
+   **Person field precedence (packet 3.7) on an email or LinkedIn
+   auto-link.** Cause: first-write-wins. Capture 62 (Arabic only)
+   created the person. Capture 63 arrived with a clean English card
+   carrying the same email and could not improve it. Stored record is
+   still `full_name` `'وانغ (بوب)'` with title `'نائب المدير'` while
+   `'Zhang Wenwu (Kyle)'` / `'Deputy Director'` were available and
+   discarded. The quality of a contact record currently depends on
+   which side of the card arrived first. That is the defect. Captures
+   **#62** and **#63** are **not retro-fixed**.
+
+   On match to an existing person:
+
+   - A Latin `full_name` **upgrades** a stored non-Latin one.
+   - A non-null value **upgrades** a stored null (`title`, `phone`,
+     `linkedin_url`). Incoming email does not overwrite a stored email
+     on the email-match path; LinkedIn-match may fill a null email.
+   - A non-null stored value is **never** overwritten by null.
+   - When two non-null **Latin** values disagree, keep the stored one
+     and write an `entity_candidates` row (`entity_type='person'`). Do
+     not silently pick.
+   - `name_original_script`: `COALESCE(stored, incoming)` — never
+     overwrite a stored original with null.
+
+   Auto-link still requires exact `email_normalized` or exact
+   `linkedin_url_normalized`. That rule does not move. Latin detection
+   is the same test WF-04 uses: a name is non-Latin when it matches
+   `/[^\u0000-\u024F\u1E00-\u1EFF\s]/`.
 6. **Non-exact match** writes a scored `entity_candidates` row with
    **visible `reasons`**. Never a merge, at any score.
 
@@ -1223,21 +1359,22 @@ without touching `wf04-v1`.
    Do not skip the OCR-split path just because both rows have emails.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
-
    **Packet 3.9 C** applied an **owner-confirmed** merge of the Imran
    OCR-split pair (survivor = the `ikhalid@` row; absorbed title
    carried) and collapsed three Huawei company rows onto the
    `huawei.com` survivor. That is data. WF-05 still never auto-merges.
    MDS transliteration and phone candidates stay `pending`.
-7. **Capture status:** `ready` when `flag_reasons` is empty **or
-   contains only informational signals**; `needs_review` otherwise.
-   (`failed` is not set here.) Packet 3.6 ruling: `Non-Latin script
-   present in the name field` is informational and does **not** force
-   `needs_review`. An Arabic-only `full_name` is accepted identity.
-   `full_name` must still be non-null. `name_original_script` alone is
-   still not identity (trap 7 unchanged). Capture **#62** is the
-   evidence and is **not retro-fixed**. Live WF-05 still treats any
-   non-empty `flag_reasons` as `needs_review` until packet 3.7.
+7. **Capture status (packet 3.7):** set `needs_review` when
+   `flag_reasons` contains any flag **other than** `'Non-Latin script
+   present in the name field'`. That flag **alone** no longer blocks
+   `ready`. Every other flag still does. (`failed` is not set here.)
+   Packet 3.6 / 3.7 owner ruling: a non-Latin `full_name` is accepted
+   as identity. `'Non-Latin script present in the name field'` stays in
+   `flag_reasons` as information only. An Arabic-only `full_name` is
+   accepted identity. `full_name` must still be non-null. `name_original_script`
+   alone is still not identity (trap 7 unchanged). Captures **#62** and
+   **#63** are evidence and are **not retro-fixed**.
+   Packet 3.9 C merge of Imran / Huawei is data, not a WF-05 auto-merge.
 8. **Notify:** WF-01 is the only workflow that sends Telegram
    (`workflows.md` WF-01). WF-05 does **not** add a second send point.
    Flagged → `needs_review` (visible). Unflagged → `ready` and **silent**.
@@ -1419,7 +1556,12 @@ reads `unknown`; `events.target_sectors` is the empty array, so the
 gaps line prints `Target sectors not set`. Do not invent a list. Do
 not treat either line as a bug.
 
-Compose. No LLM.
+Compose. No LLM. `Compose digest` emits `reply_text` (plain, for Gmail
+and the `/digest` return) and `telegram_text` (HTML-escaped `&` then
+`<` then `>`). `Telegram digest` sends `telegram_text` with
+`additionalFields.parse_mode: HTML`. Gmail stays `emailType: text` on
+`reply_text`. Absent `parse_mode` is not plain text on this build
+(`workflows.md` §1 trap; exec 254927).
 
 ### `/digest` return contract (source = call)
 
@@ -1631,7 +1773,9 @@ If any finding is non-zero: compose a short text (counts + up to 10
 `capture_no` / `job_type` lines). Telegram `parse_mode` is **HTML**
 explicit — default Markdown treats `_` in `failed_24h` as an unclosed
 italic (`can't parse entities`). Email still delivers in that case;
-set HTML anyway so Telegram is not a paper tiger. Then the **standard scheduled-send
+set HTML anyway so Telegram is not a paper tiger. `Compose findings`
+HTML-escapes `&` then `<` then `>` into `telegram_text`; Gmail keeps
+plain `reply_text`. Then the **standard scheduled-send
 topology** (packet 3.6, same as WF-07): fan-out, parallel Telegram +
 Gmail, Merge after both attempts, delivery proven by Telegram
 `message_id` or Gmail `id` — never by "the node ran". `stopAndError`
