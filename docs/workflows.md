@@ -91,6 +91,13 @@ Two consequences, both binding:
    of archived `kMozml08Q10ojVmx` and `bvXpsnMJ2FH7PE7X` — implementer must
    not spend time on them.
 
+**Unchanged row counts are not a branch prove.** Contact and vcard
+both store nothing, so captures/assets/jobs staying at 55 / 59 / 61
+does not tell them apart. Exec 256611 was `branch=contact`; the
+vcard named rule first executed on **256753**. Architect accepted
+B7 on counts, then reversed on execution read-back. Rule 2
+(read-back of the live artefact, not the report) cuts both ways.
+
 **Backslash escapes in jsCode written through the n8n REST API must be
 DOUBLED in the JSON payload.** Single `\b` is valid JSON for backspace, so
 it succeeds silently with the wrong value - a regex word boundary
@@ -470,6 +477,15 @@ LNI bot only and must not disturb any ElderWise webhook.
    voice note instead.`
    Explicit notEmpty gate before the send. PDFs, videos, and other
    documents keep the existing document branch.
+   **Proved packet 3.14, exec 256753** (not 256611 / 256687). Route
+   type named rule `vcard`, last node `Vcard reply sent`. Incoming
+   `mime_type` `text/vcard`, `file_name` `.vcf`. Reply verbatim:
+   `Contact files are not supported. Send a photo of the card or a
+   voice note instead.` Captures/assets/jobs stayed 55 / 59 / 61.
+   No asset row. No `card_vision` job. Execs 256611 and 256687 were
+   `branch=contact` (shared Telegram contact) and do not count.
+   Unchanged row counts do not discriminate: contact and vcard both
+   store nothing.
 
 6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
    without the leading `/`, is `action`. **Commands never touch Storage.**
