@@ -437,7 +437,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
-5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact**.
+5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact** | **vcard**.
    Commands are `text` starting with `/` and win over the text branch.
 
    **Telegram `contact` (packet 3.9) — reply only, no ingest.**
@@ -454,11 +454,23 @@ LNI bot only and must not disturb any ElderWise webhook.
    touches two **ACTIVE** workflows (WF-01 and WF-02), and the event
    is four days away.
 
-   **`.vcf` as document (packet 3.7b diagnosis, still live).**
-   `msg.document` → `branch='document'`, `kind='document'`, stored.
-   WF-02 enqueue is `audio → transcription`, **everything else →
-   `card_vision`**. A `.vcf` therefore gets a vision call on a text
-   file. Not fixed.
+   **Telegram `.vcf` / vCard document (packet 3.13) — reply only, no
+   ingest. Do not change WF-02.**
+   WF-02 enqueue is still
+   `CASE WHEN a.kind = 'audio' THEN 'transcription' ELSE 'card_vision' END`
+   with no mime filter. A stored `.vcf` would get a vision call on a
+   text file, fail three times, and leave the capture at `processing`.
+   Decline at WF-01 instead, same pattern as contact: detect **before**
+   `branch = 'document'`. Match `mime_type` `text/vcard` or
+   `text/x-vcard`, **or** `file_name` ending `.vcf` (case-insensitive).
+   Set `branch = 'vcard'`. Read nothing else from the file. No asset,
+   no capture, no WF-02 call. Route to a WF-01 Telegram send with
+   exact text:
+   `Contact files are not supported. Send a photo of the card or a
+   voice note instead.`
+   Explicit notEmpty gate before the send. PDFs, videos, and other
+   documents keep the existing document branch.
+
 6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
    without the leading `/`, is `action`. **Commands never touch Storage.**
    Publish-order: activate the callee before adding the Call on WF-01.
@@ -594,8 +606,8 @@ file bytes, or message text.
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
 | Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
 | Callback terminal | Album callback not yet implemented (packet 2.1 design only). Today a silent NoOp. |
-| Unknown type terminal | Update is none of command/photo/voice/document/text/callback/contact |
-| Command sent / Media stored / Note done / Contact reply sent | Happy path (contact sends the unsupported-yet text; nothing stored) |
+| Unknown type terminal | Update is none of command/photo/voice/document/text/callback/contact/vcard |
+| Command sent / Media stored / Note done / Contact reply sent / Vcard reply sent | Happy path (contact and vcard send the unsupported text; nothing stored) |
 
 ### Kind mapping (live constraints, 26 Aug 2026)
 
