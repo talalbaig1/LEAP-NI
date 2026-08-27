@@ -1581,6 +1581,19 @@ that cost 0. Lifetime ledger over-counts by 1 from packet 4.3
 onward. Do not edit or delete that row, the three existing
 `enrichment_records` rows, or the probe person.
 
+**Packet 4.4 measured (27 Aug 2026).** Profile GET
+`https://api.apollo.io/api/v1/users/api_profile?include_credit_usage=true`
+twice in a row: both `num_credits_remaining` = 2603 (read is free).
+Probe person re-enqueue exec **261870**, last node **No match**,
+ledger `b1705c4b` `no_match` / 0, workflow balances 2603 → 2603,
+`enrichment_records` stayed 3. Real match: Ahmad (`jccs.com.sa`,
+capture 64 ready) exec **261890**, last node **Match done**, ledger
+`3cbde4e5` `confirmed` / 1, workflow balances 2603 → 2602,
+`enrichment_records` 3 → 5 (person + company). Two other original-6
+people (Amer, Imran) were also hollow `name` / 0-credit `no_match`
+before Ahmad revealed. Ledger `73fc2831` untouched. WF-06 still
+inactive.
+
 **Must not:** publish/activate this workflow in packet 4.4; touch
 WF-01 / WF-05 / the dispatch NoOp; write `people.linkedin_url`;
 overwrite captured email / full_name / title / phone; `$env`;
