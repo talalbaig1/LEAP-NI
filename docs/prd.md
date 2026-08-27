@@ -55,12 +55,12 @@ A PWA is built later (Phase 8), sharing the same backend.
 | Command | Behaviour |
 |---|---|
 | `/new` | Opens a capture. **Implicitly closes any previously open one.** |
-| `/done` | Closes the open capture. Replies `✓ Capture #47 saved · 2 items`. |
+| `/done` | Closes the open capture (batch: all open batch captures). Standard reply: `✓ Capture #47 saved · 2 items`. Batch reply: `N cards received · processing` — extraction has not run yet (`prd.md` §5). |
 | `/batch` | Every subsequent photo becomes its own independent capture. |
 | `/status` | Shows what is currently open and in what mode. |
 | `/digest` | Runs the digest on demand. |
 | `/ask <question>` | Natural-language query over captures. |
-| `/fix <n>` | Correct fields on a capture. `<n>` is `captures.capture_no`, never the uuid. |
+| `/fix <n>` | **Post-event** (packet 2.5 cut). Correct fields on a capture. `<n>` is `captures.capture_no`, never the uuid. |
 | `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). `<n>` is `captures.capture_no`, never the uuid. |
 
 ### The four guardrails
@@ -74,8 +74,13 @@ can never lose or mis-attribute data.
 2. **Inactivity auto-close** after 10 minutes idle (`bot_state.last_activity_at`),
    stamped `close_reason = auto` so it is visible in review. Window is a
    documented constant in the WF-02 sweep query, not `$env`. The sweep is
-   WF-02's Schedule Trigger (every 5 minutes, `Asia/Riyadh`), inactive until
-   the capture path exists.
+   WF-02's Schedule Trigger (every 5 minutes, `Asia/Riyadh`). **Closing is
+   not enough:** the sweep must enqueue `processing_jobs` for every stored
+   asset of every capture it closes, then dispatch WF-03 best-effort, using
+   the same INSERT and the same unique-index `ON CONFLICT` as `/done`.
+   A capture closed by the guardrail and never processed is the defect
+   this guardrail exists to prevent (`prd.md` §4: forgetting `/done` WILL
+   happen).
 3. **Media with no open capture is never rejected.** A capture opens silently
    (`resolve_target` orphan adoption) and the bot says so. Nothing is dropped
    for a protocol error.
@@ -88,17 +93,21 @@ can never lose or mis-attribute data.
 Two modes, covering genuinely different moments.
 
 **`/batch`** — deliberate evening data entry. Toggle on, send thirty cards in a
-row, `/done` to exit. No grouping, no commands between.
+row, `/done` to exit. No grouping, no commands between. **This is the live
+album-scale path.** Packet 2.5 cut album auto-detect from Phase 2; grouping
+stays on `/batch`, which is proven.
 
-**Album auto-detect** — Telegram delivers each album member as a separate
+**Album auto-detect** — **post-event** (packet 2.5). Telegram delivers each album member as a separate
 update, so there is no shared in-memory buffer. The first member creates
 the capture keyed by `flags->>'media_group_id'`; later members attach to
-that row (partial unique index, migration `013`). An album of more than
+that row (partial unique index, migration `013`; `flags` is a jsonb
+**object** after `015`). An album of more than
 two images triggers a single inline prompt **after** the assets are stored:
 *"20 images — separate people, or one person?"* The bot **asks rather than
 assumes**, so twenty strangers can never be silently fused into one contact,
 and no unanswered callback can lose an asset. Album implementation is
-packet 1.4; the mechanism is specified now.
+Phase 2 (promoted from packet 1.4 leftover, owner decision 27 Aug 2026);
+the Postgres-buffer design is in `workflows.md` WF-01.
 
 Batch-captured cards have no voice note and produce thinner records. They are
 marked `card_only`, so that later the owner can distinguish *"I have no memory
@@ -116,6 +125,13 @@ The owner chose **silent unless a flag fires**. Two adjustments make that safe.
 review prompt the owner declined — it is proof the pipeline is alive. Without
 it, a dead pipeline looks identical to a healthy one, and the failure would
 surface on day four instead of day one.
+
+**Batch `/done` cannot quote extraction outcomes.** Extraction has not run at
+that instant, so clean / need_review / failed numbers can never be true
+there. The batch receipt is **`N cards received · processing`**. Do not
+emit hardcoded zeros for clean / need_review / failed. Real counts
+are deferred to the digest (WF-07), which runs after WF-03/04 have actually
+produced them.
 
 **If storage fails, no receipt is sent.** Silence means something went wrong.
 The owner must never be falsely reassured. All Telegram sends live in WF-01;
@@ -214,8 +230,10 @@ business cards**:
 4. A card plus a 30-second voice note produces a reviewable record within
    2 minutes
 5. Arabic name preserved in original script
-6. Forgetting `/done` loses nothing
-7. A 20-image album prompts once and never fuses contacts silently
+7. Forgetting `/done` loses nothing — the inactivity sweep enqueues and
+   dispatches the same as `/done` (packet 2.5 defect 1)
+8. A 20-image album prompts once and never fuses contacts silently —
+   **post-event**; live grouping is `/batch`
 8. Both digests fire at correct Riyadh local time, verified by observed
    execution timestamps
 9. Watchdog alerts on a stuck job independently of the digest

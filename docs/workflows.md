@@ -159,9 +159,9 @@ to `normal` / nothing open.
 | WF-00b | Credential and connectivity probe | 0 | Manual trigger |
 | WF-01 | Telegram ingest router | 1 | Telegram trigger |
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
-| WF-03 | Asset processors | 2 | Called by WF-02 |
-| WF-04 | Structured extraction | 2 | Called by WF-03 |
-| WF-05 | Entity resolution | 2 | Called by WF-04 |
+| WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
+| WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
+| WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
@@ -403,9 +403,9 @@ LNI bot only and must not disturb any ElderWise webhook.
    `captures.typed_note` on that capture. **ONLY AFTER** the note write
    succeeds: send if `reply_text` is a non-empty string. Same rule as media.
    Do not re-test `adopted` through a different operator than the photo path.
-9. **CALLBACK:** no album prompt in this packet. Silent NoOp terminal
-   (answer the query only if Telegram would otherwise spin; send no owner
-   message).
+9. **CALLBACK:** album split prompt is answered on this existing
+   `callback_query` branch (today a silent NoOp — `Callback terminal`).
+   Design in **Album auto-detect** below. Packet 2.1 does not implement it.
 10. **Every path ends in an explicit terminal.** Failure terminals are
     `stopAndError` (WF-00 runs). Correct outcomes are silent NoOps.
 
@@ -472,7 +472,7 @@ file bytes, or message text.
 | Not allowlisted terminal | Unknown sender; no reply, no row, no log naming the user |
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
 | Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
-| Callback terminal | No album prompt in this packet |
+| Callback terminal | Album callback not yet implemented (packet 2.1 design only). Today a silent NoOp. |
 | Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
 | Command sent / Media stored / Note done | Happy path |
 
@@ -489,23 +489,38 @@ Phase 1 never classifies content (`architecture.md` §4 two-stage kind):
 | voice, audio | `audio` |
 | document, video, video_note | `document` |
 
-### Interim album rule (packet 1.3)
+### Album auto-detect — Postgres buffer (design only; Phase 2)
 
-Packet 1.3 does **not** implement the album prompt. Until packet 1.4, a
-message carrying `media_group_id` is treated as an ordinary photo and
-attached to the resolved open capture. Every member is stored; nothing is
-lost; the only missing behaviour is the separate-people prompt. Storing
-them individually is the safe interim: the failure mode is a grouping
-question deferred, not an asset dropped.
+Telegram delivers each album member as a **separate update**. Twenty members
+are twenty WF-01 executions with **no shared n8n memory**. The buffer is a
+`captures` row keyed on `flags->>'media_group_id'` (object shape after
+migration `015`). Implementation is Phase 2 (promoted from packet 1.4,
+owner decision 27 Aug 2026). This packet documents the design only.
 
-Album mechanism (implementation is packet 1.4): Telegram delivers each
-member as a separate update, so twenty members are twenty WF-01 executions
-with no shared memory. The first member will create a capture carrying the
-group id at `captures.flags->>'media_group_id'`; later members find that
-capture; concurrent INSERTs race and migration `013` makes the loser
-re-select. When the group exceeds two images, one inline prompt after
-assets are stored. Splitting happens after storage, so no unanswered
-callback can lose an asset.
+1. **First INSERT wins.** Attempt `INSERT` of a capture with
+   `flags = jsonb_build_object('media_group_id', <id>)`. Partial unique
+   index `captures_owner_media_group_uniq` (`013`) makes the first writer
+   succeed.
+2. **Losers catch `unique_violation` and re-SELECT** the winning row by
+   `(owner_id, flags->>'media_group_id')`. Do not retry INSERT in a loop.
+3. **Store the asset first** (existing WF-01 mint → PUT → HEAD → INSERT
+   `assets`). Every member is durable before any prompt is considered.
+4. **Count** assets on that `media_group_id` (join `assets` to the capture
+   found in 1–2). If the count is **> 2**, run **one** parameterised
+   `UPDATE` that sets `album_prompt_sent` **guarded by**
+   `NOT (flags ? 'album_prompt_sent')` and `RETURNING` a row. First
+   execution that sees > 2 wins the prompt; later members get zero rows.
+5. **Explicit gate on the returned row** before the inline keyboard is
+   sent (*"N images — separate people, or one person?"*). A zero-row
+   UPDATE must not send.
+6. **Callback is answered on the existing `callback_query` branch**, which
+   is a silent NoOp today (`Callback terminal`). Packet 2.1 does not wire
+   it.
+
+**Assets are already stored before any prompt**, so an unanswered callback
+can never drop a file. The only missing behaviour until this ships is the
+grouping question; members still land as ordinary photos on the resolved
+capture.
 
 ### Must not log
 
@@ -607,24 +622,84 @@ the signal; it is visible in review.
    `Capture #<n> open`.
 
 ### `/done`
-1. Close the open capture (`status` leaves `open`, `close_reason = explicit`).
-2. Count attached assets.
-3. `reply_text` = `✓ Capture #<capture_no> saved · <n> items` using
-   `captures.capture_no`, never the uuid. `item_count` and `<n>` always
-   come from the authoritative Postgres asset count. `asset_count_hint`
-   never populates `<n>`.
-4. Dispatch WF-03 for each unprocessed asset. **Do not wait** —
-   `waitForSubWorkflow: false`. **Packet 1.2: WF-03 does not exist yet.
-   The dispatch is an explicit NoOp terminal labelled as such.**
-5. If nothing is open, `reply_text` = `nothing open`. No crash, no phantom
-   row.
-6. In batch mode, `/done` closes **all** open `capture_mode='batch'`
-   captures for the owner (`close_reason='explicit'`), sets
-   `bot_state.mode = normal`, and returns the batch summary shape instead
-   of the per-capture receipt (`prd.md` §4): `"<n> cards processed ·
-   <clean> clean · <review> need review · <failed> failed"`. Until WF-03
-   exists, clean / review / failed are counts of sibling batch captures
-   in those statuses (zero in Phase 1).
+
+Postgres is the queue. `/done` enqueues work, then fires WF-03 **once**.
+**Enqueue-and-dispatch is implemented in this packet (2.4).** Replaying
+already-captured assets is **one INSERT**, not N workflow calls.
+
+WF-03's live workflow ID lives on the instance only. In this document it
+is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
+
+1. Close. `Action done` sets `status` to leave `open`,
+   `close_reason = explicit`, and **RETURNs every capture it closed**
+   (ids as `closed_ids uuid[]`, plus the first `capture_id` /
+   `capture_no` for the standard receipt). Batch `/done` closes every
+   open `capture_mode='batch'` row for the owner (many ids). Standard
+   `/done` returns one. If nothing is
+   open, zero rows → `reply_text` = `nothing open`. No crash, no phantom
+   row. Batch also sets `bot_state.mode = normal`.
+2. Enqueue — **one** statement, after Compose has already decided
+   `reply_text` (WF-01 return contract must not become the enqueue
+   row). `closed_ids` comes from the **named** `Action done` node,
+   never `$json` after Compose.
+
+   ```sql
+   INSERT INTO processing_jobs (owner_id, capture_id, asset_id, job_type, status)
+   SELECT a.owner_id, a.capture_id, a.id,
+          CASE WHEN a.kind = 'audio' THEN 'transcription'
+               ELSE 'card_vision' END,
+          'queued'
+   FROM assets a
+   WHERE a.capture_id = ANY($1::uuid[])
+     AND a.upload_status = 'stored'
+   ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL
+     DO NOTHING
+   RETURNING id, capture_id, asset_id, job_type, status;
+   ```
+
+   Natural key: unique index **`processing_jobs_asset_job_uniq`** on
+   `(asset_id, job_type) WHERE asset_id IS NOT NULL`
+   (`architecture.md` §4). That object is a **partial unique index**,
+   not a table constraint — do not write
+   `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq`.
+   Audio → `transcription`; everything else → `card_vision`. A re-run
+   enqueues nothing twice.
+3. **Explicit gate on rows returned.** Zero rows enqueued (all conflicts,
+   or a capture with no stored assets) is a **normal, silent, terminal**
+   path — not an error, and not a send. `reply_text` from Compose is
+   restored from the named Compose node so WF-01 still receives the
+   receipt.
+4. **ONE** `executeWorkflow` call to WF-03 (`<WF-03_WORKFLOW_ID>`),
+   `waitForSubWorkflow: false`. Replaces the NoOp **"WF-03 dispatch
+   (not yet)"**. Do not call WF-03 per asset. A re-run that enqueues
+   nothing does not fire WF-03 again — the jobs are already in Postgres.
+
+   **Dispatch is best-effort.** The `Call WF-03` node MUST set
+   `onError: continueRegularOutput` **explicitly in the saved JSON**
+   (not an undocumented default). A throw in that node must take the
+   same regular output as success and continue to **Restore done reply**,
+   so WF-01 still receives the Compose contract and still sends the
+   receipt. Why: enqueue is the durable act — the jobs are already in
+   Postgres and are replayable. Dispatch is not durable. WF-01 waits on
+   WF-02 with `waitForSubWorkflow: true`; an erroring dispatch would
+   cost the owner his receipt. Silence must mean a **storage** failure,
+   never a dispatch failure. A missed dispatch leaves rows in
+   `processing_jobs` at `status='queued'`, which is exactly what
+   **WF-09** (watchdog, Phase 3) is specified to catch
+   (`last_transition_at` staleness, not `created_at`).
+5. Receipt. Standard: `✓ Capture #<capture_no> saved · <n> items` using
+   `captures.capture_no` and the Postgres asset count (`asset_count_hint`
+   never populates `<n>`). Batch: **`N cards received · processing`**.
+   `N` is the number of batch captures closed. Extraction has not run at
+   this instant, so clean / need_review / failed **cannot** be true here
+   — do **not** emit hardcoded zeros for those. Real counts are deferred
+   to the digest (`prd.md` §5).
+
+The last node on every `/done` path that WF-01 waits on must emit the
+Compose contract (`ok`, `reply_text`, …), sourced from the **named**
+Compose node. Enqueue and executeWorkflow sit between Compose and that
+terminal; they must not become the sub-workflow return. A failed
+dispatch is not a failed `/done`.
 
 ### `/batch`
 Sets `bot_state.mode = batch` and bumps `last_activity_at`. Every subsequent
@@ -662,13 +737,27 @@ mode. If nothing is open, `reply_text` = `nothing open`.
   is older than the inactivity window, stamping `close_reason='auto'`.
   `status` leaves `open` so a later sweep does not re-close. Clear
   `bot_state.open_capture_id`. Send nothing. No `reply_text`.
+- **`Action sweep` RETURNs the closed capture ids** as `closed_ids uuid[]`
+  (plus counts). Counts-only is a defect: the enqueue cannot see what
+  closed.
+- **Then enqueue**, using the **same** single `INSERT … SELECT` and the
+  **same** `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL
+  DO NOTHING` as the `/done` path (`architecture.md` §4). Source
+  `closed_ids` from the **named** `Action sweep` node, never `$json`
+  after Compose. Audio → `transcription`; else → `card_vision`. Zero
+  rows enqueued is a normal silent terminal — not an error, not a send.
+- **Then dispatch WF-03 once**, best-effort: `waitForSubWorkflow: false`,
+  `onError: continueRegularOutput` **explicit in the saved JSON**. Same
+  reason as `/done`: enqueue is durable; dispatch is not; a throw must
+  not fail the sweep execution. A missed dispatch leaves `queued` jobs
+  for WF-09 (Phase 3).
 - **Inactivity window: 10 minutes** (`prd.md` §4 guardrail 2). Stored as a
   documented constant in the sweep SQL (`interval '10 minutes'`), **not**
   in `$env` (denied instance-wide) and not as a new `events` column (no
   extra migration in this packet).
-- Schedule stays **inactive until WF-01 is published**. Packet 1.3 publishes
-  WF-02 first because this n8n instance will not activate a parent that
-  calls an unpublished sub-workflow.
+- Live defect (packet 2.5): capture #59 sat `open` with a stored audio
+  asset; the sweep closed other captures `close_reason='auto'` and never
+  enqueued. Guardrail 2 exists because forgetting `/done` WILL happen.
 
 ### Guardrails
 - **Implicit close on `/new`** — see above.
@@ -681,78 +770,359 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 
 ## WF-03 — Asset processors
 
-**Phase 2** · **Trigger:** called by WF-02 · **Inputs:** `job_id`, `asset_id`,
-`capture_id` — reject any other shape
+**Phase 2** · **Triggers:** Manual (standalone / prove) **and** Execute
+Workflow Trigger (called **once** per kick by WF-02 `/done` **and** by
+the inactivity sweep, `waitForSubWorkflow: false`,
+`onError: continueRegularOutput`). Workflow ID on the instance:
+`<WF-03_WORKFLOW_ID>`. Never commit the literal.
 
-WF-03 assigns the final `assets.kind` (`business_card`, `selfie`, or `photo`)
-from its vision call. Phase 1 stores images as unclassified `photo`. This is
-a Phase 2 deliverable specified here in advance (`architecture.md` §4).
+**Input contract:** `owner_id` and `correlation_id`. WF-03 is **not**
+handed an asset. It **claims queued jobs from Postgres itself**. Postgres
+is the queue. Reject unknown extra fields if a payload is sent. A kick
+with `owner_id` is enough; `correlation_id` is for trace only.
 
-1. Create or claim the `processing_jobs` row; increment `attempt_count`.
-2. Generate a **short-lived signed URL**. Never make the bucket public. Never
-   log the URL.
-3. Branch on `assets.kind`:
+WF-03 assigns `assets.kind` from **one** vision call per image.
+Capture-time kind is Telegram media type only — live image assets sit at
+`kind='photo'`, so a `business_card` branch would never fire
+(`architecture.md` §4).
 
-   **`business_card`** — single vision call, image → structured JSON per the
-   contract in `architecture.md` §6. **No OCR-then-parse step.** Store the raw
-   provider response in `extraction_runs.raw_vision_output`.
+Provisional card engine: **GPT-4o**, behind the adapter, **shipping
+without a benchmark** (packet 2.5; `phases.md`; `rules.md` §7 rule 14
+knowingly not honoured). The model id is set in **one** named config
+node (`Card engine config`) and read from there. Do not scatter it.
 
-   **`audio`** — Whisper transcription. **`language` unset.** Store the verbatim
-   transcript in `extraction_runs.raw_transcript` regardless of quality.
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued jobs (not a payload of assets):
 
-   **`photo` / `selfie`** — contextual description only. **No facial
-   recognition. No identification of people.** Scene and setting only.
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id
+     FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
 
-4. Validate against the versioned schema.
-5. On transient error: exponential retry (1, 5, 20 min; max 3), then `failed`.
-   On malformed content: `needs_review`. **Never silently drop.**
-6. When all sibling jobs for the capture reach a terminal state — or a 15-minute
-   timeout elapses — dispatch WF-04.
+   Concurrent executions never claim the same job. **Explicit gate on
+   rows returned** — zero claimed is a **normal, silent, terminal**
+   NoOp (`No queued jobs`). Do not INSERT a second job for the same
+   `(asset_id, job_type)`.
+3. **Object fetch:** HTTP Request, `httpHeaderAuth`, `responseFormat:
+   file`, named output property (e.g. `asset`). Never read bytes in a
+   Code node. Source `storage_path` from the **named** Load-asset node,
+   never `$json` after HTTP.
+4. **Branch on `job_type`:** `card_vision` | `transcription`. Unhandled
+   `job_type` → `status='failed'`, visible `stopAndError` after the
+   write. Never drop.
+
+   **`card_vision`** — **one** OpenAI vision call. `imageType: base64`
+   from the named binary property (the proven **C3** path).
+   `temperature: 0`. Strict `json_schema` exactly as proven in the spike,
+   including the `image_type` discriminator
+   `business_card | scene | other` (`architecture.md` §6). **No
+   OCR-then-parse.** Then `UPDATE assets.kind` from `image_type`:
+   `business_card` → `'business_card'`; `scene` → `'photo'`; `other` →
+   `'photo'`. A `scene` (or `other`) image gets contextual
+   `scene_description` only — **no facial recognition, no identification
+   of people** (`rules.md` §7 rule 13).
+
+   **Name contract in the vision system prompt** (packet 2.5 defect 2):
+   `full_name` is the Latin transliteration; `name_original_script` is
+   the verbatim original. If the card prints a Latin name, `full_name`
+   uses it **exactly as printed** and is never re-transliterated. If the
+   card is Arabic-only, `full_name` is a transliteration and
+   `name_original_script` holds the original. Never discard the
+   original. Never invent a Latin name the card does not support.
+   A prove re-run INSERTs a **new** `card_vision` row; the original
+   succeeded row is not updated (it is evidence).
+
+   **`transcription`** — Whisper on the named binary property.
+   **`language` ABSENT** from the saved JSON (not `"auto"`, not `"en"`).
+
+   Signed URL (C2/C4) is a **proven fallback, not the default**. A signed
+   URL is **never logged**.
+5. Write **one adapter envelope** to `processing_jobs.output` (same
+   shape for every `job_type` — `architecture.md` §6). Set `status` to
+   `succeeded` | `failed` | `needs_review` and
+   `last_transition_at = now()`. `result` is the unwrapped card JSON or
+   `{text, duration_seconds}`. `raw` is the unmodified provider
+   response. `error` is null or a redacted object. **Do not write
+   `extraction_runs`.** WF-03 is per asset; `extraction_runs` is per
+   capture. WF-04 must not know any provider's envelope.
+6. **Retry:** transient errors leave the job `queued` (if
+   `attempt_count < 3`) so a later execution retries. Delays **1, 5, 20
+   minutes** are the intended cadence (watchdog / next kick), not a Wait
+   inside this execution — `executionTimeout` is 300s. After 3 attempts
+   → `failed`. Malformed content (schema missing, empty transcript) →
+   `needs_review`. **Never silently drop.**
+
+   **KNOWN LIMITATION (named Phase 3 item, do not fix now):** a requeued
+   job returns to `queued` with **no backoff delay**. The 1/5/20 minute
+   cadence is specified, not implemented. Safe today because WF-03 only
+   runs on dispatch (WF-02 `/done` and sweep). It becomes live when
+   WF-09 re-dispatches in Phase 3 (`phases.md` Phase 2, named item).
+7. When **every sibling job for that capture** is in a terminal state
+   (`succeeded` | `failed` | `needs_review`), enqueue **ONE**
+   capture-level job: `job_type='extraction'`, `asset_id` NULL,
+   `status='queued'`. Insert once (guard on existing `extraction` row
+   for that `capture_id`). Then **ONE** `executeWorkflow` call to WF-04
+   (`<WF-04_WORKFLOW_ID>`), named **`Call WF-04`**, replacing the NoOp
+   **"WF-04 dispatch (not yet)"**. `waitForSubWorkflow: false`.
+   `onError: continueRegularOutput` **explicit in the saved JSON**.
+   Dispatch is best-effort — enqueue is the durable act (same reasoning
+   as WF-02 → WF-03). A throw must not fail WF-03. Zero rows enqueued
+   (siblings still running, or extraction already exists) is a silent
+   terminal, not an error, and does not fire WF-04.
+
+Every path ends in a visible NoOp or `stopAndError`. Every flag the
+workflow depends on is explicit in the saved JSON.
 
 ---
 
 ## WF-04 — Structured extraction
 
-**Phase 2** · **Trigger:** called by WF-03
+**Phase 2** · **Triggers:** Manual **and** Execute Workflow Trigger.
+Claims capture-level `processing_jobs` rows (`job_type='extraction'`,
+`asset_id` NULL) the same way WF-03 claims asset jobs. Enqueued by
+WF-03 when every sibling asset job is terminal. Workflow ID on the
+instance: `<WF-04_WORKFLOW_ID>`. Never commit the literal.
 
-1. Compose explicit sources: typed note, card JSON, transcript, photo
-   description. Label each so provenance survives.
-2. Call the LLM with a **strict JSON schema**, `temperature: 0`. No free-form
-   parsing of prose.
-3. Extract: people, companies, roles, summary, topics, opportunities,
-   follow-ups.
-4. Validate. **Reject any invented email, phone, domain, or date not supported
-   by source evidence.**
-5. **Apply rule-based flagging** (`architecture.md` §6). Set
-   `extraction_runs.flag_reasons`.
-6. Write an `extraction_runs` row — immutable evidence.
-7. Dispatch WF-05.
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone **explicitly `Asia/Riyadh`**,
+`callerPolicy: workflowsFromSameOwner`.
 
-**Must not:** overwrite any field present in `field_corrections`. User
-corrections are canonical.
+WF-04 composes `extraction_runs` from `processing_jobs.output.result` of
+that capture's asset jobs. It does not unwrap a provider envelope. It
+does not call the card/Whisper providers. GPT-4o is the extract engine
+(same "ships without a benchmark" cut as WF-03).
+
+**Input contract:** a kick with `owner_id` / `correlation_id` is enough
+and optional — WF-04 **claims from Postgres itself**.
+
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued extraction jobs:
+
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1::uuid
+       AND p.asset_id IS NULL
+       AND p.job_type = 'extraction'
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
+
+   Explicit gate on rows returned. Zero claimed → silent NoOp
+   (`No queued extraction jobs`). Not an error.
+3. **Compose labelled sources** for the capture, in one Postgres read.
+   Provenance must survive into the prompt — the model must know which
+   text came from a card and which from speech:
+
+   - `[TYPED_NOTE]` from `captures.typed_note` (may be empty)
+   - `[CARD <asset_id>]` — each sibling `card_vision` job's
+     `output.result` (the unwrapped card JSON)
+   - `[TRANSCRIPT <asset_id>]` — each sibling `transcription` job's
+     `output.result.text`
+   - `[SCENE <asset_id>]` — `output.result.scene_description` when
+     `image_type` is `scene` or `other`
+
+   Source every field from the **named** node that produced it. Never
+   `$json` after I/O.
+4. **ONE LLM call**, strict `json_schema`, `temperature: 0`. Extract
+   people, companies, roles, summary, topics, opportunities, follow_ups.
+   Nullable beats guessed **except** where this contract requires a
+   value. Reject any email, phone, domain, or date not present in the
+   labelled source evidence. Preserve `name_original_script`; apply the
+   same `full_name` transliteration contract as WF-03
+   (`architecture.md` §6). Prompt contract (packet 2.6b, `wf04-v2`):
+   - **`summary`:** 1–3 sentences of what was said or noted. **Required**
+     when a `[TRANSCRIPT]` or `[TYPED_NOTE]` block has text. Null **only**
+     when both blocks are empty.
+   - **`topics`:** short sector or theme tags from that same text. Empty
+     array only when both blocks are empty.
+   - **People** must be proper names present in the sources. A person row
+     requires a non-null Latin `full_name`. `name_original_script` alone
+     is not identity. A person referred to but not named is omitted.
+5. **Validate in a Code node** (no binary read). Drop or null any
+   email / phone / domain / date that does not appear as a substring of
+   the labelled sources. **Drop any person with a null or empty
+   `full_name`.** Schema-invalid → `needs_review`.
+6. **Apply RULE-BASED flagging** (`architecture.md` §6) in that same
+   Code node — the **observable conditions**, never model
+   self-confidence. Set `flag_reasons` to the matching reason strings
+   (empty array if none). Conditions: no name extracted (**`full_name`
+   only** — `name_original_script` alone does not count); no email AND
+   no phone; non-Latin script present in `full_name`; empty transcript
+   despite audio longer than 5 seconds; two or more people detected on
+   one card; extraction output fails schema validation; capture contains
+   nothing usable.
+7. **Write ONE `extraction_runs` row per (`capture_id`,
+   `prompt_version`)** (immutable evidence). Never UPDATE an existing
+   row. `INSERT … WHERE NOT EXISTS` that pair so a bumped prompt
+   (e.g. `wf04-v2`) inserts **beside** `wf04-v1`, it does not overwrite.
+   Columns: `model`, `prompt_version`, `raw_vision_output` (jsonb of the
+   labelled card/scene results), `raw_transcript` (concatenated
+   `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Then set
+   the job `succeeded` | `failed` | `needs_review` with the adapter-free
+   job row (extraction `output` may hold the structured_output +
+   flag_reasons). `last_transition_at = now()`.
+8. Enqueue **ONE** capture-level `job_type='entity_resolution'` row
+   (`asset_id` NULL, `status='queued'`). Insert once (guard on an
+   existing `entity_resolution` row for that `capture_id`). Then **ONE**
+   `executeWorkflow` call to WF-05 (`<WF-05_WORKFLOW_ID>`), named
+   **`Call WF-05`**, replacing the NoOp **"WF-05 dispatch (not yet)"**.
+   `waitForSubWorkflow: false`. `onError: continueRegularOutput`
+   **explicit in the saved JSON**. Dispatch is best-effort — enqueue is
+   the durable act. Do this on both the `succeeded` and `needs_review`
+   extraction paths (a flagged capture still needs a person/interaction
+   row and a terminal capture status). Do **not** enqueue or call WF-05
+   on the extraction failed/requeue path.
+
+   **Publish order:** WF-05 must be active before WF-04 may reference it;
+   WF-04 must be active before WF-03 may reference it. A parent cannot
+   be published while it references an unpublished child.
+
+Same failure discipline as WF-03: `succeeded` / `failed` / `needs_review`,
+never silent, every branch visibly terminal. `retryOnFail: true` on
+provider and DB nodes. Transient provider error → requeue if
+`attempt_count < 3`, else `failed`. The 1/5/20 minute backoff
+limitation named under WF-03 applies here too.
+
+**Must not:** unwrap `output.raw`; overwrite any field present in
+`field_corrections` (table exists; `/fix` is post-event); log
+transcripts, emails, phones, or signed URLs.
+
+**`language` is not set on any node.** There is no transcription node
+in WF-04.
 
 ---
 
 ## WF-05 — Entity resolution
 
-**Phase 2** · **Trigger:** called by WF-04
+**Phase 2** · **Triggers:** Manual **and** Execute Workflow Trigger.
+Claims capture-level `processing_jobs` rows (`job_type='entity_resolution'`,
+`asset_id` NULL) the same way WF-04 claims extraction. Enqueued by WF-04
+when an extraction job reaches `succeeded` or `needs_review`. Called by
+WF-04 (`Call WF-05`, best-effort). Workflow ID on the instance:
+`<WF-05_WORKFLOW_ID>`. Never commit the literal.
 
-1. **Candidate retrieval,** in order: exact normalized email → exact LinkedIn
-   URL → exact phone → company domain → fuzzy name + company.
-2. **Deterministic scoring.** Exact email or exact LinkedIn dominates. Matching
-   company plus normalized name supports but does not decide.
-3. **Auto-link only** on exact normalized email or exact LinkedIn URL.
-   **Name similarity never auto-merges** — at an event with a high density of
-   shared family names this would quietly corrupt the dataset, and quiet
-   corruption is worse than a visible gap.
-4. Otherwise write a scored suggestion to `entity_candidates` with **visible
-   reasons**.
-5. Upsert `people`, `companies`, `person_companies`, `interactions`. Preserve
-   `name_original_script`.
-6. Set capture status `ready` or `needs_review`.
-7. **Notify the owner only if flagged.** Otherwise stay silent — the digest
-   handles it.
-8. If Phase 4 is live and a company domain is present, dispatch WF-06.
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone **explicitly `Asia/Riyadh`**,
+`callerPolicy: workflowsFromSameOwner`.
+
+**Input contract:** a kick is optional — WF-05 **claims from Postgres
+itself**. Reads the **latest** `extraction_runs` row for the capture
+(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v2` re-proof is used
+without touching `wf04-v1`.
+
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued entity-resolution jobs (same shape as WF-04, with
+   `job_type = 'entity_resolution'`):
+
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1::uuid
+       AND p.asset_id IS NULL
+       AND p.job_type = 'entity_resolution'
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
+
+   Zero claimed → silent NoOp (`No queued resolution jobs`). Not an
+   error. **This query does not pick up the older captures sitting at
+   `status='processing'`.** Those have no `entity_resolution` job. They
+   stay `processing` until a later packet enqueues one (or WF-04 dispatch
+   is wired). WF-05 will not sweep them.
+3. Load the latest `extraction_runs` row + `captures.capture_no` for
+   `j.capture_id`. Missing run or missing capture → `stopAndError`.
+   Source every field from the **named** node. Never `$json` after I/O.
+4. **Auto-link ONLY** on exact `people.email_normalized` or exact
+   `people.linkedin_url_normalized` (both `GENERATED … STORED`).
+   **Name similarity NEVER auto-merges**, at any score, for any reason.
+   Skip any extracted person with a null/empty `full_name` (defence in
+   depth; WF-04 already dropped them).
+5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
+   Preserve `name_original_script` verbatim — never overwrite a stored
+   original with null. Write `interactions.summary` and
+   `interactions.topics` from `structured_output`. One interaction per
+   capture. A capture with zero people still gets an interaction
+   (`person_id` NULL) so the summary is not lost, and still gets a
+   terminal capture status.
+6. **Non-exact match** writes a scored `entity_candidates` row with
+   **visible `reasons`**. Never a merge, at any score.
+
+   - **OCR-split (packet 2.7, primary):** whenever another owner person
+     shares **exact `full_name` AND exact `company_id`**, even if both
+     rows carry emails, when those emails are **not equal**. `reasons`
+     is human-readable and **names the two differing emails** (e.g.
+     `same_full_name`, `same_company`,
+     `emails_differ: a@x vs b@x`). `score = 1`. This is the visibility
+     for the most likely duplicate-creation mechanism at the event
+     (same card, two OCR readings).
+   - **No auto-link key (secondary):** if the extracted person has no
+     email and no LinkedIn, and another owner person has a
+     trigram-similar `full_name`, write a suggestion with
+     `reasons = {name_trgm}` and `score = similarity(...)`. No
+     threshold tuning.
+
+   Do not skip the OCR-split path just because both rows have emails.
+   A pair of silent unlinked people with `entity_candidates` empty is
+   a defect.
+7. **Capture status:** `ready` when `flag_reasons` is empty;
+   `needs_review` otherwise. (`failed` is not set here.)
+8. **Notify:** WF-01 is the only workflow that sends Telegram
+   (`workflows.md` WF-01). WF-05 does **not** add a second send point.
+   Flagged → `needs_review` (visible). Unflagged → `ready` and **silent**.
+   The digest (WF-07) is the owner-facing list of flagged captures until
+   a later packet wires notify through WF-01.
+9. Mark the `entity_resolution` job `succeeded` | `failed` |
+   `needs_review`. Same failure discipline as WF-03/WF-04.
+   `retryOnFail: true` on DB nodes.
+10. Terminate at a NoOp named **`WF-06 dispatch (not yet)`**. Phase 4 is
+    dropped pre-event. Do not call WF-06.
+
+**Must not:** auto-merge on name; overwrite `field_corrections`; unwrap
+`extraction_runs` provider envelopes (there are none — read
+`structured_output`); log emails, phones, transcripts, or signed URLs;
+send Telegram; sweep `captures.status='processing'` that have no
+resolution job.
+
+**`language` is not set on any node.** There is no transcription node
+in WF-05.
 
 ---
 
@@ -863,7 +1233,7 @@ specifically to cover that gap and must not be cut when Phase 3 is squeezed.**
 | 1 | WF-00 | Force an error; confirm redacted write, no secrets |
 | 2 | WF-00b | Self-identifying execution on both branches; live JSON `errorWorkflow` + `availableInMCP` |
 | 3 | WF-01, WF-02 | 20 real-device captures, 100% asset preservation |
-| 4 | WF-03, WF-04, WF-05 | Benchmark; live JSON read-back for unset `language` |
+| 4 | WF-03, WF-04 | Live JSON read-back for unset `language`; envelope keys; extraction_runs row |
 | 5 | WF-07, WF-08, WF-09 | Observed execution timestamps in Riyadh local time |
 | 6 | WF-06 | Forced retry loop must not breach the credit ceiling |
 
