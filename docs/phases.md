@@ -175,7 +175,10 @@ before digest/watchdog).
 - `language` unset on the transcription node — verified in the live JSON
 - Arabic name preserved in `name_original_script`; `full_name` must be
   non-null. An Arabic-only `full_name` is accepted identity
-  (`architecture.md` §6, packet 3.6)
+  (`architecture.md` §6, packet 3.6 ruling). Packet 3.7: the
+  informational flag `'Non-Latin script present in the name field'`
+  no longer forces `captures.status = needs_review`; every other flag
+  still does.
 - A card plus a 30-second voice note produces a reviewable record within
   2 minutes
 - Raw vision output, transcript, and structured output all traceable from one

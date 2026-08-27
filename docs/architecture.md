@@ -437,7 +437,7 @@ so the post-event build does not invent a second buffer.
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
 | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING` makes a re-run enqueue nothing twice. This uniqueness is a **partial unique index**, not a table constraint — `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq` will not run. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
-| `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** `name_original_script` is the verbatim original. `full_name` is identity and must be non-null. If the card prints a Latin name, `full_name` uses it **exactly as printed**. An Arabic-only (non-Latin) `full_name` is **accepted as identity** and does not force `needs_review` (packet 3.6; capture **#62** evidence, **not retro-fixed**). `name_original_script` alone is still not identity (trap 7 unchanged). Never invent a Latin name the card does not support. |
+| `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** `name_original_script` is the verbatim original. `full_name` is identity and must be non-null. If the card prints a Latin name, `full_name` uses it **exactly as printed**. An Arabic-only (non-Latin) `full_name` is **accepted as identity** and does not force `needs_review` (packet 3.6 ruling; packet 3.7 capture status). Captures **#62** / **#63** evidence, **not retro-fixed**. `name_original_script` alone is still not identity (trap 7 unchanged). Never invent a Latin name the card does not support. |
 | Merges never cascade-delete raw assets | Replayability |
 
 **Extension prerequisite — verified 26 Aug 2026.** `pg_trgm` is **not**
@@ -458,6 +458,24 @@ reasons, awaiting owner approval.
 **Name similarity never triggers an automatic merge.** At an event with a high
 density of shared family names this would quietly corrupt the dataset —
 and quiet corruption is worse than a visible gap.
+
+**Company rows (packet 3.7).** A company row is created only when a person
+links to it. `companies[]` enriches the linked row (domain); it does not
+create a parallel row. Match key is exact `lower(trim(name))` only —
+no fuzzy auto-merge, no substring match (`BT` inside `BTGroup` is the
+known failure). When the incoming `people[].company_name` cannot match
+that key confidently, write `entity_candidates`; never a second silent
+company. Live proof of the old union (no precedence): three rows for one
+Huawei entity from captures 62 and 63. **Not retro-fixed.** Packet 3.9
+reconciles.
+
+**Person field precedence (packet 3.7) on email/LinkedIn auto-link.** A
+Latin `full_name` upgrades a stored non-Latin one. Non-null upgrades
+stored null (`title`, `phone`, `linkedin_url`). Non-null stored is never
+overwritten by null. Two non-null Latin values that disagree: keep
+stored, write `entity_candidates`. First-write-wins on capture 62 then
+63 discarded `'Zhang Wenwu (Kyle)'` / `'Deputy Director'` — that is the
+defect. **Not retro-fixed.**
 
 **OCR-split emails (packet 2.7).** The same card captured twice can yield two
 unequal `email_normalized` values (a transposition, a dropped letter). That is
@@ -634,10 +652,12 @@ only — **no facial recognition, no identification of people**.
 
 | Field | Meaning |
 |---|---|
-| `full_name` | Identity field. Non-null required. Latin transliteration when the card prints Latin (copy **exactly as printed** — never re-transliterate a name that is already Latin). **An Arabic-only (non-Latin) `full_name` is accepted as identity** and does not force `needs_review` (packet 3.6; capture **#62** is the evidence and is **not retro-fixed**). Never invent a Latin name the card does not support. |
+| `full_name` | Identity field. Non-null required. Latin transliteration when the card prints Latin (copy **exactly as printed** — never re-transliterate a name that is already Latin). **An Arabic-only (non-Latin) `full_name` is accepted as identity** and does not force `needs_review` (packet 3.6 ruling; packet 3.7 capture status). Captures **#62** / **#63** are evidence and are **not retro-fixed**. Never invent a Latin name the card does not support. |
 | `name_original_script` | **Verbatim original** as printed. Arabic stays Arabic. Latin-only cards may set this equal to the printed Latin, or null if there is no second script. **Never discard the original.** `name_original_script` alone is still not identity (trap 7 unchanged). |
 
-**A person row requires a non-null `full_name`.** `name_original_script` alone is not identity (packet 2.6b, trap 7 unchanged). An Arabic-only (non-Latin) `full_name` is **accepted as identity** and does not force `needs_review` (packet 3.6). Capture **#62** is the evidence; it is **not retro-fixed**. Speech that names a real person: same (`full_name` present, row survives). Speech that only refers ("هذا الرجال", "this man", "some lady from Aramco"): `full_name` stays null, the person is **omitted**, not guessed. WF-04 drops any person with a null or empty `full_name` before write; "No name extracted" tests `full_name` only.
+**A person row requires a non-null `full_name`.** `name_original_script` alone is not identity (packet 2.6b, trap 7 unchanged). An Arabic-only (non-Latin) `full_name` is **accepted as identity** and does not force `needs_review` (packet 3.6 ruling; packet 3.7 implements capture status: `'Non-Latin script present in the name field'` stays in `flag_reasons` as information only and no longer forces `needs_review`; every other flag still does). Captures **#62** / **#63** are evidence; they are **not retro-fixed**. Speech that names a real person: same (`full_name` present, row survives). Speech that only refers ("هذا الرجال", "this man", "some lady from Aramco"): `full_name` stays null, the person is **omitted**, not guessed. WF-04 drops any person with a null or empty `full_name` before write; "No name extracted" tests `full_name` only.
+
+**Two-sided card (packet 3.7).** Multiple `[CARD]` blocks may be two sides or two photographs of the same physical card. The label carries only an `asset_id` and conveys nothing about side or language. A person in more than one block is one `people[]` entry; one physical card is one `companies[]` entry. Prefer a printed Latin `full_name`; keep original script in `name_original_script`; union contact fields. Capture **#63** is the evidence (`wf04-v2` emitted two people and two companies for one human). Prompt version `wf04-v3`. **Not retro-fixed.**
 
 Live defect (packet 2.5): both fields were identical Arabic (`عمران خالد`). That is a lost transliteration, not preservation.
 
@@ -725,7 +745,7 @@ Replaces model self-reported confidence. A capture is flagged when **any** hold:
 
 - No name extracted
 - No email **and** no phone
-- Non-Latin script present in the name field (**informational only** as of packet 3.6 — does **not** force `needs_review`; an Arabic-only `full_name` is accepted identity. Capture **#62** is the evidence and is **not retro-fixed**. WF-04 / WF-05 status change is packet 3.7)
+- Non-Latin script present in the name field (**informational only** — packet 3.6 ruling, packet 3.7 status. This flag **alone** does **not** force `needs_review`; every other flag still does. An Arabic-only `full_name` is accepted identity. Captures **#62** / **#63** are evidence and are **not retro-fixed**. Reconciliation is packet 3.9)
 - Empty transcript despite audio longer than 5 seconds
 - Two or more people detected on one card
 - Extraction output fails schema validation
