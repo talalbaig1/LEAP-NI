@@ -161,7 +161,7 @@ to `normal` / nothing open.
 | WF-02 | Capture lifecycle | 1 | Called by WF-01 + Schedule (sweep, every 5 min, Asia/Riyadh) |
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres (packet 2.5) |
-| WF-05 | Entity resolution | 2 | Called by WF-04 — **not yet** |
+| WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres (packet 2.6b). Called by WF-04 — **not yet** |
 | WF-06 | Enrichment | 4 | Called by WF-05 / `/flag` |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
@@ -946,29 +946,42 @@ and optional — WF-04 **claims from Postgres itself**.
    `$json` after I/O.
 4. **ONE LLM call**, strict `json_schema`, `temperature: 0`. Extract
    people, companies, roles, summary, topics, opportunities, follow_ups.
-   Nullable beats guessed. Reject any email, phone, domain, or date not
-   present in the labelled source evidence. Preserve
-   `name_original_script`; apply the same `full_name` transliteration
-   contract as WF-03 (`architecture.md` §6).
+   Nullable beats guessed **except** where this contract requires a
+   value. Reject any email, phone, domain, or date not present in the
+   labelled source evidence. Preserve `name_original_script`; apply the
+   same `full_name` transliteration contract as WF-03
+   (`architecture.md` §6). Prompt contract (packet 2.6b, `wf04-v2`):
+   - **`summary`:** 1–3 sentences of what was said or noted. **Required**
+     when a `[TRANSCRIPT]` or `[TYPED_NOTE]` block has text. Null **only**
+     when both blocks are empty.
+   - **`topics`:** short sector or theme tags from that same text. Empty
+     array only when both blocks are empty.
+   - **People** must be proper names present in the sources. A person row
+     requires a non-null Latin `full_name`. `name_original_script` alone
+     is not identity. A person referred to but not named is omitted.
 5. **Validate in a Code node** (no binary read). Drop or null any
    email / phone / domain / date that does not appear as a substring of
-   the labelled sources. Schema-invalid → `needs_review`.
+   the labelled sources. **Drop any person with a null or empty
+   `full_name`.** Schema-invalid → `needs_review`.
 6. **Apply RULE-BASED flagging** (`architecture.md` §6) in that same
    Code node — the **observable conditions**, never model
    self-confidence. Set `flag_reasons` to the matching reason strings
-   (empty array if none). Conditions: no name extracted; no email AND
+   (empty array if none). Conditions: no name extracted (**`full_name`
+   only** — `name_original_script` alone does not count); no email AND
    no phone; non-Latin script present in `full_name`; empty transcript
    despite audio longer than 5 seconds; two or more people detected on
    one card; extraction output fails schema validation; capture contains
    nothing usable.
-7. **Write ONE `extraction_runs` row per capture** (immutable evidence).
+7. **Write ONE `extraction_runs` row per (`capture_id`,
+   `prompt_version`)** (immutable evidence). Never UPDATE an existing
+   row. `INSERT … WHERE NOT EXISTS` that pair so a bumped prompt
+   (e.g. `wf04-v2`) inserts **beside** `wf04-v1`, it does not overwrite.
    Columns: `model`, `prompt_version`, `raw_vision_output` (jsonb of the
    labelled card/scene results), `raw_transcript` (concatenated
-   `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Do not
-   UPDATE an existing row for that `capture_id` — `INSERT … WHERE NOT
-   EXISTS`. Then set the job `succeeded` | `failed` | `needs_review`
-   with the adapter-free job row (extraction `output` may hold the
-   structured_output + flag_reasons). `last_transition_at = now()`.
+   `[TRANSCRIPT]` texts), `structured_output`, `flag_reasons`. Then set
+   the job `succeeded` | `failed` | `needs_review` with the adapter-free
+   job row (extraction `output` may hold the structured_output +
+   flag_reasons). `last_transition_at = now()`.
 8. Terminate at a NoOp named **`WF-05 dispatch (not yet)`**. Do not call
    WF-05.
 
@@ -989,24 +1002,93 @@ in WF-04.
 
 ## WF-05 — Entity resolution
 
-**Phase 2** · **Trigger:** called by WF-04
+**Phase 2** · **Triggers:** Manual **and** Execute Workflow Trigger.
+Claims capture-level `processing_jobs` rows (`job_type='entity_resolution'`,
+`asset_id` NULL) the same way WF-04 claims extraction. Enqueued for prove
+by SQL this packet; **WF-04 does not call WF-05 yet** (terminal remains
+`WF-05 dispatch (not yet)`). Workflow ID on the instance:
+`<WF-05_WORKFLOW_ID>`. Never commit the literal.
 
-1. **Candidate retrieval,** in order: exact normalized email → exact LinkedIn
-   URL → exact phone → company domain → fuzzy name + company.
-2. **Deterministic scoring.** Exact email or exact LinkedIn dominates. Matching
-   company plus normalized name supports but does not decide.
-3. **Auto-link only** on exact normalized email or exact LinkedIn URL.
-   **Name similarity never auto-merges** — at an event with a high density of
-   shared family names this would quietly corrupt the dataset, and quiet
-   corruption is worse than a visible gap.
-4. Otherwise write a scored suggestion to `entity_candidates` with **visible
-   reasons**.
-5. Upsert `people`, `companies`, `person_companies`, `interactions`. Preserve
-   `name_original_script`.
-6. Set capture status `ready` or `needs_review`.
-7. **Notify the owner only if flagged.** Otherwise stay silent — the digest
-   handles it.
-8. If Phase 4 is live and a company domain is present, dispatch WF-06.
+Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, timezone **explicitly `Asia/Riyadh`**,
+`callerPolicy: workflowsFromSameOwner`.
+
+**Input contract:** a kick is optional — WF-05 **claims from Postgres
+itself**. Reads the **latest** `extraction_runs` row for the capture
+(`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v2` re-proof is used
+without touching `wf04-v1`.
+
+1. **Self-identify** before any write: `SELECT name, timezone, owner_id
+   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
+   Wrong database → `stopAndError`.
+2. **Claim** queued entity-resolution jobs (same shape as WF-04, with
+   `job_type = 'entity_resolution'`):
+
+   ```sql
+   UPDATE public.processing_jobs AS j
+   SET status = 'running',
+       attempt_count = j.attempt_count + 1,
+       last_transition_at = now()
+   WHERE j.id IN (
+     SELECT p.id FROM public.processing_jobs p
+     WHERE p.status = 'queued'
+       AND p.owner_id = $1::uuid
+       AND p.asset_id IS NULL
+       AND p.job_type = 'entity_resolution'
+       AND p.attempt_count < 3
+     ORDER BY p.created_at ASC
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING j.*;
+   ```
+
+   Zero claimed → silent NoOp (`No queued resolution jobs`). Not an
+   error. **This query does not pick up the older captures sitting at
+   `status='processing'`.** Those have no `entity_resolution` job. They
+   stay `processing` until a later packet enqueues one (or WF-04 dispatch
+   is wired). WF-05 will not sweep them.
+3. Load the latest `extraction_runs` row + `captures.capture_no` for
+   `j.capture_id`. Missing run or missing capture → `stopAndError`.
+   Source every field from the **named** node. Never `$json` after I/O.
+4. **Auto-link ONLY** on exact `people.email_normalized` or exact
+   `people.linkedin_url_normalized` (both `GENERATED … STORED`).
+   **Name similarity NEVER auto-merges**, at any score, for any reason.
+   Skip any extracted person with a null/empty `full_name` (defence in
+   depth; WF-04 already dropped them).
+5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
+   Preserve `name_original_script` verbatim — never overwrite a stored
+   original with null. Write `interactions.summary` and
+   `interactions.topics` from `structured_output`. One interaction per
+   capture. A capture with zero people still gets an interaction
+   (`person_id` NULL) so the summary is not lost, and still gets a
+   terminal capture status.
+6. **Non-exact match:** if a new person was inserted (no email/LinkedIn
+   hit) and another owner person has a trigram-similar `full_name`,
+   write `entity_candidates` pointing at that existing row with
+   **visible `reasons`** (e.g. `name_trgm`) and `score = similarity(...)`.
+   No threshold tuning — any similar row is a suggestion, never a merge.
+7. **Capture status:** `ready` when `flag_reasons` is empty;
+   `needs_review` otherwise. (`failed` is not set here.)
+8. **Notify:** WF-01 is the only workflow that sends Telegram
+   (`workflows.md` WF-01). WF-05 does **not** add a second send point.
+   Flagged → `needs_review` (visible). Unflagged → `ready` and **silent**.
+   The digest (WF-07) is the owner-facing list of flagged captures until
+   a later packet wires notify through WF-01.
+9. Mark the `entity_resolution` job `succeeded` | `failed` |
+   `needs_review`. Same failure discipline as WF-03/WF-04.
+   `retryOnFail: true` on DB nodes.
+10. Terminate at a NoOp named **`WF-06 dispatch (not yet)`**. Phase 4 is
+    dropped pre-event. Do not call WF-06.
+
+**Must not:** auto-merge on name; overwrite `field_corrections`; unwrap
+`extraction_runs` provider envelopes (there are none — read
+`structured_output`); log emails, phones, transcripts, or signed URLs;
+send Telegram; sweep `captures.status='processing'` that have no
+resolution job.
+
+**`language` is not set on any node.** There is no transcription node
+in WF-05.
 
 ---
 
