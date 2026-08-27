@@ -411,8 +411,22 @@ LNI bot only and must not disturb any ElderWise webhook.
    and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
-5. **Branch:** command | photo | voice/audio | document/video | text | callback.
+5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact**.
    Commands are `text` starting with `/` and win over the text branch.
+
+   **Telegram `contact` (packet 3.9) — reply only, no ingest.**
+   Live `Classify update` previously had no `msg.contact` branch;
+   those updates died at `Unknown type terminal` with no reply.
+   Now: detect `msg.contact`, set `branch = 'contact'`, read nothing
+   else from the payload. Do **not** store, do **not** create an
+   asset, do **not** call WF-02. Route to a WF-01 Telegram send
+   (the only inbound sender) with exact text:
+   `Contact cards are not supported yet. Send a photo of the card or
+   a voice note instead.`
+   Explicit notEmpty gate before the send. Full contact ingestion is
+   **deferred post-event**: it needs a new `people.source_type`,
+   touches two **ACTIVE** workflows (WF-01 and WF-02), and the event
+   is four days away.
 6. **COMMANDS.** Strip a trailing `@botname`. First token, lowercased,
    without the leading `/`, is `action`. **Commands never touch Storage.**
    Publish-order: activate the callee before adding the Call on WF-01.
@@ -536,8 +550,8 @@ file bytes, or message text.
 | Command no-send terminal | WF-02 returned no `reply_text` / `state_echo` |
 | Adoption skipped terminal | Stored; `reply_text` empty (already-open or batch) |
 | Callback terminal | Album callback not yet implemented (packet 2.1 design only). Today a silent NoOp. |
-| Unknown type terminal | Update is none of command/photo/voice/document/text/callback |
-| Command sent / Media stored / Note done | Happy path |
+| Unknown type terminal | Update is none of command/photo/voice/document/text/callback/contact |
+| Command sent / Media stored / Note done / Contact reply sent | Happy path (contact sends the unsupported-yet text; nothing stored) |
 
 ### Kind mapping (live constraints, 26 Aug 2026)
 
@@ -1172,6 +1186,16 @@ without touching `wf04-v1`.
    **Name similarity NEVER auto-merges**, at any score, for any reason.
    Skip any extracted person with a null/empty `full_name` (defence in
    depth; WF-04 already dropped them).
+
+   **Vision OCR is not reproducible on this card stock at
+   `temperature: 0` (packet 3.9, architect).** Same physical cards,
+   two runs: capture 65 vs 67 disagreed on Latin spelling and on the
+   phone; capture 64 vs 66 disagreed on whether a phone was present
+   (four distinct numbers in evidence, stored phone null on the
+   second run). Consequences: exact email is the **only** stable join
+   key; a stored phone is the first read that landed, not verified
+   truth; re-capturing a person will raise a candidate per disagreeing
+   field. This is why auto-link on name is banned and **stays banned**.
 5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
    Preserve `name_original_script` verbatim — never overwrite a stored
    original with null. Write `interactions.summary` and
@@ -1199,6 +1223,12 @@ without touching `wf04-v1`.
    Do not skip the OCR-split path just because both rows have emails.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
+
+   **Packet 3.9 C** applied an **owner-confirmed** merge of the Imran
+   OCR-split pair (survivor = the `ikhalid@` row; absorbed title
+   carried) and collapsed three Huawei company rows onto the
+   `huawei.com` survivor. That is data. WF-05 still never auto-merges.
+   MDS transliteration and phone candidates stay `pending`.
 7. **Capture status:** `ready` when `flag_reasons` is empty **or
    contains only informational signals**; `needs_review` otherwise.
    (`failed` is not set here.) Packet 3.6 ruling: `Non-Latin script
