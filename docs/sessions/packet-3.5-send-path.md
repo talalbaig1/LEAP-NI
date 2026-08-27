@@ -203,3 +203,145 @@ WF-03 / 04 / 05 Self-identify LEAP-NI all set both:
 
 Same skeleton that left `options: {}` on the query. Values relied on
 must be explicit in saved JSON (`workflows.md` §1). Align in 3.6.
+
+---
+
+## Q5. Capture 62 wrote two company rows from one card
+
+**Cause only. No WF-05 change proposed here.** WF-05 left active.
+
+### What is live
+
+Same `created_at` `2026-08-27 06:20:51.390502+00`:
+
+| `companies.name` | person_companies | interactions |
+|---|---|---|
+| Huawei | 0 | 0 |
+| شركة هواوي تك انفستمنت العربية السعودية المحدودة | 1 | 1 |
+
+Companies went 2 → 4 on that capture. Huawei is an orphan.
+
+`extraction_runs.structured_output` for #62:
+
+- `companies[0].name` = `Huawei`
+- `people[0].company_name` = the Arabic legal name
+- `roles[0].company_name` = the Arabic legal name (unused downstream)
+
+#61 both said `BTGroup`, so one key, one row.
+
+The split starts one step earlier than WF-05. WF-03 vision for #62:
+
+- `result.company.name` = `Huawei`
+- `result.people[0].company_name` = the Arabic legal name
+
+WF-04 copied that disagreement into `structured_output`. WF-05 then
+materialised both strings as rows.
+
+### What each node reads
+
+**Prepare resolution** (Code, immediately before the upserts):
+
+1. Seed a map from `companies[].name`, keyed by `name.toLowerCase()`.
+2. For each `people[].company_name`, if that exact lowercased string is
+   **not** already a key, insert a second map entry (domain/website null).
+3. `roles[]` is ignored.
+4. Emit `companies: Object.keys(companyByKey)`.
+
+There is **no precedence**. Disagreeing strings are a UNION. Both survive.
+
+**Upsert companies** reads `Prepare resolution.companies`. Match key is
+`lower(trim(c.name)) = lower(trim(s.name))`. No unique index on
+`(owner_id, name)` or `normalized_name` — only PK on `id`. Two different
+strings → two INSERTs in one statement.
+
+**Link person_companies** reads `Prepare resolution.people`, not the
+companies array. Join:
+
+`lower(trim(c.name)) = lower(trim(x.company_name))`
+
+where `x.company_name` is `people[].company_name`. So only the Arabic
+row is linked. Huawei has no person and no interaction.
+
+**Insert interaction** uses the same people-side join. Capture 62's
+interaction points at the Arabic company.
+
+### Intended precedence in the spec
+
+`workflows.md` WF-05 step 5 says upsert companies. It does **not** say
+what to do when `companies[].name` and `people[].company_name` disagree.
+No alias / brand-vs-legal rule exists. The code's behaviour is "both
+are canonical if the strings differ."
+
+### Does WF-07 count them as two?
+
+**Yes.** Morning briefing `companies` is `count(*)` on `public.companies`
+in event scope (`workflows.md` WF-07). It is a row count, not a
+linked-or-interacted count. The briefing will report **4** companies.
+Huawei and the Arabic legal name both count. That number is now wrong
+as "how many companies did I actually meet."
+
+---
+
+## Q6. Arabic-only names — analysis only, no change
+
+### What fired
+
+WF-04 `Parse + validate + flag`:
+
+```
+hasNonLatinName = /[^\u0000-\u024F\u1E00-\u1EFF\s]/
+flag if any people[].full_name matches
+```
+
+Capture 62 `full_name` = `وانغ (بوب)` (same string in
+`name_original_script`). The card had no Latin name. The model did not
+transliterate. The flag fired. Extraction job still `succeeded` (flags
+do not set WF-04 outcome unless schema-invalid). WF-05 wrote the person
+anyway (drop rule is empty `full_name`, not "must be Latin"), then set
+capture + resolution job to `needs_review` because `flag_reasons` was
+non-empty.
+
+### Fraction of the needs_review path
+
+Terminal captures at `needs_review`: **2** (#59, #62).
+
+| Capture | Latest flags |
+|---|---|
+| #59 | No name extracted, No email and no phone |
+| #62 | Non-Latin script present in the name field **only** |
+
+This rule is **1 of 2** terminal `needs_review` captures. It is the
+**only** flag on #62. It does not co-occur with anything else.
+
+Latest extraction_runs that have any flag (one row per capture): **6**.
+This rule is **1 of 6**. The other five are the no-name / no-contact
+family, mostly leftover processing captures that never reached WF-05.
+
+#62 has a name, an email, and a phone. Without this one flag it would
+be `ready`.
+
+### If an Arabic-only `full_name` were accepted
+
+Analysis of consequences, not a recommendation:
+
+1. #62 becomes `ready`. Owner-facing flagged list drops from 2 to 1
+   (only #59).
+2. The person row already exists with Arabic in **both** `full_name` and
+   `name_original_script` (identical). Packet 2.5 called that a lost
+   transliteration. Accepting Arabic-only `full_name` makes that policy,
+   not a defect.
+3. This flag does **not** review correctly-handled Arabic-only cards.
+   A card that transliterated into Latin would not match the regex.
+   It only fires when non-Latin **leaked into `full_name`**. Turning
+   it off for Arabic-only identity means that leak is no longer a
+   review reason.
+4. Auto-link (email / LinkedIn) is unchanged. OCR-split
+   `same_full_name` would then compare Arabic to Arabic; a later Latin
+   reading of the same person would not hit that path.
+5. Briefing `people` count does not change (row already written).
+   Briefing `unreviewed` drops by one capture. Company-count error in
+   Q5 is independent.
+6. WF-04 still drops null/empty `full_name`. Arabic text already
+   satisfies that. The identity contract today is "non-null **Latin**
+   `full_name`" (`architecture.md` §6). Accepting Arabic-only is a
+   contract change, not only a flag change.
