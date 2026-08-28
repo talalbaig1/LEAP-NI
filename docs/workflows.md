@@ -2521,9 +2521,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `kind IN ('photo','selfie')`, capture linked via
     `interactions` for this person, newest first, cap 3. Size cap
     18 MB: drop largest first; omitted names travel as
-    `omitted_names`. Live finding 28 Aug: this set is **empty**
-    for every current person. `alwaysOutputData` empty item is
-    treated as `(none)`, not an error.
+    `omitted_names`. Live finding 28 Aug: the set was **empty**
+    for every person until packet 7.3b linked capture #54 to the
+    prove person. Cap 3 here, not at send.
 14. **Load owner cc** — `auth.users.email` for the events owner
     (same join WF-07 uses). Named node.
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
@@ -2531,8 +2531,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
     Responses JSON schema `wf10-v1`. Fields: `recipient_ref`,
     `agreed`, `send_what`, `deadline`, `subject`, `body`. All
-    strings; no “return null”. Do not write the transcript to
-    `audit_log`.
+    strings; no “return null”. System prompt: address the person
+    by the supplied `full_name`; never bracketed placeholders.
+    Do not write the transcript to `audit_log`.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
