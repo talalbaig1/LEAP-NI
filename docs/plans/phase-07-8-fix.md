@@ -1,9 +1,10 @@
 # Packet 7.8-FIX — brief persistence + enrichment drain
 
 **Date:** 28 August 2026
-**Status:** IN FLIGHT. Causes accepted (7.8-R).
-**WF-01 is not touched.** One PUT each: WF-10, WF-06, WF-09.
+**Status:** APPLIED. WF-10 `45f1fdd4-…` (108 nodes). WF-06
+`356a2d1f-…` (53 nodes). WF-09 `78c1e260-…`. 027 catalogued.
 Rollbacks: WF-10 `6f3dcfb5-…`, WF-06 `f6b39538-…`, WF-09 `23d0972e-…`.
+**WF-01 is not touched** (`864bcb8b-…`, 128 nodes).
 
 ## Causes (accepted)
 

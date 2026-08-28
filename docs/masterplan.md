@@ -212,7 +212,7 @@ fallback.
 | # | Item | Owner | Status | Blocks |
 |---|---|---|---|---|
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **CLOSED 28 Aug 2026** — credential `Leap-NI` in n8n. Proven on the owner's real chat. `/setcommands` includes `followup`. | — |
-| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **CLOSED 26 Aug 2026** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Live catalog through `026`; packet 7.8-FIX adds `027_follow_ups_brief`. Phase 6 embeddings is **028**. | — |
+| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **CLOSED 26 Aug 2026** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations applied through `027` (`027_follow_ups_brief`). Phase 6 embeddings is **028**. | — |
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | **CLOSED 26 Aug 2026** — held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeded `bot_state`. Live allowlist proven. | — |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | **CLOSED 28 Aug 2026** — Apollo Basic 2,500 credits/month. Phase 4 ran on that budget. | — |
