@@ -28,7 +28,8 @@ confident wrong decisions.
 | [`docs/architecture.md`](docs/architecture.md) | System design, data model, storage, AI contracts, security, failure/rollback |
 | [`docs/phases.md`](docs/phases.md) | Phase 0–8 scope, definitions of done, gates, verification |
 | [`docs/prd.md`](docs/prd.md) | User, jobs to be done, command surface, feedback model, acceptance criteria |
-| [`docs/workflows.md`](docs/workflows.md) | Every n8n workflow spec, WF-00 → WF-09, plus instance conventions |
+| [`docs/workflows.md`](docs/workflows.md) | Every n8n workflow spec, WF-00 → WF-10, plus instance conventions |
+| [`docs/plans/`](docs/plans/) | Authored apply packets. Holds 7.4 (`phase-07-4-wf01-wire.md`) and 7.6 (voice, PR #41). Not live workflow JSON. |
 | [`docs/rules.md`](docs/rules.md) | Operating protocol, roles, verification, troubleshooting, standing technical rules |
 
 **Which document to update for which change** — see `docs/rules.md` §1.
@@ -53,12 +54,15 @@ compete with capture reliability.
 
 | Phase | Contents | State |
 |---|---|---|
-| 0 | Foundation: Supabase, schema, RLS, storage, bot, error handler | Complete |
-| 1 | Capture path — **launch release** | Complete |
-| 2 | Extraction | In progress |
-| 3 | Digests, `/ask`, watchdog | Not started |
-| 4 | Enrichment | Dropped pre-event (works identically on 5 September) |
-| 5–8 | Dashboard, RAG, follow-up, PWA | Post-LEAP |
+| 0 | Foundation: Supabase, schema, RLS, storage, bot, error handler | COMPLETE |
+| 1 | Capture path — **launch release** | COMPLETE |
+| 2 | Extraction | COMPLETE |
+| 3 | Digests, `/ask`, watchdog | COMPLETE |
+| 4 | Enrichment | COMPLETE |
+| 7 | Follow-up drafting | COMPLETE (typed); voice = 7.6, in progress |
+| 6 | pgvector RAG | Planned, post-event |
+| 5 | Web dashboard | Planned, post-event, needs RLS re-proof |
+| 8 | PWA capture | Refused pre-event, post-event |
 
 ---
 
