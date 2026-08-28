@@ -932,7 +932,11 @@ exists.
 
 **Domain normalisation** is a Postgres function over a public-suffix
 table, not a Code node. It must leave `jccs.com.sa` intact and reduce
-`sa.qatarairways.com` to `qatarairways.com`.
+`sa.qatarairways.com` to `qatarairways.com`. Packet 4.5 backfilled
+`companies.domain` via `lni_normalize_domain` of the primary person's
+email domain where domain was NULL and the email domain was not in
+`lni_free_email_domains`. Left untouched:
+`www.future-projects.net` (would become `future-projects.net`).
 
 **Personal email domain.** A free-mail domain is never treated as a
 company domain. Blocklist lives in `lni_free_email_domains` (a table,
