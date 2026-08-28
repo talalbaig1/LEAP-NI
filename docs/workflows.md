@@ -670,6 +670,16 @@ LNI bot only and must not disturb any ElderWise webhook.
    5. **265858** success last **Flag sent terminal**. Reply
       `Already queued for enrichment.` No second row. Pass.
 
+   **Packet 4.12 Part F (28 Aug 2026).** WF-06 **265894**
+   `mode=trigger` 06:00:00Z last **Match done**. Cache check
+   `skip_cached=0`. Cached? false branch (continue, not skip).
+   Force bypassed the 30-day cache and spent. Ledger
+   `a42a37be-b596-4e89-b40b-5c046fd8bdb0` apollo /
+   `people_match` / `confirmed` / `credits_spent=1`. Apollo
+   2599→2598. ledger sum 6→7. enrichment_records 12→14
+   (person `9bbaf6ce` + company `110fa72e`). queued after: 0.
+   Job `70f3d9ef` `succeeded`. Architect baseline: met.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
