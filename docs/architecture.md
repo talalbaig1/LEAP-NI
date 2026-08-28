@@ -345,9 +345,15 @@ write this table.
 
 **`credit_ledger.status`.** Written as `'attempted'` **before** the provider
 call; then `'confirmed'` / `'no_match'` / `'failed'` after. Reconcile spend
-against the delta in Apollo `num_credits_remaining`, never
+against the **measured delta** in Apollo `num_credits_remaining` across the
+call (WF-06 reads the Profile endpoint before and after), never
 `num_lead_credits_used` (measured 27 Aug 2026: enrich 2605→2604,
-usage counter stayed 0).
+usage counter stayed 0), and never an assumed `credits_spent=1`.
+
+**Known discrepancy (evidence, not edited).** Ledger row
+`73fc2831-2231-40f4-9013-8a67d5dc4074` is `confirmed` / `credits_spent=1`
+for a packet 4.3 probe call that cost **0**. Do not edit or delete it.
+Lifetime ledger over-counts by 1 from packet 4.3 onward.
 
 **`lni_config`** — owner-scoped key/value. Packet 4.1 live read-back found
 **no** existing config table (`pg_class` name match `%config%` /
@@ -873,8 +879,34 @@ a source of people data. Never merged into an Apollo row.
 `apollo_lifetime_ceiling`, `tavily_lifetime_ceiling`. A `credit_ledger`
 counter is independent of Apollo's reporting. The ledger row is written
 **before** the provider call (`status = 'attempted'`) — a crash must not
-lose a spend. Reconcile against the delta in `num_credits_remaining`,
-never `num_lead_credits_used`.
+lose a spend. Reconcile against the **measured delta** in
+`num_credits_remaining` (Profile GET before and after the enrich call),
+never `num_lead_credits_used`, never an assumed 1.
+
+**Match test is `name` non-empty after trim, never `person.id`.** Apollo
+mints an id for a hollow shell. Measured packet 4.3 on a `.example`
+domain: probe `people/match` returned a person object with an id and an
+empty `name`. Architect-measured balances (not inferred): Huawei match
+2604 → 2603 (1 credit); probe match 2603 → 2603 (0 credits). Apollo
+bills on **reveal**, not on request. A hollow response costs 0 credits.
+
+**`credits_spent` is measured** from that remaining-credit delta, not
+assumed to be 1. The free-balance read is Apollo **Get Current User
+Profile**: `GET https://api.apollo.io/api/v1/users/api_profile?include_credit_usage=true`
+(official docs: 0 credits). Packet 4.4 terminal proof: two consecutive
+GETs both returned `num_credits_remaining` = 2603. Do not call
+`organizations/enrich` to read a balance.
+
+**Ceiling.** `credit_ledger` rows with `status IN ('attempted','confirmed')`
+are summed as `sum(credits_spent)`, not `count(*)`, so a future
+multi-credit operation counts correctly. `'no_match'` stays off the IN
+list: a no-match costs nothing (packet 4.3 OPEN QUESTION: **closed**).
+
+**Known discrepancy (evidence, not edited).** Ledger row
+`73fc2831-2231-40f4-9013-8a67d5dc4074` is `confirmed` / 1 for a call
+that cost 0. Lifetime ledger over-counts by 1 from packet 4.3 onward.
+Do not edit or delete that row or the three existing
+`enrichment_records` rows.
 
 **WF-06 drains a queue on a schedule.** WF-05 **enqueues**
 `job_type = 'enrichment'`; it does not dispatch WF-06 per capture.
