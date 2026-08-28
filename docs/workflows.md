@@ -2528,15 +2528,19 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
     `agreed`, `send_what`, `deadline`, `subject`, `body`. All
     strings; no “return null”. Do not write the transcript to
     `audit_log`.
-17. **Parse extract** — Code. Empty `subject` or `body` →
-    `stopAndError` (`Extract returned empty subject or body`).
+17. **Parse extract** — Code. Unwraps the live OpenAI Responses
+    envelope (`output[0].content[0].text` object). Empty
+    `subject` or `body` → `stopAndError`
+    (`Extract returned empty subject or body`).
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
     `status='open'`, freeze `to_email` (person
-    `email_normalized`), `cc_email` (owner), `subject`, `body`,
-    `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v1'`, `title` = subject. `RETURNING id`.
+    `email_normalized`), `cc_email` (owner `auth.users.email`),
+    `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
+    `prompt_version='wf10-v1'`, `title` = subject.
+    `due_at = NULLIF($4::text, '')::timestamptz` (empty string
+    cannot be bound as timestamptz). `RETURNING id`.
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
 20. **Compose confirm** — HTML-escaped. Full `to_email`, CC,
@@ -2551,7 +2555,9 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
 21. **Load await** — `bot_state.awaiting_followup_id` where
     `awaiting_followup_until > now()`. Gate `id` notEmpty. False →
     **Compose no await** (`No follow-up is waiting. Use /followup <name or email>.`)
-    → Return.
+    → Return. Packets 7.1–7.3: both IF outputs currently compose
+    no-await (voice not device-proved). Do not treat this as a
+    voice-path proof.
 22. Then **Transcribe** → **Extract draft**. If the awaiting row
     has `person_id`, skip the ladder and continue from **Has
     email?** using that id. If not, ladder on `recipient_ref`.
@@ -2568,9 +2574,12 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
 25. **Pick person?** `f7:p:` → **Load picked person** by id
     (no re-guess) → **Has email?** (same gate as command). A
     no-email pick composes the no-email text and does not draft.
-26. **Cancel?** `f7:x:` → UPDATE `draft_state='cancelled'`,
-    `status='cancelled'` WHERE `awaiting_confirm` RETURNING.
-    Gate. **Clear await**. Reply `Cancelled.`
+26. **Cancel?** `f7:x:` → UPDATE `status='cancelled'`,
+    `draft_state='failed'` WHERE `awaiting_confirm` RETURNING.
+    `draft_state` CHECK has no `cancelled` (that value lives on
+    `status`). Gate. **Clear await**. Reply `Cancelled.`
+    Compose already checks `status='cancelled'` before
+    `draft_state`.
 27. **Claim send** — `f7:s:` keeps listed attachments; `f7:n:`
     sets `attachment_asset_ids='{}'` on the claim. SQL:
 
