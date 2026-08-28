@@ -1618,6 +1618,16 @@ without touching `wf04-v3`.
    Do not skip the OCR-split path just because both rows have emails.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
+
+   **OPEN post-event, TOP PRIORITY (packet 7.10 — do not fix now).**
+   WF-05 inserts a new person from any voice-note extraction with a
+   `full_name` and no exact email match. Every voice note naming an
+   existing contact spawns a duplicate: Ahmed Eltohfa `9489be75`
+   (card #75), Ahmed Al-Touhaf `55ab6b1a` (voice #82), Ahmed Tufa
+   `e84189e6` (voice #83), possibly Ahmad `73996fe0` (voice #73).
+   No `entity_candidates` row: names differ, no company. Pairs
+   with Whisper wrong-script and `verbose_json` (`rules.md` rule 23).
+
    **Packet 3.9 C** applied an **owner-confirmed** merge of the Imran
    OCR-split pair (survivor = the `ikhalid@` row; absorbed title
    carried) and collapsed three Huawei company rows onto the
@@ -2649,12 +2659,15 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `has_latin`, `prompt_version='wf10-v2'`. **Before** the picker.
     Do not stuff flags into `prompt_version` (027).
 24. If the awaiting row has `person_id`, **Load voice person** and
-    skip the ladder. Else **Extract recipient** → **Normalize
+    skip the ladder. No email → Load no-email person → Compose
+    no email (7.9); await survives. Else **Extract recipient** → **Normalize
     recipient**. `"none named"` / empty → **Compose no person**.
 25. **Transliterate recipient** (F1) → **Lookup people voice**
     (F2: `GREATEST` trigram, floor **0.25**, `step::int`,
-    `hit_count::int`). Typed **Lookup people** stays floor 0.4
-    and is not this path.
+    `hit_count::int`). **7.10:** `ORDER BY (email_normalized IS
+    NOT NULL) DESC, score DESC`. `LIMIT 5` unchanged. A row
+    with no email never outranks one that can. Typed **Lookup
+    people** stays floor 0.4 and is not this path.
 26. **Voice lookup returned?** false → **Compose no match**
     (F4). Claim await does not run (F5). True → **Voice
     disambiguate?** (`hit_count > 1` OR `step = 3`) true →

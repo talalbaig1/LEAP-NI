@@ -224,6 +224,7 @@ fallback.
 | 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | Turned off to unblock Phase 0 provisioning. |
 | 12 | Re-run the second-user RLS proof when Phase 5 grants SELECT to authenticated | Talal / implementer | Open | The 16 policies are verified correct by inspection but have never been exercised. PostgREST denies on GRANT before RLS is evaluated; `service_role` and `authenticated` both lack table privileges. RLS becomes load-bearing for the first time when the dashboard needs grants. Prove it then. |
 | 13 | `/done` receipt counts captures rather than enqueued jobs | — | Open — cosmetic, post-event. Do not fix pre-event. | Capture #77, exec 270954: "4 cards received" while 3 enqueued. WF-09 reconciler makes the data correct within 15 minutes. |
+| 14 | **WF-05 voice-note `full_name` with no exact email inserts a new person** | — | **OPEN post-event, TOP PRIORITY.** Do not fix now (packet 7.10). Every voice note naming an existing contact spawns a duplicate. Evidence: Ahmed Eltohfa `9489be75` card #75; Ahmed Al-Touhaf `55ab6b1a` voice #82; Ahmed Tufa `e84189e6` voice #83; possibly Ahmad `73996fe0` voice #73. No `entity_candidates` (names differ, no company). Pairs with Whisper wrong-script + `verbose_json` (`rules.md` rule 23). | Follow-up picker ranking (7.10) is a bandage until this is fixed. |
 
 ### Apollo credit budget
 

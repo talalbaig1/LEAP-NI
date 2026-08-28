@@ -223,7 +223,7 @@ from any public PUT the same way as `binaryMode`.
 
 **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads.
 
-**Whisper auto-detect can TRANSLATE rather than transcribe when English speech carries Arabic proper nouns.** `operation=transcribe` does not prevent it. The n8n OpenAI node does not request `verbose_json`, so the detected language is not in the stored response (`{text, usage}` only). Never set `language` on a transcribe node (rule 1 still stands — the owner speaks both). Audio is stored and replays; a wrong-script transcript is a re-run, not a loss. Proven 7.6-R2, WF-10 exec **272139**, capture #82. OPEN post-event: request `verbose_json` so detected language is stored, and re-transcribe any wrong-script notes.
+**Whisper auto-detect can TRANSLATE rather than transcribe when English speech carries Arabic proper nouns.** `operation=transcribe` does not prevent it. The n8n OpenAI node does not request `verbose_json`, so the detected language is not in the stored response (`{text, usage}` only). Never set `language` on a transcribe node (rule 1 still stands — the owner speaks both). Audio is stored and replays; a wrong-script transcript is a re-run, not a loss. Proven 7.6-R2, WF-10 exec **272139**, capture #82. OPEN post-event: request `verbose_json` so detected language is stored, and re-transcribe any wrong-script notes. **Pairs with masterplan §8 item 14** (WF-05 voice-note duplicates).
 
 ---
 
