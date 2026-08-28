@@ -272,3 +272,23 @@ real users.
 
 If an operation would touch anything else: **STOP and report.** Do not
 continue, guess, or "clean up" extras.
+
+---
+
+## 13. Session close standing rules
+
+These apply at the end of every session, including this one.
+
+1. **Keep `docs/environment.local.md` current.** Anything a future
+   agent would otherwise have to rediscover (credential names and
+   n8n ids, plan/renewal facts, free-balance URLs, caps, owner CC,
+   BotFather command list) is added there before the session ends.
+   The file is gitignored. Never copy values into a tracked file.
+2. **Every instruction to a next agent or window is ONE complete
+   copy-pasteable block.** No fragments across messages. The
+   handover file is that block.
+3. **The repo ends clean.** Every PR is merged or closed with a
+   reason. Every merged branch is deleted local and remote. The
+   only leftover branch besides `main` is an unreviewed plan the
+   architect has not yet read — and that exception is named in the
+   close report. Do not leave stale feature branches.
