@@ -1,14 +1,58 @@
 # Packet 7.4 — WF-01 wire (authored, not applied)
 
 **Date:** 28 August 2026 (PREP-R same day)
-**Status:** AUTHORED ONLY. Zero writes to n8n. Zero writes to the
-database. Do not PUT WF-01. Do not `POST /activate` WF-10. Do not
-add `/followup` in BotFather. PREP-R: Attach correlation read back;
-Call WF-10 cannot fail silent; empty-brief does not promise voice.
-**Apply after:** the 29 Aug gate passes **and** a later packet says
-to apply this file. Applying is mechanical: copy the artefacts
-below onto a GET of live WF-01, PUT, read back.
-**Do not apply from memory.** This file is the change.
+**Status:** 7.4-B **APPLIED** 28 Aug 2026. WF-01 PUT once
+(`4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`, 118 nodes, active).
+Config read-back passed. Live `/ask` **271785**, `/digest`
+**271788**, `/flag` **271790**, `/whatever` **271791**,
+`/followup` usage **271797** (no keyboard), confirm card
+**271799** `message_id` **369** **has** `reply_markup`
+(`f7:s:` / `f7:n:` / `f7:x:`). That is the 10.20 miss.
+WF-10 stays ACTIVE `8bd44005-…`. BotFather not changed
+(owner can add `followup` now). There is not a fourth PUT.
+
+APPLY 28 Aug 2026 **FAILED 10.20 and rolled back** (first
+apply). Confirm card `message_id` 349 was sent as plain text.
+Telegram `sendMessage` result had **no `reply_markup`**. Map
+markup had `has_markup=true` and three `f7:` rows; n8n v1.2
+**whole-array** `inlineKeyboard.rows` expression did not emit
+buttons.
+
+7.4-B off-router proof (do not touch WF-01 to test a send):
+
+| What | Evidence |
+|---|---|
+| (a) HTTP `sendMessage` with raw `reply_markup` | **FAIL.** `$credentials` in HTTP URL is undefined. Code `this.getCredentials` is not a function (task runner). Token is not available to HTTP/Code. Cannot put the token in workflow JSON. |
+| (b) Telegram node, `inlineKeyboard.rows` as **fixed collection entries** (literals) | **WIN.** LNI-TEST-WF10-buttons `C92yyOvwvyWq1Wg0` exec **271606**, `message_id` **359**. API result `reply_markup.inline_keyboard = [[{text:"TAP THIS - LNI prove", callback_data:"f7:t:prove74b"}]]`. |
+| Tap produces an update | **WIN.** Owner tapped 359. WF-01 exec **271715** (and **271717**). `callback_query.data = f7:t:prove74b`. Last node `Callback terminal` (expected on rolled-back graph). |
+| Whole-array / whole-`buttons` expression | **FAIL** (same class as 10.20). Exec **271732**: expression on `row.buttons` was iterated as a string → dozens of empty-text buttons → Telegram 400. |
+| Fixed rows, **scalar** expressions on `text` and `callback_data` | **WIN.** Exec **271738** `message_id` **363**, three buttons Send / Send no attach / Cancel. Exec **271747** `message_id` **364**, five `f7:p:` rows. |
+
+Proven send for WF-01: Telegram v1.2 `replyMarkup: inlineKeyboard`
+literal, N **fixed** collection rows (N = 1..5), each button
+`text` / `additionalFields.callback_data` as **scalar**
+expressions from Map markup `t0`/`d0` … `t4`/`d4`. Switch on
+`n_rows` picks the N-row send node. Do not use a whole-array
+expression. Do not use HTTP `sendMessage` on this instance.
+
+Live after 7.4-B PUT (GET + executions):
+
+| Fact | Value |
+|---|---|
+| WF-01 `versionId` = `activeVersionId` | `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3` |
+| WF-01 graph | 118 nodes. Route type.main length **13**. `[5]` Callback is f7?. `[11]` Followup payload. `[12]` Unknown type terminal. |
+| Confirm card | exec **271799**, `Send followup kb3`, `message_id` **369**, `reply_markup` present |
+| Usage `/followup` | exec **271797**, `Send followup reply`, `message_id` **368**, no keyboard |
+| Draft from prove | `68d7cc6d-00f6-449e-b9da-048f867fe79e` **cancelled**. Cancel tap WF-01 **271831** (`f7:x:` → Answer callback → Call WF-10 **271832**). `gmail_message_id` null. |
+
+Live after rollback (GET), before the 7.4-B PUT:
+
+| Fact | Value |
+|---|---|
+| WF-01 `versionId` = `activeVersionId` | `baa462d8-5e69-417e-b068-1a6697f3d6c5` |
+| WF-01 graph | 97 nodes. Matches frozen snapshot `e3f817e2-…`. No Followup payload, no Call WF-10. Route type `[5]` = Callback terminal. `[11]` = Unknown type terminal. |
+| WF-10 | **ACTIVE** `8bd44005-8d91-422b-80f3-b0820b9e1e20`. Empty-brief compose is the true usage line. `Need voice wait?` true → Compose usage (no `awaiting_voice` insert). Left ACTIVE per §9. |
+| Leftover draft | `22b8e515-d9f1-44ed-872a-cf9429b5d60c` **cancelled** (7.4-B step 4). Not locked evidence. |
 
 Live baseline this document was written against (GET, read-only):
 
@@ -454,9 +498,10 @@ still a WF-10 defect; the owner still gets the fail line.
 ```
 
 **Map markup** — WF-10 returns Telegram Bot API
-`reply_markup.inline_keyboard`. n8n Telegram v1.2 wants
-`replyMarkup: 'inlineKeyboard'` plus `inlineKeyboard.rows[].row.buttons[]`
-with `additionalFields.callback_data`. Convert here. No regex.
+`reply_markup.inline_keyboard` (one button per row, up to five
+rows). Flatten to scalar slots `t0`/`d0` … `t4`/`d4` and
+`n_rows`. Do **not** emit an `n8n_inline_rows` array — that is
+the 10.20 whole-array expression that Telegram dropped. No regex.
 
 ```json
 {
@@ -468,14 +513,124 @@ with `additionalFields.callback_data`. Convert here. No regex.
   "parameters": {
     "mode": "runOnceForAllItems",
     "language": "javaScript",
-    "jsCode": "const src = $('Call WF-10').first().json || {};\nconst kb = src.reply_markup && src.reply_markup.inline_keyboard;\nconst rows = [];\nif (Array.isArray(kb)) {\n  for (let i = 0; i < kb.length; i++) {\n    const line = kb[i] || [];\n    const buttons = [];\n    for (let j = 0; j < line.length; j++) {\n      const b = line[j] || {};\n      buttons.push({\n        text: String(b.text || ''),\n        additionalFields: { callback_data: String(b.callback_data || '') }\n      });\n    }\n    rows.push({ row: { buttons: buttons } });\n  }\n}\nreturn [{ json: {\n  ok: src.ok,\n  reply_text: src.reply_text,\n  reply_text_2: src.reply_text_2 || '',\n  has_markup: rows.length > 0,\n  n8n_reply_markup: rows.length ? 'inlineKeyboard' : 'none',\n  n8n_inline_rows: rows\n} }];"
+    "jsCode": "const src = $('Call WF-10').first().json || {};\nconst kb = src.reply_markup && src.reply_markup.inline_keyboard;\nconst t = ['', '', '', '', ''];\nconst d = ['', '', '', '', ''];\nlet n = 0;\nif (Array.isArray(kb)) {\n  const lim = kb.length < 5 ? kb.length : 5;\n  for (let i = 0; i < lim; i++) {\n    const line = kb[i] || [];\n    const b = line[0] || {};\n    const text = String(b.text || '');\n    const data = String(b.callback_data || '');\n    if (text) {\n      t[n] = text;\n      d[n] = data;\n      n = n + 1;\n    }\n  }\n}\nreturn [{ json: {\n  ok: src.ok,\n  reply_text: src.reply_text,\n  reply_text_2: src.reply_text_2 || '',\n  has_markup: n > 0,\n  n_rows: n,\n  t0: t[0], d0: d[0],\n  t1: t[1], d1: d[1],\n  t2: t[2], d2: d[2],\n  t3: t[3], d3: d[3],\n  t4: t[4], d4: d[4]\n} }];"
   }
 }
 ```
 
-**Send followup reply** — new node. Do not reuse Send ask / digest /
-flag / command. No `parse_mode`. `appendAttribution: false`.
-`replyMarkup` from Map markup. Buttons live on this message only.
+**Followup has markup?** — true → rows switch. false →
+**Send followup reply** (usage / no keyboard). Empty
+`reply_markup` on a successful WF-10 return is the usage line.
+
+```json
+{
+  "id": "a1b2c3d4e5f60718",
+  "name": "Followup has markup?",
+  "type": "n8n-nodes-base.if",
+  "typeVersion": 2.3,
+  "position": [2800, 2400],
+  "parameters": {
+    "conditions": {
+      "options": {
+        "caseSensitive": true,
+        "leftValue": "",
+        "typeValidation": "strict",
+        "version": 2
+      },
+      "combinator": "and",
+      "conditions": [
+        {
+          "id": "f7-has-markup",
+          "leftValue": "={{ $('Map markup').first().json.has_markup }}",
+          "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+          "rightValue": ""
+        }
+      ]
+    },
+    "options": {}
+  }
+}
+```
+
+**Followup rows switch** — `n_rows` equals 1..5. Extra
+(unexpected count) → no-keyboard send. Do not skip-empty a
+5-row node: empty `text` is Telegram 400 (exec 271732).
+
+```json
+{
+  "id": "b2c3d4e5f6071829",
+  "name": "Followup rows switch",
+  "type": "n8n-nodes-base.switch",
+  "typeVersion": 3.4,
+  "position": [2912, 2240],
+  "parameters": {
+    "rules": {
+      "values": [
+        {
+          "conditions": {
+            "combinator": "and",
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "f7-n1", "leftValue": "={{ $('Map markup').first().json.n_rows }}", "operator": { "type": "number", "operation": "equals" }, "rightValue": 1 }
+            ]
+          },
+          "renameOutput": true,
+          "outputKey": "n1"
+        },
+        {
+          "conditions": {
+            "combinator": "and",
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "f7-n2", "leftValue": "={{ $('Map markup').first().json.n_rows }}", "operator": { "type": "number", "operation": "equals" }, "rightValue": 2 }
+            ]
+          },
+          "renameOutput": true,
+          "outputKey": "n2"
+        },
+        {
+          "conditions": {
+            "combinator": "and",
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "f7-n3", "leftValue": "={{ $('Map markup').first().json.n_rows }}", "operator": { "type": "number", "operation": "equals" }, "rightValue": 3 }
+            ]
+          },
+          "renameOutput": true,
+          "outputKey": "n3"
+        },
+        {
+          "conditions": {
+            "combinator": "and",
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "f7-n4", "leftValue": "={{ $('Map markup').first().json.n_rows }}", "operator": { "type": "number", "operation": "equals" }, "rightValue": 4 }
+            ]
+          },
+          "renameOutput": true,
+          "outputKey": "n4"
+        },
+        {
+          "conditions": {
+            "combinator": "and",
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "f7-n5", "leftValue": "={{ $('Map markup').first().json.n_rows }}", "operator": { "type": "number", "operation": "equals" }, "rightValue": 5 }
+            ]
+          },
+          "renameOutput": true,
+          "outputKey": "n5"
+        }
+      ]
+    },
+    "options": { "fallbackOutput": "extra", "renameFallbackOutput": "none" }
+  }
+}
+```
+
+**Send followup reply** — usage / no keyboard. Do not reuse
+Send ask / digest / flag / command. No `parse_mode`.
+`appendAttribution: false`. **No** `replyMarkup`.
 
 ```json
 {
@@ -483,15 +638,49 @@ flag / command. No `parse_mode`. `appendAttribution: false`.
   "name": "Send followup reply",
   "type": "n8n-nodes-base.telegram",
   "typeVersion": 1.2,
-  "position": [2912, 2320],
+  "position": [3136, 2560],
   "retryOnFail": true,
   "webhookId": "7c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f",
   "parameters": {
     "chatId": "={{ $('Allowlist').item.json.telegram_user_id }}",
     "text": "={{ $('Call WF-10').first().json.reply_text }}",
-    "replyMarkup": "={{ $('Map markup').first().json.n8n_reply_markup }}",
+    "additionalFields": {
+      "appendAttribution": false
+    }
+  }
+}
+```
+
+**Send followup kb3** — confirm card (3 rows) and 3-person
+disambiguation. `replyMarkup` is the **literal**
+`inlineKeyboard`. Each row is a **fixed** collection entry.
+`text` and `callback_data` are **scalar** expressions (proven
+exec 271738 `message_id` 363). Copy `credentials.telegramApi`
+from live `Send ask reply` at PUT time. kb1 / kb2 / kb4 / kb5
+are the same node with 1 / 2 / 4 / 5 rows using `t0`/`d0` …
+`t4`/`d4`. Ids: kb1 `c3d4e5f60718293a`, kb2 `d4e5f60718293a4b`,
+kb3 `e5f60718293a4b5c`, kb4 `f60718293a4b5c6d`, kb5
+`a708293a4b5c6d7e`.
+
+```json
+{
+  "id": "e5f60718293a4b5c",
+  "name": "Send followup kb3",
+  "type": "n8n-nodes-base.telegram",
+  "typeVersion": 1.2,
+  "position": [3136, 2240],
+  "retryOnFail": true,
+  "webhookId": "7c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e53",
+  "parameters": {
+    "chatId": "={{ $('Allowlist').item.json.telegram_user_id }}",
+    "text": "={{ $('Call WF-10').first().json.reply_text }}",
+    "replyMarkup": "inlineKeyboard",
     "inlineKeyboard": {
-      "rows": "={{ $('Map markup').first().json.n8n_inline_rows }}"
+      "rows": [
+        { "row": { "buttons": [ { "text": "={{ $('Map markup').first().json.t0 }}", "additionalFields": { "callback_data": "={{ $('Map markup').first().json.d0 }}" } } ] } },
+        { "row": { "buttons": [ { "text": "={{ $('Map markup').first().json.t1 }}", "additionalFields": { "callback_data": "={{ $('Map markup').first().json.d1 }}" } } ] } },
+        { "row": { "buttons": [ { "text": "={{ $('Map markup').first().json.t2 }}", "additionalFields": { "callback_data": "={{ $('Map markup').first().json.d2 }}" } } ] } }
+      ]
     },
     "additionalFields": {
       "appendAttribution": false
@@ -500,13 +689,19 @@ flag / command. No `parse_mode`. `appendAttribution: false`.
 }
 ```
 
-Physical limit (named, not buried): n8n v1.2 `inlineKeyboard.rows` is
-a collection. A whole-array expression may save and still send no
-buttons. Read-back after PUT: if `inlineKeyboard` is empty, stop and
-do not call it proven. Fallback (architect call, not implementer
-default): HTTP `sendMessage` with WF-10's raw `reply_markup`. Do not
-hard-code the three confirm buttons — disambiguation emits up to five
-`f7:p:<uuid>` rows.
+Physical limit (proven 7.4-B, not a hope): n8n v1.2
+`inlineKeyboard.rows` is a collection. A whole-array expression
+**saves** and still sends **no** buttons (10.20, `message_id`
+349). An expression on `row.buttons` is iterated as a string
+(exec 271732, Telegram 400). HTTP `sendMessage` **cannot** get
+the bot token on this instance. The only proven path is fixed
+collection rows + scalar `text` / `callback_data`. Read-back
+after PUT: each kbN node must still have N collection rows,
+not an expression. Live confirm must show `reply_markup` in
+the `sendMessage` result. Do not hard-code the three confirm
+labels — disambiguation emits up to five `f7:p:<uuid>` rows,
+which is why there are five send nodes rather than one
+3-button node.
 
 **Followup has reply_text_2?** — second send only when WF-10 set it.
 
@@ -735,7 +930,28 @@ IF. Do not rename it. Non-`f7:` callbacks still die silent here.
   },
   "Followup fail reply": { "main": [ [ { "node": "Send followup fail", "type": "main", "index": 0 } ] ] },
   "Send followup fail": { "main": [ [ { "node": "Followup no-send terminal", "type": "main", "index": 0 } ] ] },
-  "Map markup": { "main": [ [ { "node": "Send followup reply", "type": "main", "index": 0 } ] ] },
+  "Map markup": { "main": [ [ { "node": "Followup has markup?", "type": "main", "index": 0 } ] ] },
+  "Followup has markup?": {
+    "main": [
+      [ { "node": "Followup rows switch", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup reply", "type": "main", "index": 0 } ]
+    ]
+  },
+  "Followup rows switch": {
+    "main": [
+      [ { "node": "Send followup kb1", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup kb2", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup kb3", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup kb4", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup kb5", "type": "main", "index": 0 } ],
+      [ { "node": "Send followup reply", "type": "main", "index": 0 } ]
+    ]
+  },
+  "Send followup kb1": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
+  "Send followup kb2": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
+  "Send followup kb3": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
+  "Send followup kb4": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
+  "Send followup kb5": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
   "Send followup reply": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
   "Followup has reply_text_2?": {
     "main": [
@@ -767,7 +983,10 @@ Route type [5]
        true  → Answer callback (queryId = callback_query_id)
              → Callback payload (source='callback', callback_data)
              → Call WF-10 (same node as /followup)
-             → Followup has reply? → Map markup → Send followup reply
+             → Followup has reply? → Map markup → Followup has markup?
+                 true  → Followup rows switch → Send followup kbN
+                 false → Send followup reply (no keyboard)
+             → optional Send followup reply 2
              → optional Send followup reply 2
        false → Callback terminal (existing NoOp, unchanged behaviour)
 ```
@@ -902,7 +1121,8 @@ clear the await. Do not write that graph in this PUT.
 Never deactivate. Never `POST /activate` on WF-01 (already active).
 
 1. Before the apply PUT, save the GET body of version
-   `e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a` to a local file (not the
+   `baa462d8-5e69-417e-b068-1a6697f3d6c5` (rolled-back 97-node
+   graph, same as frozen `e3f817e2-…`) to a local file (not the
    repo).
 2. To roll back: PUT that saved body back.
    - Do **not** send `active`.
@@ -948,8 +1168,12 @@ on WF-01 during 31 Aug–3 Sep.
    `onError === continueRegularOutput`.
 9. `Send ask reply` / `Send digest reply` / `Send flag reply` /
    `Send command reply` parameters equal the pre-PUT GET.
-10. `Send followup reply` has `replyMarkup` expression from Map
-    markup, `appendAttribution: false`, **no** `parse_mode`.
+10. `Send followup reply` has **no** `replyMarkup` (usage).
+    `Send followup kb1`..`kb5` each have literal
+    `replyMarkup: inlineKeyboard` and N **fixed** collection
+    rows, scalar `text`/`callback_data` from Map markup `t*`/`d*`.
+    GET: kb3 `inlineKeyboard.rows` length is 3, not an
+    expression. `appendAttribution: false`, **no** `parse_mode`.
 11. `Answer callback` is `resource=callback` `operation=answerQuery`,
     wired **before** Call WF-10. False branch of `Callback is f7?`
     is `Callback terminal`.
@@ -1001,7 +1225,8 @@ on WF-01 during 31 Aug–3 Sep.
 
 ## Apply order (later packet, not now)
 
-1. GET WF-01. Confirm `versionId === e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Save body.
+1. GET WF-01. Confirm `versionId === baa462d8-5e69-417e-b068-1a6697f3d6c5`
+   (rolled-back graph). Save body.
 2. PUT WF-10: empty-brief compose → true usage line; skip
    `awaiting_voice` insert and `bot_state` await. No `active`.
    Strip `binaryMode` and `timeSavedMode`.
@@ -1027,9 +1252,11 @@ This PREP packet stops before step 1.
 3. **Activate WF-10 before the first Call.** Plan said publish
    WF-10 before adding the Call. The apply packet must
    `POST /activate` once. This PREP does not.
-4. **n8n inlineKeyboard collection may drop an expression.** Named
-   in §4. Read-back of buttons on a real confirm is the proof, not
-   the saved JSON.
+4. **n8n inlineKeyboard collection drops whole-array expressions.**
+   Proven 10.20 and 7.4-B exec 271732. HTTP `sendMessage` cannot
+   get the token. §4 send is fixed collection rows + scalar
+   `text`/`callback_data` (exec 271606 / 271738 / 271747). Live
+   confirm `sendMessage` result must still contain `reply_markup`.
 5. **Call WF-10 cannot fail silent.** Plan left `onError` unset.
    A throw after the owner taps Send would return nothing. False
    branch of Followup has reply? is a real send. Silence is
