@@ -1640,6 +1640,25 @@ Second run exec **263502**: `linkedin_written` null (no overwrite,
 md5 unchanged). Did **re-enrich and spend**: 2601 → 2600, ledger
 `64b45415` `confirmed` / 1. No skip-if-already-enriched yet.
 
+**Packet 4.6 measured (28 Aug 2026).** WF-06 still inactive
+(`active: false`, `activeVersionId: null`). Self identify:
+`LEAP 2026`. Ledger `73fc2831` untouched.
+
+1. Ahmad, `force` absent. Exec **263628**, last node **Cache skip**.
+   Ledger `575e488b` `skipped_cached` / `no_match` / 0. Job
+   `8889c9ec` succeeded. `enrichment_records` 9 → 9. **Read credits
+   before** and **Apollo people match** did not run (no in-workflow
+   balance; skip never reached the provider).
+2. Ahmad, `force=true`. Exec **263634**, last node **Match done**.
+   Cache check `skip_cached=0`. Ledger `543315cc` `people_match` /
+   `confirmed` / 1. Workflow balances 2600 → 2599. `enrichment_records`
+   9 → 11 (new person + company rows). `linkedin_written` null.
+3. Hollow probe `ad9c6cde`, `force` absent. Exec **263638**, last
+   node **Cache skip**. Ledger `32b13a09` `skipped_cached` /
+   `no_match` / 0. Job `5cfd9e94` succeeded. `enrichment_records`
+   11 → 11. Profile / Apollo nodes did not run. Probe person not
+   edited.
+
 **Must not:** publish/activate this workflow in packet 4.6; touch
 WF-01; overwrite captured email / full_name / title / phone; `$env`;
 `$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
