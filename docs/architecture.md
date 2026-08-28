@@ -373,6 +373,17 @@ service_role / owner migrations only.
 |---|---|---|---|
 | `suffix` | text PK | — | NO |
 
+**`lni_free_email_domains`** — owner-scoped free-mail blocklist. Same RLS
+shape as `lni_config`. UNIQUE `(owner_id, domain)`. A person on one of
+these domains is still person-enriched; company derivation is skipped.
+
+| Column | Type | Default | Null |
+|---|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` | NO |
+| `owner_id` | uuid → `auth.users` | — | NO |
+| `domain` | text | — | NO |
+| `created_at` | timestamptz | `now()` | NO |
+
 **`audit_log`** — every AI write and user edit.
 
 | Column | Type | Default | Null |
@@ -891,6 +902,15 @@ exists.
 table, not a Code node. It must leave `jccs.com.sa` intact and reduce
 `sa.qatarairways.com` to `qatarairways.com`.
 
+**Personal email domain.** A free-mail domain is never treated as a
+company domain. Blocklist lives in `lni_free_email_domains` (a table,
+not a Code node array) for the same reason the public-suffix list is a
+table. Seeded: `gmail.com`, `googlemail.com`, `hotmail.com`,
+`outlook.com`, `live.com`, `yahoo.com`, `icloud.com`, `me.com`,
+`aol.com`, `proton.me`, `protonmail.com`, `qq.com`, `163.com`,
+`mail.ru`, `yandex.ru`. A person on a free-mail domain is **still
+person-enriched by email**. Only the company-derivation step is skipped.
+
 **SEQUENCING:** migration `018` (`people.linkedin_source`) and the WF-05
 auto-link guard must **both** be live before WF-06 is permitted to write
 `people.linkedin_url`. Until then WF-06 writes LinkedIn only into
@@ -943,7 +963,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`021`) create the 16 original tables plus `lni_config` / `lni_public_suffixes`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, and `credit_ledger.status`. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`022`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, and the free-mail blocklist. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -971,6 +991,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 019 | `019_lni_normalize_domain` | `lni_public_suffixes` + `lni_normalize_domain(text)`. |
 | 020 | `020_lni_config_credit_ceilings` | `lni_config` + seed ceilings. First config table; none existed. |
 | 021 | `021_credit_ledger_status` | `credit_ledger.status` default `'attempted'`, CHECK `attempted` \| `confirmed` \| `no_match` \| `failed`. |
+| 022 | `022_lni_free_email_domains` | Owner-scoped free-mail blocklist + seed. RLS matches `lni_config`. |
 
 ### Connection policy — verified 25 Aug 2026
 
