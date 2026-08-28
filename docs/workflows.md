@@ -1768,12 +1768,48 @@ Apollo calls which cost 0; no reveal).
    `status='queued'` `force` absent. WF-06 executions after that
    timestamp: none. WF-06 `activeVersionId` null.
 
-**Packet 4.8 bound (28 Aug 2026).** First activation is bounded
-because the scheduled drain path has never executed. Manual runs
-are not that proof. `apollo_daily_ceiling` set to 5 **before**
-publish. Claim stays LIMIT 1. Three unattended `*/15` cycles
-observed after publish; raising the ceiling to 60 is not part of
-this packet.
+**Packet 4.8 measured (28 Aug 2026).** First activation was
+bounded because the scheduled drain path had never executed.
+Manual runs are not that proof. `apollo_daily_ceiling` set to 5
+**before** publish. Claim stayed LIMIT 1. PUT with `"active": true`
+returned 400 `request/body/active is read-only` even while
+inactive; published via `POST /api/v1/workflows/{id}/activate`
+after GET-name-check. Re-GET: `active` true, `versionId` =
+`activeVersionId` = `f6b39538-28ae-4946-ac81-504c9f004c36`,
+`triggerCount` 1, `errorWorkflow` = `X7zKL3wTFPIhwyaN`.
+Timezone proof is observed `startedAt` plus Schedule drain
+`timestamp` in Asia/Riyadh. Ledger `73fc2831` untouched.
+Raising the ceiling to 60 is **not** this packet; live
+`apollo_daily_ceiling` remains 5.
+
+Before activate: queued enrichment **1** (`6b21fbf5`, person
+`68880196`, `force` absent). Apollo `num_credits_remaining`
+**2599**. `enrichment_records` **12**. Apollo ledger
+`sum(credits_spent)` attempted+confirmed **6**.
+
+Three unattended `*/15` cycles. Zero manual executions. Zero
+requeues. No cycle spent more than the daily ceiling.
+
+1. Exec **264382**, `mode=trigger`, `success`, last node
+   **Cache skip**. `startedAt` 02:45:00Z / 05:45:00 Asia/Riyadh.
+   Claimed job `6b21fbf5` (person `68880196`). Ledger `29103684`
+   `apollo` / `skipped_cached` / `no_match` / 0. Job succeeded.
+   `enrichment_records` 12 → 12. Profile / Apollo HTTP nodes did
+   not run.
+2. Exec **264496**, `mode=trigger`, `success`, last node
+   **Empty queue**. `startedAt` 03:00:00Z / 06:00:00 Asia/Riyadh.
+   Claimed nothing (`Claim enrichment job` returned
+   `{success:true}`). No ledger row. `enrichment_records` 12.
+3. Exec **264610**, `mode=trigger`, `success`, last node
+   **Empty queue**. `startedAt` 03:15:00Z / 06:15:00 Asia/Riyadh.
+   Claimed nothing. No ledger row. `enrichment_records` 12.
+
+After cycle 3: Apollo `num_credits_remaining` **2599** (delta 0).
+Apollo ledger attempted+confirmed still **6** (delta 0; skip row
+is `no_match` / 0 and stays off the IN list). The two agree.
+Queued enrichment jobs **0**. Daily attempted+confirmed used **4**
+(earlier manual reveals today, not these cycles) vs ceiling **5**.
+No cycle spent more than the ceiling allowed.
 
 **Tavily credits_spent is 1 by contract**, not measured. Tavily has
 no profile-equivalent remaining-credit read. Pay-as-you-go is ENABLED
