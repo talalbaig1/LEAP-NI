@@ -1,9 +1,10 @@
 # Packet 7.4 — WF-01 wire (authored, not applied)
 
-**Date:** 28 August 2026
+**Date:** 28 August 2026 (PREP-R same day)
 **Status:** AUTHORED ONLY. Zero writes to n8n. Zero writes to the
 database. Do not PUT WF-01. Do not `POST /activate` WF-10. Do not
-add `/followup` in BotFather.
+add `/followup` in BotFather. PREP-R: Attach correlation read back;
+Call WF-10 cannot fail silent; empty-brief does not promise voice.
 **Apply after:** the 29 Aug gate passes **and** a later packet says
 to apply this file. Applying is mechanical: copy the artefacts
 below onto a GET of live WF-01, PUT, read back.
@@ -26,6 +27,7 @@ Live baseline this document was written against (GET, read-only):
 | WF-10 | **INACTIVE** (`active=false`, `activeVersionId=null`) |
 | Callback today | Route type `[5]` → silent NoOp `Callback terminal` (`d2c7a632f8994497`) |
 | `answerCallbackQuery` on WF-01 | **does not exist** |
+| Attach correlation | `42680b774d7e4f1f` — Code v2 **passthrough**. Verified GET 28 Aug, see §1.1 |
 
 If a GET before apply shows any other `versionId`, **stop**. Someone
 PUT without a packet.
@@ -46,7 +48,9 @@ PUT without a packet.
   reply`, or `Send command reply`. Followup gets its own send node.
 - `parse_mode` stays **absent** on the new send nodes.
 - Named-node reads after I/O. `waitForSubWorkflow: true` on Call
-  WF-10.
+  WF-10. `onError: continueRegularOutput` on Call WF-10. A throw
+  must still send the owner a line. Silence is reserved for
+  storage failure.
 - stopAndError messages: no comma, quote, or apostrophe.
 - n8n API only on names starting `LNI ` or `LNI-TEST-`. GET name,
   then act.
@@ -62,10 +66,9 @@ What changed versus live, in words:
 
 - `/followup`: strip `@botname` on the first token (same
   `raw.replace(/@[\w_]+$/, '')` already used for `/ask` `/flag`).
-  `branch = 'followup'`. `text` = the original message. Remainder
-  after the first token is `followup_arg` (the brief). Empty
-  remainder is legal (WF-10 inserts `awaiting_voice`; voice intercept
-  is **not** in this apply — see §8).
+  `branch = 'followup'`. `text` = the original message. **No
+  `followup_arg`.** WF-10 Parse is the one splitter (name vs brief).
+  See §1.2. Empty remainder is **not** a voice wait — see §8.
 - Callback: still `branch = 'callback'`, but now copies
   `callback_data` and `callback_query_id`. Live classify returns
   without those fields, which is why a later `f7:` gate cannot work
@@ -128,9 +131,7 @@ if (text.startsWith('/')) {
   }
   if (cmd === '/followup') {
     base.branch = 'followup';
-    const sp = text.indexOf(' ');
     base.text = text;
-    base.followup_arg = sp < 0 ? '' : text.slice(sp + 1).trim();
     return [{ json: base }];
   }
   const map = { '/new': 'new', '/done': 'done', '/batch': 'batch', '/status': 'status', '/start': 'status' };
@@ -195,9 +196,42 @@ if (text) {
 return [{ json: base }];
 ```
 
-`Attach correlation` (`42680b774d7e4f1f`) already copies the whole
-Classify item and mints `correlation_id`. Do not edit it. `text`,
-`followup_arg`, `callback_data`, and `callback_query_id` ride through.
+---
+
+## 1.1 Attach correlation — verified GET, not an assertion
+
+GET 28 Aug 2026, WF-01 `versionId`
+`e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Node id `42680b774d7e4f1f`.
+Type `n8n-nodes-base.code` v2. **Passthrough.** Not a fixed-field
+Set. Not an explicit field list. Do not edit it.
+
+Actual `parameters` (whole object):
+
+```json
+{
+  "jsCode": "const j = Object.assign({}, $('Classify update').item.json);\nj.correlation_id = $input.first().json.data || $input.first().json.uuid;\nreturn [{ json: j }];"
+}
+```
+
+Cited: `Object.assign({}, $('Classify update').item.json)` copies
+**every** Classify key, then overwrites `correlation_id` from Mint
+correlation (`$input.first().json.data || $input.first().json.uuid`).
+So `text`, `callback_data`, and `callback_query_id` ride through.
+§4 named-node reads of those fields are valid.
+
+---
+
+## 1.2 One parser — drop `followup_arg`
+
+Classify must **not** set `followup_arg`. Followup payload passes
+the full original `text`. WF-10 Parse already strips a leading
+`/followup` token (and `@bot`) and splits first remaining token =
+name, rest = brief. That path is proven.
+
+Two parsers for one string is how they drift (`/flag` vs WF-10
+already taught that). Classify only decides `branch`. WF-10 only
+splits. Empty `text` after the command token is a usage reply
+(§8), not a second field.
 
 ---
 
@@ -346,6 +380,12 @@ first remaining token = name, rest = brief) stays as proven.
 
 **Call WF-10** — shared by command and callback (two inbound wires,
 same pattern as Duplicate check). `waitForSubWorkflow: true`.
+`onError: continueRegularOutput` so a WF-10 throw does not die
+silent on WF-01. The owner tapped Send (or issued `/followup`);
+silence is reserved for storage failure, not for a callee error.
+`retryOnFail` stays. After a throw the item has no `ok` /
+`reply_text`, so **Followup has reply?** goes false and §4 fail
+send runs.
 
 ```json
 {
@@ -355,6 +395,8 @@ same pattern as Duplicate check). `waitForSubWorkflow: true`.
   "typeVersion": 1.3,
   "position": [2240, 2480],
   "retryOnFail": true,
+  "continueOnFail": true,
+  "onError": "continueRegularOutput",
   "parameters": {
     "workflowId": {
       "__rl": true,
@@ -370,7 +412,10 @@ same pattern as Duplicate check). `waitForSubWorkflow: true`.
 ```
 
 **Followup has reply?** — `ok` true AND `reply_text` notEmpty, named
-node, strict. Empty `reply_text` is a WF-10 defect; do not send.
+node, strict. True → Map markup → confirm/send path. False (throw
+continued, `ok` false, or empty `reply_text`) → **real send**, not
+a silent NoOp. Empty `reply_text` on a successful WF-10 return is
+still a WF-10 defect; the owner still gets the fail line.
 
 ```json
 {
@@ -519,6 +564,51 @@ hard-code the three confirm buttons — disambiguation emits up to five
 
 **Followup sent terminal** and **Followup no-send terminal**
 
+The NoOp `Followup no-send terminal` stays. It is **downstream of
+a real send**. Do not wire Followup has reply? false directly to
+it.
+
+**Followup fail reply** — fixed text. No comma, quote, or
+apostrophe (same family as stopAndError hygiene even though this
+is a send, not a throw).
+
+```json
+{
+  "id": "a9177378fc3ad3aa",
+  "name": "Followup fail reply",
+  "type": "n8n-nodes-base.set",
+  "typeVersion": 3.4,
+  "position": [2688, 2640],
+  "parameters": {
+    "mode": "raw",
+    "jsonOutput": "={{ { reply_text: 'Follow-up failed. Nothing was sent. Try again.' } }}",
+    "options": {}
+  }
+}
+```
+
+**Send followup fail** — same Telegram pattern as Send flag reply.
+No `parse_mode`. No markup. Named-node `reply_text`.
+
+```json
+{
+  "id": "b02884890d4be4bb",
+  "name": "Send followup fail",
+  "type": "n8n-nodes-base.telegram",
+  "typeVersion": 1.2,
+  "position": [2912, 2640],
+  "retryOnFail": true,
+  "webhookId": "a0b1c2d3-e4f5-6071-8293-a4b5c6d7e8f9",
+  "parameters": {
+    "chatId": "={{ $('Allowlist').item.json.telegram_user_id }}",
+    "text": "={{ $('Followup fail reply').item.json.reply_text }}",
+    "additionalFields": {
+      "appendAttribution": false
+    }
+  }
+}
+```
+
 ```json
 {
   "id": "b4287378fb29b188",
@@ -536,7 +626,7 @@ hard-code the three confirm buttons — disambiguation emits up to five
   "name": "Followup no-send terminal",
   "type": "n8n-nodes-base.noOp",
   "typeVersion": 1,
-  "position": [2688, 2640],
+  "position": [3136, 2640],
   "parameters": {}
 }
 ```
@@ -640,9 +730,11 @@ IF. Do not rename it. Non-`f7:` callbacks still die silent here.
   "Followup has reply?": {
     "main": [
       [ { "node": "Map markup", "type": "main", "index": 0 } ],
-      [ { "node": "Followup no-send terminal", "type": "main", "index": 0 } ]
+      [ { "node": "Followup fail reply", "type": "main", "index": 0 } ]
     ]
   },
+  "Followup fail reply": { "main": [ [ { "node": "Send followup fail", "type": "main", "index": 0 } ] ] },
+  "Send followup fail": { "main": [ [ { "node": "Followup no-send terminal", "type": "main", "index": 0 } ] ] },
   "Map markup": { "main": [ [ { "node": "Send followup reply", "type": "main", "index": 0 } ] ] },
   "Send followup reply": { "main": [ [ { "node": "Followup has reply_text_2?", "type": "main", "index": 0 } ] ] },
   "Followup has reply_text_2?": {
@@ -759,12 +851,41 @@ Reason: Corollary 1 — capture wins. Route type `[2]` is the hottest
 path on the event floor. An awaiting-followup intercept that is one
 predicate off swallows a meeting voice into WF-10 and never stores
 an asset. Command + typed brief is already proven on inactive WF-10
-(`execute_workflow`). Empty remainder still inserts
-`awaiting_voice` in Postgres and replies `Record a voice note now
-(15 min). A photo still goes to capture.` — but the next voice is
-**not** claimed, so that reply is currently a dead end. That is
-weaker than the Phase 7 plan's 6 PM ideal and is an explicit cut,
-not a silent replacement.
+(`execute_workflow`).
+
+**Do not promise a voice path that is not wired.** Live WF-10
+`Need voice wait?` true (empty brief, `source=command`) inserts
+`draft_state='awaiting_voice'`, sets `bot_state.awaiting_followup_*`,
+and replies `Record a voice note now (15 min). A photo still goes
+to capture.` Nothing on WF-01 claims that voice. That sentence is
+a lie until a later packet wires the intercept.
+
+### Empty-brief reply (WF-10 change at apply, not now)
+
+Replace that compose with a true line, same family as `/flag`
+usage:
+
+`Send /followup followed by a name or email and a short note.`
+
+Use this for both "no name and no brief" and "name present, brief
+empty". Do not keep two usage strings that drift.
+
+### `awaiting_voice` row — do not write it
+
+**Recommend: do not insert `awaiting_voice`. Do not set
+`bot_state.awaiting_followup_id` / `_until`.** Apply-time WF-10:
+`Need voice wait?` true → the compose above → Return. Skip
+**Insert awaiting voice** and **Set bot await**.
+
+Reason: a row that cannot be claimed is a lie in Postgres. It sits
+`status='open'` until someone cancels it. `bot_state` await set
+with no intercept is how a later voice packet steals a capture
+voice by accident. Fail closed. When a packet wires the intercept,
+that packet turns the insert back on.
+
+This PREP does not PUT WF-10. The apply packet must change that
+compose (and skip the insert) in the same packet as the WF-01
+wire.
 
 Phase 7 plan §A item 4 listed voice intercept in 7.4. Disagreement
 is §D below. If the architect overrides, the intercept is a later
@@ -823,7 +944,8 @@ on WF-01 during 31 Aug–3 Sep.
    `[12] Unknown type terminal`, `[5] Callback is f7?`.
 8. New nodes §4 exist by **name**. Call WF-10
    `workflowId.value === D9PRjbZMQxe9ESVW`,
-   `waitForSubWorkflow === true`.
+   `waitForSubWorkflow === true`,
+   `onError === continueRegularOutput`.
 9. `Send ask reply` / `Send digest reply` / `Send flag reply` /
    `Send command reply` parameters equal the pre-PUT GET.
 10. `Send followup reply` has `replyMarkup` expression from Map
@@ -831,40 +953,62 @@ on WF-01 during 31 Aug–3 Sep.
 11. `Answer callback` is `resource=callback` `operation=answerQuery`,
     wired **before** Call WF-10. False branch of `Callback is f7?`
     is `Callback terminal`.
+12. Classify jsCode has **no** `followup_arg`. Followup payload
+    `text` is the full original line.
+13. Followup has reply? false → `Followup fail reply` →
+    `Send followup fail` → `Followup no-send terminal`. GET the
+    fail text: `Follow-up failed. Nothing was sent. Try again.`
+14. WF-10 apply (same packet, still not this PREP): empty-brief
+    compose is the true usage line. No `awaiting_voice` insert on
+    that branch. No `bot_state` await set.
 
 **WF-10 activation (apply packet only, not this PREP):**
 
-12. GET WF-10 still named `LNI WF-10 - Follow-up drafting`.
-    `POST /activate` once if `active === false`. Never send `active`
-    on a WF-10 PUT. Never activate in this docs packet.
+15. GET WF-10 still named `LNI WF-10 - Follow-up drafting`.
+    Empty-brief compose is the true usage line. That branch does
+    **not** INSERT `awaiting_voice` and does **not** set
+    `bot_state` await. Then `POST /activate` once if
+    `active === false`. Never send `active` on a WF-10 PUT. Never
+    activate in this docs packet.
 
 **Live regression (owner phone or the allowlisted bot):**
 
-13. `/ask <question>` — new WF-01 execution last node `Ask sent
+16. `/ask <question>` — new WF-01 execution last node `Ask sent
     terminal`. Compare to **255773 / 255781 / 255786 / 255800 /
     255806**.
-14. `/digest` — last node `Digest sent terminal`. Compare callee
+17. `/digest` — last node `Digest sent terminal`. Compare callee
     shape to WF-07 **264951** (brief) / **260806** (close).
-15. `/flag <name-or-email>` — last node `Flag sent terminal`.
+18. `/flag <name-or-email>` — last node `Flag sent terminal`.
     Compare to **265855 / 265857 / 265540**.
-16. `/followup <prove person>` — confirm card in Telegram, buttons
-    present (`f7:s:` / `f7:n:` / `f7:x:`). WF-10 execution exists.
-    Do not mutate locked follow_ups rows.
-17. Tap a non-`f7:` callback if one can be manufactured — still
+19. `/followup` with no name and no note — Telegram text is
+    `Send /followup followed by a name or email and a short note.`
+    No new `follow_ups` row. Last node is the confirm send path
+    (usage is `ok` + `reply_text`), not the fail send.
+20. `/followup <prove person> <short note>` — confirm card in
+    Telegram, buttons present (`f7:s:` / `f7:n:` / `f7:x:`). WF-10
+    execution exists. Do not mutate locked follow_ups rows.
+21. Tap a non-`f7:` callback if one can be manufactured — still
     `Callback terminal`, no WF-10 call.
-18. Voice note **without** `/followup` — still Duplicate check /
+22. Voice note **without** `/followup` — still Duplicate check /
     capture path (asset count can increase). Proves §8 cut.
-19. Unknown `/whatever` — still `Unknown type terminal` (index 12).
+23. Unknown `/whatever` — still `Unknown type terminal` (index 12).
+24. Force a WF-10 throw (architect method) — owner receives
+    `Follow-up failed. Nothing was sent. Try again.` WF-01
+    execution is success, last node `Followup no-send terminal`
+    after `Send followup fail`.
 
 ---
 
 ## Apply order (later packet, not now)
 
 1. GET WF-01. Confirm `versionId === e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Save body.
-2. `POST /activate` WF-10 (`D9PRjbZMQxe9ESVW`) once.
-3. PUT WF-01 with §1–§5 applied. No `active`. Strip `binaryMode` and `timeSavedMode`.
-4. Run §10.
-5. BotFather `/setcommands` add `followup` **only after** §10.13–15 pass.
+2. PUT WF-10: empty-brief compose → true usage line; skip
+   `awaiting_voice` insert and `bot_state` await. No `active`.
+   Strip `binaryMode` and `timeSavedMode`.
+3. `POST /activate` WF-10 (`D9PRjbZMQxe9ESVW`) once.
+4. PUT WF-01 with §1–§5 applied. No `active`. Strip `binaryMode` and `timeSavedMode`.
+5. Run §10.
+6. BotFather `/setcommands` add `followup` **only after** §10.16–18 pass.
 
 This PREP packet stops before step 1.
 
@@ -874,6 +1018,8 @@ This PREP packet stops before step 1.
 
 1. **Voice intercept is NOT in 7.4.** Plan §A.4 put it here.
    Capture path blast radius. Typed brief is enough for v1. See §8.
+   Empty brief does **not** insert `awaiting_voice`. A row nothing
+   can claim is a lie.
 2. **No shared send node.** Plan §A.5 said pass `reply_markup` on
    the shared command send. Live WF-01 has four send nodes.
    Markup goes only on `Send followup reply`. That is how `/ask`
@@ -884,6 +1030,10 @@ This PREP packet stops before step 1.
 4. **n8n inlineKeyboard collection may drop an expression.** Named
    in §4. Read-back of buttons on a real confirm is the proof, not
    the saved JSON.
+5. **Call WF-10 cannot fail silent.** Plan left `onError` unset.
+   A throw after the owner taps Send would return nothing. False
+   branch of Followup has reply? is a real send. Silence is
+   reserved for storage failure.
 
 ---
 
