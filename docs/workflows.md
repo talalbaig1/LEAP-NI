@@ -444,8 +444,11 @@ LNI bot only and must not disturb any ElderWise webhook.
    and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
-5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact** | **vcard**.
+5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact** | **vcard** | **flag**.
    Commands are `text` starting with `/` and win over the text branch.
+   `/flag` is a named Route type output **appended** after `vcard`.
+   Do not renumber existing outputs. Unknown commands still fall through
+   to `Unknown type terminal` (silent NoOp).
 
    **Telegram `contact` (packet 3.9) — reply only, no ingest.**
    Live `Classify update` previously had no `msg.contact` branch;
@@ -496,7 +499,8 @@ LNI bot only and must not disturb any ElderWise webhook.
    | `new` `done` `batch` `status` (`start` → `status`) | WF-02 | existing contract (`owner_id`, `telegram_user_id`, `action`, `correlation_id`) |
    | `digest` | WF-07 | `owner_id`, `correlation_id`, `source='call'` |
    | `ask` | WF-08 | `owner_id`, `correlation_id`, `question` = remainder of the text after `/ask` |
-   | `fix` `flag` | none | post-event; silent NoOp, no reply |
+   | `flag` | **none — WF-01 owns the branch** | See **/flag** below. Enqueue only. Do not call WF-06. Do not call Apollo. |
+   | `fix` | none | post-event; silent NoOp, no reply |
 
    **`waitForSubWorkflow: true` on `/ask` and `/digest` (packet 3.10).**
    These are request/response for text the owner is waiting on, not a
@@ -509,6 +513,172 @@ LNI bot only and must not disturb any ElderWise webhook.
    `is_ask` is hard-coded `false` in `Classify update`. The live `/ask`
    path is `branch = 'ask'` → Call WF-08. Harmless Phase 1 scaffolding.
    Leave it.
+
+   **`/flag <text>` (packet 4.9).** Named route `flag`, appended. WF-01
+   resolves and **enqueues**. It does not dispatch WF-06 and does not
+   call Apollo. The enqueue is the durable act. WF-06 drains on `*/15`.
+   A slow Apollo call must not cost the owner his Telegram reply.
+
+   1. **Parse argument.** Empty → reply `Usage: /flag <name or email>`.
+      No lookup.
+   2. **Lookup** (Postgres, `alwaysOutputData: true`, at most 5 rows).
+      Stop at the first step that yields a match: exact
+      `email_normalized`; exact `full_name` case-insensitive; trigram
+      similarity on `full_name`, threshold 0.4.
+   3. **Row-count gate.** Zero rows from `alwaysOutputData` is an empty
+      item, not a zero-count report. Gate before every send.
+   4. Outcomes, all reply-only except the single-match insert:
+      - 0 matches → `No person matches <text>.` Nothing enqueued.
+      - 2+ matches → list name + email for each, max 5. A person
+        with no email renders as `<name> (no email)` — never a bare
+        `null`, never a dangling separator. Nothing enqueued. The
+        owner re-issues `/flag` with an email. NEVER guess.
+      - 1 match with no linked interaction → reply
+        `<name> has no linked capture and cannot be flagged.`
+        Nothing enqueued. Do not throw.
+      - 1 match with a linked capture → `INSERT INTO processing_jobs`
+        `capture_id` = the person's **most recent** interaction
+        `capture_id` (subquery in the same INSERT),
+        `job_type='enrichment'`, `status='queued'`,
+        `output = jsonb_build_object('person_id', <id>, 'force', true)`
+        `ON CONFLICT` inferring `processing_jobs_enrichment_person_uniq`
+        `DO NOTHING RETURNING id`. Zero-row insert →
+        `Already queued for enrichment.` One row →
+        `Queued <name> for enrichment. Result within 15 minutes.`
+        Gate the INSERT: if the subquery would be NULL, do not run
+        it. `processing_jobs.capture_id` is NOT NULL by design.
+   5. Reply text escaped for the parse_mode WF-01 already uses.
+      Absent `parse_mode` is not plain text on this build (default
+      Markdown; `_` in an email will break an unescaped send).
+
+   **`/flag` capture_id (packet 4.12).** A `/flag` enrichment job
+   anchors to the `capture_id` of the person's MOST RECENT
+   interaction. `processing_jobs.capture_id` is NOT NULL by design:
+   every job traces to a capture. The 4.9 spec said `capture_id`
+   NULL and was wrong — proven by execs 265725 and 265729, NOT NULL
+   violation, no reply, no enqueue. A person with NO interaction
+   cannot be flagged. Reply plainly rather than throwing.
+
+   `force=true` bypasses the 30-day cache **only**. It **never**
+   bypasses the daily or lifetime credit ceiling. WF-06 node order
+   (live): Load ceilings → Ceiling ok? → Cache check → Cached? →
+   (skip) Write cache skip / (continue) Read credits before. The
+   cache SQL returns `skip_cached=0` when `output.force` is true.
+   Ceiling sits before cache, so force cannot reach a provider past
+   the ceiling.
+
+   **Packet 4.9 publish (28 Aug 2026).** WF-01 PUT without `active`,
+   `binaryMode` stripped. Re-GET: `active` true, `versionId` =
+   `activeVersionId` = `01bbecf1-6c4a-4db7-96e5-337629a53dce`.
+   Route type named outputs unchanged then **appended** `flag`.
+   Fallback still `unknown` → `Unknown type terminal`. Postgres
+   Leap-NI on Flag lookup / Flag enqueue. `errorWorkflow` =
+   `X7zKL3wTFPIhwyaN`. WF-06 cache SQL already honours `force`;
+   no WF-06 edit.
+
+   **Packet 4.10 measured (28 Aug 2026).** Route type `connection[10]`
+   / `[11]` swapped. Re-GET `versionId` = `activeVersionId` =
+   `1e23405f-4010-4e9b-a1a4-c3df1e1ce904`. Outputs 0–9 unchanged.
+   `flag` → Flag arg empty?. Fallback → Unknown type terminal.
+   Void 4.9 execs 265428–265446.
+
+   Re-prove (webhook, after the swap):
+   1. **265540** last **Flag sent terminal**. Reply
+      `Usage: /flag <name or email>`. Pass.
+   2. **265544** last **Flag sent terminal**. Reply
+      `No person matches zzzznotaperson.` Pass.
+   3. **265548** error at **Flag many?**.
+      `Wrong type: '2' is a string but was expecting a number`.
+      Lookup returned two probe rows (`hit_count` as text `2`).
+      `LNI LI Guard Probe` `email_normalized` null;
+      `LNI No-Match Probe` has an email. Flag list reply never
+      ran. `reply_text` never set. Fail.
+   4. **265551** error at **Flag many?**. `'1'` is a string.
+      No enqueue. Fail.
+   5. **265553** same as 4. Fail.
+   New enrichment jobs: none. WF-06 **265527** (05:15Z, before
+   the five messages) last **Empty queue**. Apollo 2599,
+   ledger 6, records 12 — no force cycle. The 05:15 drain is
+   not evidence for `/flag` force.
+
+   **Packet 4.11 publish (28 Aug 2026).** Cause: Flag many? compared
+   Postgres COUNT (string) to a number operator under strict
+   validation. Fix is at the SQL boundary only.
+   WF-01 PUT without `active`, `binaryMode` stripped. Re-GET:
+   `active` true, `versionId` = `activeVersionId` =
+   `3f4e8fb2-55ab-447c-abce-d4dc2d420f94`. Flag lookup projection
+   `count(*) OVER() ::int AS hit_count`. Flag many? unchanged:
+   number / gt / 1 / `typeValidation` strict. Route type `[10]`
+   Flag arg empty?, `[11]` Unknown type terminal.
+   WF-00 PUT without `active`; `binaryMode` and `timeSavedMode`
+   stripped (`timeSavedMode` is an additional property the public
+   PUT rejects). Re-GET: `active` true, `versionId` =
+   `activeVersionId` = `5ec180fd-3270-433d-9e03-d0f2ff9ecd44`.
+   Telegram owner alert text: 4 real newlines, 0 literal `\n`.
+   Logic otherwise unchanged.
+
+   **Packet 4.11 measured (28 Aug 2026, after the cast).** Messages
+   1–2 stay 265540 / 265544. Re-prove 3–5 only, webhook, 05:39Z:
+   3. **265724** success last **Flag sent terminal**. `hit_count`
+      arrived as integer `2`. Reply (verbatim, including the
+      trailing space after the first name):
+      `LNI LI Guard Probe \nLNI No-Match Probe lni-nomatch-probe@lni-probe-8f3a2c.example`
+      `LNI LI Guard Probe` email is NULL. Render is name + space +
+      empty — dangling separator, not a bare `null`. Defect on
+      render. Type-cast itself: pass.
+   4. **265725** error last **Flag enqueue**. `hit_count` integer
+      `1`. `null value in column "capture_id" of relation
+      "processing_jobs" violates not-null constraint`. No reply.
+      Fail. Live column `processing_jobs.capture_id` is NOT NULL
+      (architecture.md § processing_jobs). Spec INSERT uses NULL.
+   5. **265729** same as 4. Fail.
+   New enrichment jobs: none. queued 0. Apollo 2599, ledger 6,
+   records 12 — still no force cycle. Do not treat 05:30 **265649**
+   or the 05:45 Empty-queue drain as force evidence.
+
+   **Packet 4.11 Part F (28 Aug 2026).** WF-06 **265777**
+   `mode=trigger` 05:45:00Z last **Empty queue**. Cached? did not
+   run (no job claimed). No new ledger row. Apollo 2599→2599.
+   ledger 6→6. records 12→12. queued 0. Architect 2599→2598 /
+   6→7 / 12→14: **not met** — enqueue never landed (capture_id
+   NOT NULL). Not skipped_cached; force was never tested.
+
+   **Packet 4.12 publish (28 Aug 2026).** Spec correction: `/flag`
+   jobs anchor `capture_id` to the person's most recent interaction.
+   Column stays NOT NULL. WF-01 PUT without `active`, `binaryMode`
+   stripped. Re-GET: `active` true, `versionId` = `activeVersionId`
+   = `e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Flag enqueue INSERT
+   subquery `ORDER BY i.created_at DESC LIMIT 1`. Gate: Flag
+   capture lookup → Flag has capture? → enqueue / no-capture reply.
+   Null email renders `(no email)`. Flag lookup still
+   `count(*) OVER() ::int AS hit_count`. Flag many? still number /
+   gt / 1 / strict. Route type `[10]` Flag arg empty?, `[11]`
+   Unknown type terminal.
+
+   **Packet 4.12 measured Part E (28 Aug 2026, 05:55Z).** Messages
+   1–2 stay 265540 / 265544. Re-prove 3–5 only, webhook, none
+   `status=error`:
+   3. **265855** success last **Flag sent terminal**. Reply
+      `LNI LI Guard Probe (no email)\nLNI No-Match Probe lni-nomatch-probe@lni-probe-8f3a2c.example`
+      Pass.
+   4. **265857** success last **Flag sent terminal**. Reply
+      `Queued Ahmad Mohamed Fouad for enrichment. Result within 15 minutes.`
+      ONE `processing_jobs` row `70f3d9ef-4a46-4a1d-affd-999a02d289a9`
+      `capture_id=edc7526c-d3d5-48b6-bb7d-7230b92f1f90` (most recent
+      interaction of person `68880196-f5d2-4f5a-a8a4-0c0d9788cdde`),
+      `output.person_id` that id, `force=true`. Pass.
+   5. **265858** success last **Flag sent terminal**. Reply
+      `Already queued for enrichment.` No second row. Pass.
+
+   **Packet 4.12 Part F (28 Aug 2026).** WF-06 **265894**
+   `mode=trigger` 06:00:00Z last **Match done**. Cache check
+   `skip_cached=0`. Cached? false branch (continue, not skip).
+   Force bypassed the 30-day cache and spent. Ledger
+   `a42a37be-b596-4e89-b40b-5c046fd8bdb0` apollo /
+   `people_match` / `confirmed` / `credits_spent=1`. Apollo
+   2599→2598. ledger sum 6→7. enrichment_records 12→14
+   (person `9bbaf6ce` + company `110fa72e`). queued after: 0.
+   Job `70f3d9ef` `succeeded`. Architect baseline: met.
 
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or

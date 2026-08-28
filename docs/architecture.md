@@ -875,8 +875,28 @@ person with a non-null `email_normalized` whose capture is not
 block in the **same** response, so company context is derived from that
 call — not from a prior company-only enrich.
 
-**`/flag` force-enriches** a person the guard skipped. It is not the only
-person path.
+**`/flag <text>` force-enqueues** one person the auto-guard skipped, or
+any person the owner names. It is not the only person path. WF-01
+resolves `<text>` and **enqueues** `job_type='enrichment'` with
+`force=true`. It does **not** dispatch WF-06 and does **not** call
+Apollo. A slow provider must not cost the owner his Telegram reply.
+WF-06 drains on `*/15`.
+
+Resolution order, stop at the first step that yields a match:
+
+1. exact `email_normalized`
+2. exact `full_name`, case-insensitive
+3. trigram similarity on `full_name`, threshold 0.4
+
+0 matches: reply only, nothing enqueued. 2+ matches: reply listing
+name + email (max 5), nothing enqueued; the owner re-issues `/flag`
+with an email. NEVER guess. 1 match already queued: reply only.
+1 match: `INSERT` with `output = {person_id, force: true}` on
+`processing_jobs_enrichment_person_uniq` (`ON CONFLICT DO NOTHING`).
+
+`force=true` bypasses the 30-day re-enrichment cache **only**. It
+**never** bypasses `apollo_daily_ceiling` or `apollo_lifetime_ceiling`.
+The ceiling gate sits before the cache check.
 
 **`organizations/enrich` is a fallback only**, for a company that still has
 no enriched person. It is not the default.
@@ -936,7 +956,8 @@ are summed as `sum(credits_spent)`, not `count(*)`, so a future
 multi-credit operation counts correctly. `'no_match'` stays off the IN
 list: a no-match costs nothing (packet 4.3 OPEN QUESTION: **closed**).
 `skipped_cached` rows use `status='no_match'` and `credits_spent=0`, so
-they do not consume ceiling.
+they do not consume ceiling. `/flag` `force=true` skips the cache
+check; it still faces this ceiling gate first.
 
 **Re-enrichment cache.** A person is not re-enriched while a
 person/apollo `enrichment_records` row younger than 30 days exists.

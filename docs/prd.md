@@ -61,7 +61,7 @@ A PWA is built later (Phase 8), sharing the same backend.
 | `/digest` | Runs the digest on demand. Before 12:00 Riyadh → morning briefing; otherwise → day close. WF-01 sends the `reply_text`. |
 | `/ask <question>` | Natural-language query over captures. |
 | `/fix <n>` | **Post-event** (packet 2.5 cut). Correct fields on a capture. `<n>` is `captures.capture_no`, never the uuid. |
-| `/flag <n>` | Mark a person high-value → triggers person enrichment (Phase 4). `<n>` is `captures.capture_no`, never the uuid. |
+| `/flag <text>` | Force-enqueue enrichment of **one** person. `<text>` is a name or email, not a capture number. WF-01 **enqueues** only (`force=true`); it does not dispatch and does not call Apollo. WF-06 drains on its `*/15` schedule. Resolution, stop at the first step that yields a match: (1) exact `email_normalized`, (2) exact `full_name` case-insensitive, (3) trigram similarity on `full_name`, threshold 0.4. Outcomes are **reply-only** except the single-match enqueue: 0 matches → `No person matches <text>.` (nothing enqueued); 2+ matches → list name + email, max 5, nothing enqueued, owner re-issues `/flag` with an email, never guess; 1 match already queued → `Already queued for enrichment.`; 1 match → enqueue `force=true`, reply `Queued <name> for enrichment. Result within 15 minutes.` Empty argument → `Usage: /flag <name or email>`. `force=true` bypasses the 30-day cache **only**. It never bypasses the daily or lifetime credit ceiling. |
 
 ### The four guardrails
 
