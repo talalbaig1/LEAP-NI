@@ -190,6 +190,15 @@ not just the new one. Proven on WF-01 Route type, 28 Aug 2026,
 execs 265428–265446: five `/flag` messages routed to a silent NoOp
 with `reply_text` never set and every execution reporting success.
 
+**Postgres COUNT/aggregate values arrive in n8n as STRINGS, not
+numbers.** An IF node with a number operator and `typeValidation`
+strict THROWS on them: `Wrong type: 1 is a string but was expecting
+a number`. Cast at the SQL boundary — `count(*)::int` — rather than
+loosening validation or wrapping in `Number()` at the node. The type
+should be right where it is produced. Proven WF-01 Flag many?,
+28 Aug 2026, execs 265548/265551/265553: three `/flag` messages
+errored, no reply, no enqueue, WF-00 alerted on the second and third.
+
 ---
 
 ## 8. Scope discipline

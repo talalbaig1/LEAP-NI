@@ -585,6 +585,22 @@ LNI bot only and must not disturb any ElderWise webhook.
    ledger 6, records 12 — no force cycle. The 05:15 drain is
    not evidence for `/flag` force.
 
+   **Packet 4.11 publish (28 Aug 2026).** Cause: Flag many? compared
+   Postgres COUNT (string) to a number operator under strict
+   validation. Fix is at the SQL boundary only.
+   WF-01 PUT without `active`, `binaryMode` stripped. Re-GET:
+   `active` true, `versionId` = `activeVersionId` =
+   `3f4e8fb2-55ab-447c-abce-d4dc2d420f94`. Flag lookup projection
+   `count(*) OVER() ::int AS hit_count`. Flag many? unchanged:
+   number / gt / 1 / `typeValidation` strict. Route type `[10]`
+   Flag arg empty?, `[11]` Unknown type terminal.
+   WF-00 PUT without `active`; `binaryMode` and `timeSavedMode`
+   stripped (`timeSavedMode` is an additional property the public
+   PUT rejects). Re-GET: `active` true, `versionId` =
+   `activeVersionId` = `5ec180fd-3270-433d-9e03-d0f2ff9ecd44`.
+   Telegram owner alert text: 4 real newlines, 0 literal `\n`.
+   Logic otherwise unchanged.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
