@@ -551,6 +551,15 @@ LNI bot only and must not disturb any ElderWise webhook.
    Ceiling sits before cache, so force cannot reach a provider past
    the ceiling.
 
+   **Packet 4.9 publish (28 Aug 2026).** WF-01 PUT without `active`,
+   `binaryMode` stripped. Re-GET: `active` true, `versionId` =
+   `activeVersionId` = `01bbecf1-6c4a-4db7-96e5-337629a53dce`.
+   Route type named outputs unchanged then **appended** `flag`.
+   Fallback still `unknown` → `Unknown type terminal`. Postgres
+   Leap-NI on Flag lookup / Flag enqueue. `errorWorkflow` =
+   `X7zKL3wTFPIhwyaN`. WF-06 cache SQL already honours `force`;
+   no WF-06 edit.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
