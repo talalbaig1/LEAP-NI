@@ -2466,6 +2466,7 @@ The 7.3 attachment path was reported as built while
 non-functional (uuid URL, Gmail with no attach parameter, silent
 1-file cap). 7.3b rebuilds that path on real objects. WF-10 stays
 INACTIVE. `source=voice` is a non-functional stub pending 7.4.
+`follow_ups` `a7596fde-47be-425b-bde5-5a9343804ee0` was a leftover `awaiting_confirm` draft from a pinData attempt that still ran OpenAI on the subworkflow; cancelled, not evidence.
 
 **Shared head**
 
