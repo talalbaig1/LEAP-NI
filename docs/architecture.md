@@ -142,6 +142,7 @@ UNIQUE `(owner_id, telegram_user_id)`.
 | `status` | text | `'open'` | NO |
 | `capture_mode` | text | `'standard'` | NO |
 | `opened_at` | timestamptz | `now()` | NO |
+| `last_activity_at` | timestamptz | `now()` | NO |
 | `closed_at` | timestamptz | — | YES |
 | `close_reason` | text | — | YES |
 | `typed_note` | text | — | YES |
@@ -152,6 +153,41 @@ UNIQUE `(owner_id, telegram_user_id)`.
 
 **`card_only` is a column, not a flag.** Batch photos set it `true`. Do not
 put it in `flags`.
+
+**`captures.last_activity_at` is the per-capture idle clock** (migration
+`026_captures_last_activity`). It is **not** `bot_state.last_activity_at`.
+The WF-02 inactivity sweep closes an open capture when **that row's**
+`last_activity_at` is older than 10 minutes. Global owner activity
+(`/status`, `/ask`, `/flag`, a fresh card for someone else) must not
+keep a forgotten capture open.
+
+Who stamps it:
+
+- **INSERT default `now()`** on a new capture (`/new`, orphan
+  adoption, batch insert).
+- **AFTER INSERT ON `assets`** — `captures_last_activity_from_asset`
+  sets `last_activity_at = now()` on `NEW.capture_id`. A photo or
+  voice note is activity on that capture.
+- **BEFORE UPDATE ON `captures` WHEN `typed_note` IS DISTINCT FROM
+  the old value** — `captures_last_activity_from_note` sets
+  `NEW.last_activity_at = now()`. WF-01 Append typed note is not
+  modified (WF-01 stays frozen).
+- **Backfill** (same migration): `GREATEST(opened_at, max(assets.created_at))`.
+  Do not use `captures.created_at`. Do not leave existing rows at
+  `now()`.
+
+The note trigger **must not** fire on the sweep's
+`status` / `closed_at` / `close_reason` UPDATE. If it did, a capture
+would refresh itself and never close. The `WHEN (typed_note IS
+DISTINCT FROM …)` clause is that guard. The asset trigger's
+`UPDATE captures SET last_activity_at = now()` does **not** change
+`typed_note`, so it cannot recurse into the note trigger.
+
+**Open defect (GATE-FIX, receipt):** `/done` Compose uses `processed`
+(closed capture count), not enqueue row count. Batch can reply
+`4 cards received · processing` while three jobs landed. Do not
+change that receipt in this packet. WF-09 reconciles the missing
+job within 15 minutes.
 
 **`assets`** — immutable raw media. UNIQUE `telegram_file_unique_id`.
 
@@ -203,9 +239,10 @@ index**, not a table constraint. Created by migration `023`.
 
 **Enqueue natural key.** Unique index `processing_jobs_asset_job_uniq` on
 `(asset_id, job_type) WHERE asset_id IS NOT NULL` (migration `016`). WF-02
-`/done` **and the inactivity sweep** `INSERT … ON CONFLICT DO NOTHING` on
-this key so a re-run or a replay enqueues nothing twice. Capture-scoped
-jobs (`asset_id` NULL) are outside the index.
+`/done`, the inactivity sweep, **and the WF-09 orphan-asset reconciler**
+`INSERT … ON CONFLICT DO NOTHING` on this key so a re-run or a replay
+enqueues nothing twice. Capture-scoped jobs (`asset_id` NULL) are
+outside the index.
 
 **`extraction_runs`** — immutable **capture-level** model evidence.
 Composed by **WF-04** from `processing_jobs.output.result`. WF-03 does not
@@ -1104,7 +1141,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`024`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, the enrichment-person enqueue key, and follow-up email-draft columns. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`026`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, the enrichment-person enqueue key, follow-up email-draft columns, and `captures.last_activity_at`. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -1136,6 +1173,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. Live catalog name is **`processing_jobs_enrichment_person_uniq`** (no `023_` prefix). Do not re-apply. |
 | 024 | `024_follow_ups_email_draft` | Additive `follow_ups` email-draft columns + `bot_state` awaiting-followup columns. Catalog name **must** be `024_follow_ups_email_draft`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. |
 | 025 | `025_follow_ups_cancelled_state` | Adds `cancelled` to `follow_ups_draft_state_check`. Does not remove values. Does not alter `follow_ups_status_check`. |
+| 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. Phase 6 embeddings is **027**, not 026. |
 
 ### Connection policy — verified 25 Aug 2026
 

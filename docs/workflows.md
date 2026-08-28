@@ -1014,6 +1014,13 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
    — do **not** emit hardcoded zeros for those. Real counts are deferred
    to the digest (`prd.md` §5).
 
+   **Open defect (GATE-FIX, receipt):** `N` is `processed` (closed
+   capture count), not the enqueue `RETURNING` count. Exec 270954:
+   `processed=4`, `Enqueue asset jobs` n=3, capture #77 had no job.
+   Lying receipt. Do not change Compose in this packet. WF-09
+   orphan-asset reconciler enqueues the missing row on the next
+   `*/15` tick.
+
 The last node on every `/done` path that WF-01 waits on must emit the
 Compose contract (`ok`, `reply_text`, …), sourced from the **named**
 Compose node. Enqueue and executeWorkflow sit between Compose and that
@@ -1052,10 +1059,16 @@ mode. If nothing is open, `reply_text` = `nothing open`.
 - Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;
   never inherit the container default). Schedule node JSON must include
   `minutesInterval: 5` — not an implicit default.
-- Close every capture with `status='open'` whose `bot_state.last_activity_at`
-  is older than the inactivity window, stamping `close_reason='auto'`.
-  `status` leaves `open` so a later sweep does not re-close. Clear
-  `bot_state.open_capture_id`. Send nothing. No `reply_text`.
+- Close every capture with `status='open'` whose **own**
+  `captures.last_activity_at` is older than the inactivity window
+  (`< now() - interval '10 minutes'`), stamping `close_reason='auto'`.
+  **Do not** use `bot_state.last_activity_at`. That clock is global
+  owner activity (`/status`, `/ask`, a new card for the next person)
+  and never goes idle during a 1–9 PM event. Per-capture idle is the
+  guardrail that actually fires. `status` leaves `open` so a later
+  sweep does not re-close. Clear `bot_state.open_capture_id` **only
+  when that id is a capture this tick closed**. Send nothing. No
+  `reply_text`.
 - **`Action sweep` RETURNs the closed capture ids** as `closed_ids uuid[]`
   (plus counts). Counts-only is a defect: the enqueue cannot see what
   closed.
@@ -1072,11 +1085,14 @@ mode. If nothing is open, `reply_text` = `nothing open`.
   for WF-09 (Phase 3).
 - **Inactivity window: 10 minutes** (`prd.md` §4 guardrail 2). Stored as a
   documented constant in the sweep SQL (`interval '10 minutes'`), **not**
-  in `$env` (denied instance-wide) and not as a new `events` column (no
-  extra migration in this packet).
+  in `$env` (denied instance-wide). Clock column:
+  `captures.last_activity_at` (migration `026_captures_last_activity`).
 - Live defect (packet 2.5): capture #59 sat `open` with a stored audio
   asset; the sweep closed other captures `close_reason='auto'` and never
   enqueued. Guardrail 2 exists because forgetting `/done` WILL happen.
+- Live defect (GATE-R, 28 Aug 2026): capture #78 stayed `open` past 10
+  minutes because `/status` kept bumping `bot_state.last_activity_at`.
+  Predicate is now per-capture. `/status` must not keep a capture open.
 
 ### Guardrails
 - **Implicit close on `/new`** — see above.
@@ -2257,6 +2273,42 @@ WF-09 is the **kicker** for missed initial dispatch (attempt 0 sitting
 `queued` because Call WF-03 never ran), stuck `running`, and
 post-event quiet. It is not the delay. WF-09-only backoff is
 bypassed by WF-02 `/done` and sweep, which claim through the worker.
+
+### Orphan-asset reconciler (GATE-FIX)
+
+Store-first vs `/done` is a race: Action done can close a capture
+while Insert asset has not committed. The asset lands `stored`, the
+capture is already `processing`, and no `processing_jobs` row exists.
+Capture #77 is that row. **Do not** try to make `/done` win the race.
+
+On every WF-09 tick, **in parallel with Scan findings** (fan-out
+from Mint correlation — existing stuck-job / poison-job / alert
+paths stay untouched):
+
+1. **Enqueue orphan jobs** — the **same** `INSERT … SELECT … ON
+   CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO
+   NOTHING` natural key as WF-02 `Enqueue asset jobs`. Audio →
+   `transcription`; else → `card_vision`. The SELECT is the
+   backstop predicate, not `closed_ids`:
+
+   ```
+   assets.upload_status = 'stored'
+   AND captures.status IS DISTINCT FROM 'open'
+   AND NOT EXISTS (processing_jobs row for that asset_id)
+   ```
+
+   Owner-scoped. `alwaysOutputData: true`. Zero rows is a normal
+   silent terminal — not an error, not an alert.
+2. **Gate** on `RETURNING id` notEmpty (same shape as WF-02
+   `Gate: jobs enqueued`).
+3. **Call WF-03 once** if any row inserted. `waitForSubWorkflow:
+   false`, `onError: continueRegularOutput` explicit. Enqueue is
+   durable; dispatch is not. A throw must not fail the watchdog.
+
+Do not INSERT jobs from SQL outside this node. Proof is capture
+#77 going `jobs=0` → a `card_vision` row on a WF-09 execution,
+then `processing` → `ready`. A later clean tick must enqueue
+nothing.
 
 Worker claim predicate (implement on WF-03/04/05 in packet 3.4; do
 not edit those workflows in packet 3.3):
