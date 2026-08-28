@@ -655,6 +655,21 @@ LNI bot only and must not disturb any ElderWise webhook.
    gt / 1 / strict. Route type `[10]` Flag arg empty?, `[11]`
    Unknown type terminal.
 
+   **Packet 4.12 measured Part E (28 Aug 2026, 05:55Z).** Messages
+   1–2 stay 265540 / 265544. Re-prove 3–5 only, webhook, none
+   `status=error`:
+   3. **265855** success last **Flag sent terminal**. Reply
+      `LNI LI Guard Probe (no email)\nLNI No-Match Probe lni-nomatch-probe@lni-probe-8f3a2c.example`
+      Pass.
+   4. **265857** success last **Flag sent terminal**. Reply
+      `Queued Ahmad Mohamed Fouad for enrichment. Result within 15 minutes.`
+      ONE `processing_jobs` row `70f3d9ef-4a46-4a1d-affd-999a02d289a9`
+      `capture_id=edc7526c-d3d5-48b6-bb7d-7230b92f1f90` (most recent
+      interaction of person `68880196-f5d2-4f5a-a8a4-0c0d9788cdde`),
+      `output.person_id` that id, `force=true`. Pass.
+   5. **265858** success last **Flag sent terminal**. Reply
+      `Already queued for enrichment.` No second row. Pass.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
