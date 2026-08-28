@@ -1,17 +1,22 @@
 # Packet 7.6 — Voice follow-up
 
 **Date:** 28 August 2026
-**Status:** APPLIED 28 Aug 2026 (PACKET 7.6-APPLY, C1–C4).
-WF-10 PUT `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes,
-ACTIVE). Voice path proven `execute_workflow` TEST
-`LNI-TEST-WF10-voice-exec` `ygHqk6TGlXq7wJvd` (now inactive)
-→ WF-10 exec **272059** on real stored `.oga` (Arabic, 18s).
-Confirm card Attachments `(none)` — audio filename not listed.
-Then **one** WF-01 PUT `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`
-(128 nodes, active). Rollback snapshot remains
-`4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`. There is no sixth
-WF-01 PUT. Never send `active`. Strip `binaryMode` /
-`timeSavedMode`.
+**Status:** 7.6-APPLY accepted. **PACKET 7.6-FIX-R** in flight
+(WF-10 only). Do **not** PUT WF-01. Do **not** set `language`
+on any transcribe node.
+
+WF-10 rollback target (pre-FIX-R):
+`40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes, ACTIVE).
+WF-01 must stay `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`
+(128 nodes). GET name after the WF-10 PUT and confirm unchanged.
+
+7.6-R2 accepted: Whisper auto-detected Arabic on English speech
+that contained Arabic proper nouns. Config was clean
+(`operation=transcribe`, no `language`, byte-identical to WF-03
+which returned English on **271228** / **271255**). Recorded as a
+**measured limitation**, not a defect to fix by forcing
+`language`. Audio is stored and replays. See `rules.md` §7
+rule 23.
 **Depends on:** 7.4-B apply (`docs/plans/phase-07-4-wf01-wire.md`)
 for `/followup` Route type, Call WF-10, confirm send, and the
 fail send. 7.6 adds the voice path **after** the asset is stored.
@@ -22,7 +27,7 @@ Live baseline to confirm before apply (GET, then act):
 | Fact | Value |
 |---|---|
 | WF-01 | `ZMYx19qEr72mJoCX`, `active=true`, **was** `4d4d6e6c-…` (118). After 7.6 PUT: `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` (128). Rollback target `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`. |
-| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`, versionId `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` |
+| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`. Rollback `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes). 7.6-FIX-R is one PUT on this workflow only. |
 | WF-03 | `k0bPD3GJBNN2EHDB`, Whisper node `OpenAI transcribe` |
 | Route type `[2]` | `Duplicate check` (voice). Length **13**. **Do not intercept.** |
 | `executionTimeout` | 300 on WF-01, WF-03, WF-10 |
@@ -31,6 +36,84 @@ Live baseline to confirm before apply (GET, then act):
 
 These override earlier text in this file. Later sections are
 amended to match. Reasons stay here so apply does not re-invent.
+
+**C1–C4 body follows F1–F7** (F1–F7 override voice lookup; C1–C4 stay in force).
+
+## Architect corrections F1–F7 (7.6-FIX-R, binding)
+
+These override §5 person resolution for **voice** only. Typed
+`/followup` **Lookup people** stays `similarity >= 0.4`. One
+WF-10 PUT. Rollback `40c0d5d9-…`. GET WF-01 after: still
+`864bcb8b-…`, 128 nodes.
+
+**F1. Transliterate Arabic `recipient_ref` to Latin variants
+before lookup.** Whisper returned `أحمد التوحف` on capture #82.
+`similarity` of that string against Latin `Ahmed Eltohfa` /
+`Ahmad` is 0. The Code node maps Arabic letters, splits an
+attached `ال` prefix, expands `و` as both `w` and `o`, inserts
+the dropped short vowel in `hm` → `ham`/`hem` (`ahmd` →
+`ahmad`/`ahmed`), and appends `a` when a token ends in `f`
+(missing `ة`). The variant list **must** include
+`ahmad al tohfa` so Ahmed Eltohfa scores 0.333. Do not invent
+the whole stored name as a variant (that pulls in unrelated
+Ahmads). No regex / no backslash in the jsCode (REST trap).
+
+**F2. Cross-script `GREATEST` scoring, floor 0.25, on a new
+node `Lookup people voice`.** Do not change typed Lookup
+people. `$1` = raw `recipient_ref`, `$2` = pipe-joined Latin
+variants, `$3` = `owner_id`. Score =
+`GREATEST(similarity(lower(full_name), raw), MAX(similarity
+against unnest(variants)))`. Keep exact email (step 1) and
+exact `lower(full_name)` (step 2) on `$1`. Fuzzy is step 3.
+`step::int`, `hit_count::int`, `score`. LIMIT 5. Floor 0.25
+is what puts Ahmed Eltohfa (0.333) in the list; 0.4 dropped
+him.
+
+**F3. Never auto-pick a fuzzy match on voice.** `Voice
+disambiguate?` is true when `hit_count > 1` **OR** `step = 3`.
+Exact email/name (step 1/2) with `hit_count = 1` still
+auto-continues to Has email?. One trigram hit still goes to
+Compose many / `f7:p:`.
+
+**F4. No fall-through to a wrong person on no-match.** Zero
+rows → Compose no match. Do not bind a random person. Do not
+continue to extract/claim.
+
+**F5. Await survives a no-match.** Compose no match does not
+run Claim await. `draft_state` stays `awaiting_voice`.
+`bot_state` stays armed. A re-record can retry.
+
+**F6. Record the transcript's script on the follow_ups row.**
+`follow_ups` has no jsonb. Do **not** migrate. Do **not**
+insert a `transcription` job (WF-03 would claim it). Derive
+`has_arabic` / `has_latin` from `Transcribe.text` with a
+char-code loop (no regex). UPDATE `prompt_version` to
+`wf10-v2;has_arabic=<bool>;has_latin=<bool>` on the
+`awaiting_voice` row **before** lookup. Update draft must
+**preserve** that value (`prompt_version = prompt_version`,
+not overwrite with `'wf10-v2'`). The 7.6-R2 failure was
+invisible because nothing recorded that the transcript came
+back in a different script from the speech.
+
+**F7. Standing rule 23 in `docs/rules.md`.** Whisper
+auto-detect can TRANSLATE rather than transcribe when English
+speech carries Arabic proper nouns. `operation=transcribe`
+does not prevent it. The n8n node does not request
+`verbose_json`, so detected language is not in the stored
+`{text, usage}`. Never force a `language` key. Audio is
+stored and replays; wrong-script = re-run, not a loss.
+
+**OPEN, post-event (do not do tonight):** request
+`verbose_json` so detected language is stored; re-transcribe
+any wrong-script notes.
+
+Prove (capture #82 asset `f88d975b-f549-49b2-923b-d8862aa97c5f`,
+the note that failed — not `131008b2`): Item 2 of the picker
+must show both **Ahmad (~0.417)** and **Ahmed Eltohfa (~0.333)**.
+Disambiguation, not auto-pick. Script flags on
+`follow_ups.prompt_version`. Snapshot/restore owner
+`bot_state` — do not steal `f9ba0b14-…`. Activate TEST
+`ygHqk6TGlXq7wJvd`, curl, deactivate.
 
 **C1. Voice kind? reads Insert asset RETURNING `kind`, not
 `Attach correlation.kind`.** Classify sets kind on the MESSAGE
@@ -404,24 +487,46 @@ line from 7.3b.
 
 ## 5. Person resolution from the transcript
 
-Same ladder as typed `/followup` / `/flag`: exact
+**Typed `/followup`** still uses **Lookup people**: exact
 `email_normalized`, then exact `full_name` case-insensitive, then
 trigram `similarity >= 0.4`. Max 5. `count(*) OVER()::int AS
-hit_count`. NEVER guess.
+hit_count`. NEVER guess. Do not change this node in 7.6-FIX-R.
+
+**Voice** (F1–F5) uses a **new** node **Lookup people voice**.
+Typed floor 0.4 dropped Ahmed Eltohfa (0.333) when the
+transcript was Arabic. Voice path:
+
+1. **Record script flags** then **Record script** — UPDATE
+   `follow_ups.prompt_version` to
+   `wf10-v2;has_arabic=<bool>;has_latin=<bool>` from
+   `Transcribe.text` (F6). Before lookup.
+2. **Extract recipient** / **Normalize recipient** unchanged.
+3. **Transliterate recipient** — Latin variants, pipe-joined
+   (F1). Must include `ahmad al tohfa` for `أحمد التوحف`.
+4. **Lookup people voice** — exact email, exact name on the raw
+   ref, then `GREATEST` trigram against raw + variants, floor
+   **0.25** (F2). `step::int`, `hit_count::int`, `score`.
+5. **Voice lookup returned?** false → Compose no match (F4).
+   Claim await does not run (F5).
+6. **Voice disambiguate?** `hit_count > 1` OR `step = 3` →
+   Compose many / `f7:p:` (F3). Unique exact (step 1/2) still
+   continues to Has email?.
 
 - Empty `/followup` insert has `person_id` NULL (PARTIAL CHECK
   allows this on `awaiting_voice`). Extract `recipient_ref` from
   the transcript. `"none named"` or empty → §9 no person.
 - `/followup Ahmad` then voice: row already has `person_id`. Skip
   the ladder. Extract still runs for subject/body/attachments.
-- 2+ hits → Compose many, buttons `f7:p:<person uuid>`,
-  `<name> (no email)` when email is null. 64-byte
-  `callback_data` cap: `f7:p:` (5) + uuid (36) = 41. Holds.
-- 1 hit, no email → existing no-email text. No draft to confirm.
-- 1 hit, email present → continue to candidates + extract.
+- 2+ hits, or any fuzzy (step 3), → Compose many, buttons
+  `f7:p:<person uuid>`, `<name> (no email)` when email is null.
+  64-byte `callback_data` cap: `f7:p:` (5) + uuid (36) = 41.
+  Holds.
+- 1 exact hit, no email → existing no-email text. No draft.
+- 1 exact hit, email present → continue to candidates + extract.
 
 `f7:p:` callback path on WF-10 is already built. Do not invent a
-second picker.
+second picker. Compose many reads Lookup people voice when that
+node executed, else Lookup people.
 
 ---
 
@@ -546,6 +651,13 @@ compose.
     `unmatched_requests`. Prompt version column `wf10-v2`.
 12. Load candidate assets for extract is LIMIT 20. Insert/update
     draft still caps 3 ids.
+13. **7.6-FIX-R:** `language` still absent. Typed Lookup people
+    query still `>= 0.4`. New nodes: Record script flags, Record
+    script, Transliterate recipient, Lookup people voice, Voice
+    lookup returned?, Voice disambiguate?. Recipient named? true
+    → Transliterate, not Lookup people. Voice disambiguate? true
+    → Compose many. Update draft does not SET `prompt_version`
+    to a literal `'wf10-v2'`.
 
 **Live (after gate, on the allowlisted bot):**
 
@@ -644,11 +756,13 @@ ladder.
 
 - Not a Route type `[2]` intercept.
 - Not a new migration (024/025 already have `awaiting_voice` and
-  bot_state columns).
+  bot_state columns). F6 uses existing text `prompt_version`.
 - Not a change to WF-03 claim/transcription jobs.
+- Not a `language` key on Transcribe (rule 1 / rule 23).
 - Not a BotFather change (`/followup` is already on the bot).
-- Not a sixth WF-01 PUT. One PUT after WF-10 is proven. Rollback
-  on any read-back failure.
+- Not a sixth WF-01 PUT. 7.6-FIX-R is **one WF-10 PUT**. GET
+  WF-01 after and confirm `864bcb8b-…` / 128 nodes. Rollback
+  WF-10 `40c0d5d9-…`.
 
 Apply order (PACKET 7.6-APPLY): amend this file → merge → GET
 WF-01 confirm `4d4d6e6c-…` → build and prove WF-10 via

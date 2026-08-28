@@ -2614,17 +2614,35 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `parse_mode` is absent on WF-01 sends; WF-10 returns **plain
     text** (no HTML entity escaping). Real newlines.
 
-**Voice path** (`source=voice` is a non-functional stub pending 7.4)
+**Voice path** (live as of 7.6-APPLY; lookup as of **7.6-FIX-R**)
 
-21. **Load await** — both IF outputs compose no-await. Do not
-    treat this as a voice-path proof. Transcribe is not reachable
-    from `source=voice`. Nothing fetches a Telegram file.
-22. Then **Transcribe** → **Extract draft**. If the awaiting row
-    has `person_id`, skip the ladder and continue from **Has
-    email?** using that id. If not, ladder on `recipient_ref`.
-    `"none named"` and empty →
-    **Compose nobody named** (`No person named. Try /followup <name or email>.`)
-    → Return.
+21. **Load await** → **Await present?** / **Await live?**. Expired
+    or missing → compose expired / no-await. Do not claim. C3:
+    expiry nulls `bot_state` only.
+22. **Fetch audio bytes** (storage GET, `outputPropertyName: asset`)
+    → **Transcribe** (`resource=audio`, `operation=transcribe`,
+    `binaryPropertyName: asset`, **`language` key ABSENT**). Empty
+    text → compose transcribe fail. Do not Call WF-03.
+23. **Record script flags** (Code, char-code loop, no regex) then
+    **Record script** (Postgres). UPDATE `follow_ups.prompt_version`
+    to `wf10-v2;has_arabic=<bool>;has_latin=<bool>` WHERE
+    `draft_state='awaiting_voice'` (F6). No migration. No
+    transcription job.
+24. If the awaiting row has `person_id`, **Load voice person** and
+    skip the ladder. Else **Extract recipient** → **Normalize
+    recipient**. `"none named"` / empty → **Compose no person**.
+25. **Transliterate recipient** (F1) → **Lookup people voice**
+    (F2: `GREATEST` trigram, floor **0.25**, `step::int`,
+    `hit_count::int`). Typed **Lookup people** stays floor 0.4
+    and is not this path.
+26. **Voice lookup returned?** false → **Compose no match**
+    (F4). Claim await does not run (F5). True → **Voice
+    disambiguate?** (`hit_count > 1` OR `step = 3`) true →
+    **Compose many** / `f7:p:` (F3, never auto-pick fuzzy).
+    False (unique exact) → **Has email?** → voice extract.
+27. Claim await still runs **immediately before** Update draft
+    (C2). Update draft must **not** overwrite `prompt_version`
+    (F6). Transcribe `language` stays absent (rule 1 / rule 23).
 
 **Callback path**
 
@@ -2704,10 +2722,15 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `Sent to <name> <email>. Subject: … Files: …`
     → **Return to caller**.
 
-**Must not:** activate this workflow; Call WF-01; Call WF-03;
-touch WF-01 Route type; send to a production contact during
-prove (To = owner address); auto-send without the claim SQL;
-log PII; alter `follow_ups_status_check`.
+**Must not:** Call WF-01; Call WF-03; PUT WF-01 in 7.6-FIX-R;
+set `language` on Transcribe or any new transcribe node; change
+typed Lookup people floor 0.4; auto-pick a fuzzy voice match;
+fall through on no-match; claim await on Compose no match;
+insert a `transcription` job for script flags; migrate
+`follow_ups`; send to a production contact during prove
+(To = owner address); auto-send without the claim SQL; log PII;
+alter `follow_ups_status_check`. Rollback WF-10
+`40c0d5d9-15b8-4ad9-8b60-ff93f88646d8`.
 
 ---
 

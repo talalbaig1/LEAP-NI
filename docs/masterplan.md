@@ -110,7 +110,11 @@ reason and a document update first.**
   owner on 28 Aug 2026. Voice is the owner's primary intended use at
   LEAP. Recorded as a deliberate reversal of the cut, not of Decision
   12. 7.6 applied 28 Aug (WF-10 `40c0d5d9-…`, WF-01 `864bcb8b-…`).
-  Phone checklist items 13–20 still on the owner.
+  7.6-R2: Whisper auto-detect can translate English+Arabic-noun
+  speech; measured limitation, never force `language` (rule 23).
+  7.6-FIX-R: WF-10 voice lookup only (transliteration, floor
+  0.25, no fuzzy auto-pick, script flags on `prompt_version`).
+  Do not PUT WF-01. Phone checklist items 13–20 still on the owner.
 
 ---
 
