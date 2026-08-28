@@ -1,14 +1,27 @@
 # Packet 7.4 — WF-01 wire (authored, not applied)
 
 **Date:** 28 August 2026 (PREP-R same day)
-**Status:** AUTHORED ONLY. Zero writes to n8n. Zero writes to the
-database. Do not PUT WF-01. Do not `POST /activate` WF-10. Do not
-add `/followup` in BotFather. PREP-R: Attach correlation read back;
-Call WF-10 cannot fail silent; empty-brief does not promise voice.
-**Apply after:** the 29 Aug gate passes **and** a later packet says
-to apply this file. Applying is mechanical: copy the artefacts
-below onto a GET of live WF-01, PUT, read back.
-**Do not apply from memory.** This file is the change.
+**Status:** APPLY 28 Aug 2026 **FAILED 10.20 and rolled back.**
+Confirm card `message_id` 349 was sent as plain text. Telegram
+`sendMessage` result had **no `reply_markup`**. Map markup had
+`has_markup=true` and three `f7:` rows; n8n v1.2
+`inlineKeyboard.rows` expression did not emit buttons. Per §9:
+WF-01 PUT rolled back immediately. Do not fix forward on WF-01.
+Do not add `/followup` in BotFather.
+
+Live after rollback (GET):
+
+| Fact | Value |
+|---|---|
+| WF-01 `versionId` = `activeVersionId` | `baa462d8-5e69-417e-b068-1a6697f3d6c5` |
+| WF-01 graph | 97 nodes. Matches frozen snapshot `e3f817e2-…`. No Followup payload, no Call WF-10. Route type `[5]` = Callback terminal. `[11]` = Unknown type terminal. |
+| WF-10 | **ACTIVE** `8bd44005-8d91-422b-80f3-b0820b9e1e20`. Empty-brief compose is the true usage line. `Need voice wait?` true → Compose usage (no `awaiting_voice` insert). Left ACTIVE per §9. |
+| Leftover draft | `22b8e515-d9f1-44ed-872a-cf9429b5d60c` `awaiting_confirm` (prove person). Not a locked row. |
+
+**Do not PUT WF-01 again until an architect packet.** The artefacts
+below remain the change. Fallback named in §4 (HTTP `sendMessage`
+with WF-10 raw `reply_markup`) is an architect call, not an
+implementer default.
 
 Live baseline this document was written against (GET, read-only):
 
