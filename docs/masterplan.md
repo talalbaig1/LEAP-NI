@@ -109,7 +109,8 @@ reason and a document update first.**
   The architect's Phase 7 cut of voice follow-up was reversed by the
   owner on 28 Aug 2026. Voice is the owner's primary intended use at
   LEAP. Recorded as a deliberate reversal of the cut, not of Decision
-  12. 7.6 plan is authored (PR #41), not applied.
+  12. 7.6 applied 28 Aug (WF-10 `40c0d5d9-…`, WF-01 `864bcb8b-…`).
+  Phone checklist items 13–20 still on the owner.
 
 ---
 
@@ -174,7 +175,7 @@ Full detail in `phases.md`.
 | 2 | Extraction | COMPLETE |
 | 3 | Digests, `/ask`, watchdog | COMPLETE |
 | 4 | Enrichment | COMPLETE |
-| 7 | Follow-up drafting | COMPLETE (typed); voice = 7.6, in progress |
+| 7 | Follow-up drafting | COMPLETE (typed + 7.6 voice apply). Phone items 13–20 of the 7.6 checklist still on the owner. |
 | 6 | pgvector RAG | Planned, post-event |
 | 5 | Web dashboard | Planned, post-event, needs RLS re-proof |
 | 8 | PWA capture surface | Refused pre-event, post-event |
