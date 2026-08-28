@@ -97,16 +97,15 @@ run Claim await. `draft_state` stays `awaiting_voice`.
 `bot_state` stays armed. A re-record can retry.
 
 **F6. Record the transcript's script on the follow_ups row.**
-`follow_ups` has no jsonb. Do **not** migrate. Do **not**
-insert a `transcription` job (WF-03 would claim it). Derive
-`has_arabic` / `has_latin` from `Transcribe.text` with a
-char-code loop (no regex). UPDATE `prompt_version` to
-`wf10-v2;has_arabic=<bool>;has_latin=<bool>` on the
-`awaiting_voice` row **before** lookup. Update draft must
-**preserve** that value (`prompt_version = prompt_version`,
-not overwrite with `'wf10-v2'`). The 7.6-R2 failure was
-invisible because nothing recorded that the transcript came
-back in a different script from the speech.
+7.6-FIX-R stuffed flags into `prompt_version`. **7.8-FIX
+supersedes that.** 027 adds `follow_ups.brief`,
+`has_arabic`, `has_latin`. Record script writes those
+columns plus `prompt_version='wf10-v2'` before lookup.
+Do **not** insert a `transcription` job. Derive flags from
+`Transcribe.text` with a char-code loop (no regex). The
+7.6-R2 failure was invisible because nothing recorded that
+the transcript came back in a different script from the
+speech.
 
 **F7. Standing rule 23 in `docs/rules.md`.** Whisper
 auto-detect can TRANSLATE rather than transcribe when English
@@ -510,9 +509,9 @@ Typed floor 0.4 dropped Ahmed Eltohfa (0.333) when the
 transcript was Arabic. Voice path:
 
 1. **Record script flags** then **Record script** — UPDATE
-   `follow_ups.prompt_version` to
-   `wf10-v2;has_arabic=<bool>;has_latin=<bool>` from
-   `Transcribe.text` (F6). Before lookup.
+   `follow_ups.brief` / `has_arabic` / `has_latin` /
+   `prompt_version='wf10-v2'` from `Transcribe.text` (F6,
+   as superseded by 7.8-FIX). Before lookup.
 2. **Extract recipient** / **Normalize recipient** unchanged.
 3. **Transliterate recipient** — Latin variants, pipe-joined
    (F1). Must include `ahmad al tohfa` for `أحمد التوحف`.
@@ -661,9 +660,9 @@ compose.
 10. `Set bot await` interval is `20 minutes`. Compose record now
     matches.
 11. Extract schema is `wf10-v2` with `selected_asset_ids` and
-    `unmatched_requests`. After 7.6-FIX-R, voice rows record
-    script flags in `prompt_version`
-    (`wf10-v2;has_arabic=…;has_latin=…`). Typed drafts may still
+    `unmatched_requests`. After 7.8-FIX, voice rows record
+    `brief` plus `has_arabic` / `has_latin` columns;
+    `prompt_version` is `wf10-v2` again. Typed drafts may still
     write `wf10-v2` / `wf10-v1`.
 12. Load candidate assets for extract is LIMIT 20. Insert/update
     draft still caps 3 ids.
@@ -771,8 +770,10 @@ ladder.
 ## What this file is not
 
 - Not a Route type `[2]` intercept.
-- Not a new migration (024/025 already have `awaiting_voice` and
-  bot_state columns). F6 uses existing text `prompt_version`.
+- Not a new migration in 7.6 (024/025 already have
+  `awaiting_voice` and bot_state columns). 7.8-FIX adds 027
+  (`brief`, `has_arabic`, `has_latin`). F6 no longer stuffs
+  flags into `prompt_version`.
 - Not a change to WF-03 claim/transcription jobs.
 - Not a `language` key on Transcribe (rule 1 / rule 23).
 - Not a BotFather change (`/followup` is already on the bot).

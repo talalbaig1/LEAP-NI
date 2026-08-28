@@ -1727,13 +1727,22 @@ loop would bill real money.
 3. **Row returned?** — `name` equals `LEAP 2026`, `typeValidation:
    strict`. False → **Wrong database terminal** (`stopAndError`, no
    comma/quote/apostrophe).
-4. **Claim enrichment job** — one row, oldest first:
-   `UPDATE … WHERE id = (SELECT … job_type='enrichment' AND
-   status='queued' … ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP
-   LOCKED) RETURNING`. `alwaysOutputData: true`. `queryReplacement` is
-   one array: owner_id from **Self identify**.
+4. **Claim enrichment job** — up to **4** rows, oldest first,
+   sequential via **Each claimed job** (`splitInBatches` v3,
+   `batchSize: 1`):
+   `UPDATE … WHERE id IN (SELECT … job_type='enrichment' AND
+   status='queued' … ORDER BY created_at ASC LIMIT 4 FOR UPDATE SKIP
+   LOCKED) RETURNING`. Schedule stays `*/15`. Ceiling stays 60.
+   `alwaysOutputData: true`. `queryReplacement` is
+   one array: owner_id from **Self identify**. Process-chain
+   nodes read `$('Each claimed job').item`, not Claim.
+   Loop terminals (match done, cache skip, ceiling stop,
+   HTTP failed, no match, Tavily done / no match / HTTP
+   failed / cache skip / ceiling stop) return to the split.
 5. **Job returned?** — claimed `id` notEmpty, strict. False →
-   **Empty queue** NoOp (not an error).
+   **Empty queue** NoOp (not an error). True → Each claimed
+   job. Zero-row Claim `{success:true}` does not enter the
+   split.
 6. **Load person** — `people` by `output.person_id`, plus current
    `company_id`, `companies.domain` as `company_domain`, and
    `split_part(email_normalized, '@', 2)` as `email_domain`.
@@ -2337,6 +2346,11 @@ refreshes `last_transition_at`; do not bump `attempt_count` here —
 the worker claim does that). Then it is eligible on the next tick
 after the delay for its count.
 
+**7.8-FIX:** `stuck_queued` for `job_type='enrichment'` is **60
+minutes**. Other job types stay 1 / 5 minutes. A job waiting its
+turn in the WF-06 FIFO is not stuck. WF-09 still does not Call
+WF-06.
+
 ### Scan (one Leap-NI query)
 
 Owner from self-id. Return json counts + sample ids (job `id`,
@@ -2582,11 +2596,16 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
     OpenAI audio, `language` **absent**. False → skip.
 16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
-    Responses JSON schema `wf10-v1`. Fields: `recipient_ref`,
+    Responses JSON schema `wf10-v2` (typed may still say v1 in
+    older rows). Fields: `recipient_ref`,
     `agreed`, `send_what`, `deadline`, `subject`, `body`. All
-    strings; no “return null”. System prompt: address the person
-    by the supplied `full_name`; never bracketed placeholders.
-    Do not write the transcript to `audit_log`.
+    strings; no “return null”. Brief is
+    `$('Resolve brief').first().json.brief` (7.8-FIX A4: row
+    first). System prompt: address the person by the supplied
+    `full_name`; never bracketed placeholders; carry dates,
+    commitments, and named next steps from the brief into the
+    body; no invented facts; no phones unless they appeared in
+    the brief. Do not write the transcript to `audit_log`.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
@@ -2623,11 +2642,10 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     → **Transcribe** (`resource=audio`, `operation=transcribe`,
     `binaryPropertyName: asset`, **`language` key ABSENT**). Empty
     text → compose transcribe fail. Do not Call WF-03.
-23. **Record script flags** (Code, char-code loop, no regex) then
-    **Record script** (Postgres). UPDATE `follow_ups.prompt_version`
-    to `wf10-v2;has_arabic=<bool>;has_latin=<bool>` WHERE
-    `draft_state='awaiting_voice'` (F6). No migration. No
-    transcription job.
+23. **Record script flags** then **Record script**. UPDATE the
+    `awaiting_voice` row: `brief` = Transcribe.text, `has_arabic`,
+    `has_latin`, `prompt_version='wf10-v2'`. **Before** the picker.
+    Do not stuff flags into `prompt_version` (027).
 24. If the awaiting row has `person_id`, **Load voice person** and
     skip the ladder. Else **Extract recipient** → **Normalize
     recipient**. `"none named"` / empty → **Compose no person**.
@@ -2640,9 +2658,21 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     disambiguate?** (`hit_count > 1` OR `step = 3`) true →
     **Compose many** / `f7:p:` (F3, never auto-pick fuzzy).
     False (unique exact) → **Has email?** → voice extract.
-27. Claim await still runs **immediately before** Update draft
-    (C2). Update draft must **not** overwrite `prompt_version`
-    (F6). Transcribe `language` stays absent (rule 1 / rule 23).
+27. **Reload brief** then **Resolve brief** sit immediately
+    before Extract (7.8-FIX A4). Reload SELECT the
+    `bot_state.awaiting_followup_id` row (`brief`, flags,
+    `draft_state`, `person_id`). Resolve: row.brief first,
+    else Transcribe.text, else Parse argument.brief. Extract
+    Brief reads `$('Resolve brief').first().json.brief`.
+    **Voice after parse?** is Reload brief
+    `draft_state=='awaiting_voice'` → **Claim await** (uses
+    Reload brief.id, not Load await.id) → **Update draft**.
+    Typed with no await row still **Insert draft**. Callback
+    `f7:p:` stays `f7:p:<person uuid>` (41 bytes); it UPDATEs
+    that same row. Do not INSERT a second follow_ups row.
+    Transcribe `language` stays absent (rule 1 / rule 23).
+    wf10-v2 system prompt carries dates / commitments /
+    named next steps from the brief into the body.
 
 **Callback path**
 
@@ -2653,6 +2683,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 25. **Pick person?** `f7:p:` → **Load picked person** by id
     (no re-guess) → **Has email?** (same gate as command). A
     no-email pick composes the no-email text and does not draft.
+    After email gate, the path is Reload brief → Resolve
+    brief → Extract → **Update draft** on
+    `bot_state.awaiting_followup_id` (7.8-FIX A3).
 26. **Cancel?** `f7:x:` → UPDATE `draft_state='cancelled'`,
     `status='cancelled'` WHERE `awaiting_confirm` RETURNING.
     Gate. **Clear await**. Reply `Cancelled.`

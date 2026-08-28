@@ -182,6 +182,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 21 | **`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node. | 7.4-B LNI-TEST-WF10-buttons |
 | 22 | **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads. | GATE-FIX capture #77; WF-09 orphan reconciler |
 | 23 | **Whisper auto-detect can TRANSLATE rather than transcribe when English speech carries Arabic proper nouns.** `operation=transcribe` does not prevent it. The n8n node does not request `verbose_json`, so the detected language is not recoverable from the stored `{text, usage}` body. **Never force a `language` key** — the owner speaks both. Audio is stored and replays; treat a wrong-script transcript as a re-run, not a loss. | 7.6-R2: WF-10 **272139** on capture #82 `f88d975b-…`. Same Transcribe params as WF-03, which returned English on **271228** / **271255**. |
+| 24 | **Do not stuff load-bearing flags into a version string.** `prompt_version` is a version. Script flags live in `follow_ups.has_arabic` / `has_latin`; the transcript lives in `follow_ups.brief` (027). An Extract expression that depends on which nodes ran in this execution is a defect — read the row. | 7.8-FIX: callback **272419** empty Brief; second row `b2c91be3`. |
 
 ### Traps already proven
 

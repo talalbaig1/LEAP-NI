@@ -346,6 +346,13 @@ write this table.
 | `sent_at` | timestamptz | — | YES |
 | `confirm_expires_at` | timestamptz | `now() + interval '12 hours'` | YES |
 | `prompt_version` | text | — | YES |
+| `brief` | text | — | YES |
+| `has_arabic` | boolean | — | YES |
+| `has_latin` | boolean | — | YES |
+
+`prompt_version` is a version string (`wf10-v2`). Script flags do
+**not** live in it (027). Voice transcript for extract lives in
+`brief` so a later `f7:p:` execution can read the row.
 
 **`follow_ups.draft_state`** (packet 7.1). Email lifecycle, separate
 from `status`. `status` stays `open` \| `done` \| `cancelled` —
@@ -1173,7 +1180,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. Live catalog name is **`processing_jobs_enrichment_person_uniq`** (no `023_` prefix). Do not re-apply. |
 | 024 | `024_follow_ups_email_draft` | Additive `follow_ups` email-draft columns + `bot_state` awaiting-followup columns. Catalog name **must** be `024_follow_ups_email_draft`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. |
 | 025 | `025_follow_ups_cancelled_state` | Adds `cancelled` to `follow_ups_draft_state_check`. Does not remove values. Does not alter `follow_ups_status_check`. |
-| 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. Phase 6 embeddings is **027**, not 026. |
+| 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. |
+| 027 | `027_follow_ups_brief` | Additive `follow_ups.brief` text, `has_arabic` / `has_latin` boolean. Backfill flags out of `prompt_version`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. Phase 6 embeddings moves to **028**. |
 
 ### Connection policy — verified 25 Aug 2026
 
