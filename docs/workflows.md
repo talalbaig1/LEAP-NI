@@ -529,19 +529,35 @@ LNI bot only and must not disturb any ElderWise webhook.
       item, not a zero-count report. Gate before every send.
    4. Outcomes, all reply-only except the single-match insert:
       - 0 matches → `No person matches <text>.` Nothing enqueued.
-      - 2+ matches → list name + email for each, max 5. Nothing
-        enqueued. The owner re-issues `/flag` with an email. NEVER
-        guess.
-      - 1 match → `INSERT INTO processing_jobs` `capture_id` NULL,
+      - 2+ matches → list name + email for each, max 5. A person
+        with no email renders as `<name> (no email)` — never a bare
+        `null`, never a dangling separator. Nothing enqueued. The
+        owner re-issues `/flag` with an email. NEVER guess.
+      - 1 match with no linked interaction → reply
+        `<name> has no linked capture and cannot be flagged.`
+        Nothing enqueued. Do not throw.
+      - 1 match with a linked capture → `INSERT INTO processing_jobs`
+        `capture_id` = the person's **most recent** interaction
+        `capture_id` (subquery in the same INSERT),
         `job_type='enrichment'`, `status='queued'`,
         `output = jsonb_build_object('person_id', <id>, 'force', true)`
         `ON CONFLICT` inferring `processing_jobs_enrichment_person_uniq`
         `DO NOTHING RETURNING id`. Zero-row insert →
         `Already queued for enrichment.` One row →
         `Queued <name> for enrichment. Result within 15 minutes.`
+        Gate the INSERT: if the subquery would be NULL, do not run
+        it. `processing_jobs.capture_id` is NOT NULL by design.
    5. Reply text escaped for the parse_mode WF-01 already uses.
       Absent `parse_mode` is not plain text on this build (default
       Markdown; `_` in an email will break an unescaped send).
+
+   **`/flag` capture_id (packet 4.12).** A `/flag` enrichment job
+   anchors to the `capture_id` of the person's MOST RECENT
+   interaction. `processing_jobs.capture_id` is NOT NULL by design:
+   every job traces to a capture. The 4.9 spec said `capture_id`
+   NULL and was wrong — proven by execs 265725 and 265729, NOT NULL
+   violation, no reply, no enqueue. A person with NO interaction
+   cannot be flagged. Reply plainly rather than throwing.
 
    `force=true` bypasses the 30-day cache **only**. It **never**
    bypasses the daily or lifetime credit ceiling. WF-06 node order
@@ -626,6 +642,18 @@ LNI bot only and must not disturb any ElderWise webhook.
    ledger 6→6. records 12→12. queued 0. Architect 2599→2598 /
    6→7 / 12→14: **not met** — enqueue never landed (capture_id
    NOT NULL). Not skipped_cached; force was never tested.
+
+   **Packet 4.12 publish (28 Aug 2026).** Spec correction: `/flag`
+   jobs anchor `capture_id` to the person's most recent interaction.
+   Column stays NOT NULL. WF-01 PUT without `active`, `binaryMode`
+   stripped. Re-GET: `active` true, `versionId` = `activeVersionId`
+   = `e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Flag enqueue INSERT
+   subquery `ORDER BY i.created_at DESC LIMIT 1`. Gate: Flag
+   capture lookup → Flag has capture? → enqueue / no-capture reply.
+   Null email renders `(no email)`. Flag lookup still
+   `count(*) OVER() ::int AS hit_count`. Flag many? still number /
+   gt / 1 / strict. Route type `[10]` Flag arg empty?, `[11]`
+   Unknown type terminal.
 
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
