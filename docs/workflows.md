@@ -1531,37 +1531,47 @@ architecture §7 is satisfied (018 live + WF-05 guard live).
    reached** (job `needs_review`, `error_code='ceiling_reached'`,
    envelope error class `ceiling_reached`) → **Ceiling stop** NoOp.
    **No HTTP. No ledger row.**
-10. **Read credits before** — GET
+10. **Cache check** — after the ceiling gate, before **Read credits
+    before**. Never reaches the provider. A person is not re-enriched
+    while a person/apollo `enrichment_records` row younger than 30
+    days exists. Hollow results are cached on the same terms. `force`
+    is read from the job `output` payload; absent means false. Only
+    `force=true` bypasses; `/flag` is the only producer of
+    `force=true`. True → **Write cache skip** (`credit_ledger`
+    `operation='skipped_cached'`, `status='no_match'`,
+    `credits_spent=0`, job `'succeeded'`, no new
+    `enrichment_records`) → **Cache skip** NoOp. False → continue.
+11. **Read credits before** — GET
     `https://api.apollo.io/api/v1/users/api_profile?include_credit_usage=true`.
     Official Apollo docs: Get Current User Profile, 0 credits.
     `httpHeaderAuth` **Apollo Leap-NI** (REST PUT bind; re-GET proof).
     `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
     Placed **before Insert ledger**. Named-node sourcing:
     `body.num_credits_remaining`. Do not log the profile email.
-11. **Insert ledger** — `credit_ledger` `provider='apollo'`,
+12. **Insert ledger** — `credit_ledger` `provider='apollo'`,
     `credits_spent=1` (conservative hold), `operation='people_match'`,
     `status='attempted'`, `entity_id` = person. **Before the enrich
     HTTP call.** `alwaysOutputData: true`. `retryOnFail: true`.
-12. **Apollo people match** — POST
+13. **Apollo people match** — POST
     `https://api.apollo.io/api/v1/people/match` JSON `{email}` from
     **Load person**. `httpHeaderAuth` **Apollo Leap-NI**.
     `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
     `onError: continueRegularOutput`. Do not reveal personal emails
     or phones (`reveal_*` absent / false).
-13. **Read credits after** — same GET as **Read credits before**,
+14. **Read credits after** — same GET as **Read credits before**,
     after the Apollo call, before the write nodes.
-14. **HTTP ok?** — `statusCode` of **Apollo people match** >= 200 AND
+15. **HTTP ok?** — `statusCode` of **Apollo people match** >= 200 AND
     < 300. False → **Write HTTP failed** (ledger `'failed'`, job
     `'failed'`, envelope error class `http`) → **HTTP failed** NoOp.
-15. **Person matched?** — Apollo `body.person.name` non-empty after
+16. **Person matched?** — Apollo `body.person.name` non-empty after
     trim, coerced to string. **Never `person.id`.** Apollo mints an
     id for a hollow shell (packet 4.3, `.example` domain).
     `typeValidation: strict`. False → **Write no match**.
-16. **Write no match** — hollow response. Ledger `'no_match'`,
+17. **Write no match** — hollow response. Ledger `'no_match'`,
     `credits_spent=0` (overwrite the attempted hold). Job
     `'succeeded'`. Envelope `result` null. **No
     `enrichment_records` row.** → **No match** NoOp.
-17. **Write match** — `credits_spent` = measured delta (`Read credits
+18. **Write match** — `credits_spent` = measured delta (`Read credits
     before` minus `Read credits after`, floored at 0). Status
     `'confirmed'` when the name is non-empty — including
     `'confirmed'` / `credits_spent=0` when a named reveal cost
@@ -1576,7 +1586,7 @@ architecture §7 is satisfied (018 live + WF-05 guard live).
     linkedin_url IS NULL AND the Apollo value is non-empty`.
     Never overwrite a non-null `linkedin_url`. Never touch email,
     full_name, title, or phone.
-18. **Match done** NoOp.
+19. **Match done** NoOp.
 
 Adapter envelope on `processing_jobs.output` (Phase 2 shape):
 `provider`, `model` (`people/match`), `job_type` (`enrichment`),
@@ -1586,6 +1596,18 @@ Adapter envelope on `processing_jobs.output` (Phase 2 shape):
 Apollo bills on reveal. A hollow response costs 0 credits.
 `credits_spent` is **measured** from the delta in
 `num_credits_remaining`, not assumed to be 1.
+
+**Re-enrichment cache.** A person is not re-enriched while a
+person/apollo `enrichment_records` row younger than 30 days exists.
+The job completes as succeeded with a `credit_ledger` row
+`operation='skipped_cached'`, `status='no_match'`, `credits_spent=0`,
+and NO new `enrichment_records` row. Hollow results are cached on
+the same terms. Only a job carrying `force=true` bypasses the
+cache; `/flag` is the only producer of `force=true`.
+Measured 28 Aug 2026: two runs on the same person spent two
+credits and wrote duplicate enrichment rows. That is why. The
+cache check sits after the ceiling gate and before **Read credits
+before**, so a skip never calls Apollo.
 
 **Ceiling OPEN QUESTION from packet 4.3: closed.** `'no_match'` does
 not join the IN list, because a no-match costs nothing. Keep
@@ -1618,12 +1640,13 @@ Second run exec **263502**: `linkedin_written` null (no overwrite,
 md5 unchanged). Did **re-enrich and spend**: 2601 → 2600, ledger
 `64b45415` `confirmed` / 1. No skip-if-already-enriched yet.
 
-**Must not:** publish/activate this workflow in packet 4.5; touch
+**Must not:** publish/activate this workflow in packet 4.6; touch
 WF-01; overwrite captured email / full_name / title / phone; `$env`;
 `$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
 phones, or payloads; treat enrichment as card evidence; call
 `organizations/enrich`; edit ledger `73fc2831`. The WF-05 dispatch
-NoOp stays. LinkedIn write-back is NULL-fill only.
+NoOp stays. LinkedIn write-back is NULL-fill only. Cache skip must
+not reach the provider.
 
 ---
 
