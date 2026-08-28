@@ -26,10 +26,16 @@ unchanged. F3 unchanged (never auto-pick a fuzzy match). Typed
 
 ## Prove (TEST caller only)
 
-1. Ahmed voice picker: `9489be75` (has email) first; phantoms below.
-2. A no-email person is still selectable; tap returns the 7.9
-   no-email line.
-3. GET WF-01: `864bcb8b-…`, 128 nodes, unchanged.
+1. Capture #82 voice `f88d975b`. Exec **272871**. Picker order:
+   `9489be75` Ahmed Eltohfa (email) first, then Basawten, Fouad,
+   then phantoms Al-Touhaf (0.556, no email) and Ahmad (0.545).
+   Al-Touhaf scores higher than Basawten and still sits below.
+2. Tap Al-Touhaf `f7:p:55ab6b1a`. Exec **272873**. 7.9 line.
+   `ok` true. Row `1c8b59e7` stayed `awaiting_voice`. `bot_state`
+   still armed.
+3. GET WF-01 `864bcb8b-…`, 128 nodes, unchanged.
+
+TEST deactivated. Prove row cancelled. Owner `bot_state` restored.
 
 ## OPEN post-event — TOP PRIORITY — do not fix now
 
