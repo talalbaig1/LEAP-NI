@@ -620,6 +620,13 @@ LNI bot only and must not disturb any ElderWise webhook.
    records 12 — still no force cycle. Do not treat 05:30 **265649**
    or the 05:45 Empty-queue drain as force evidence.
 
+   **Packet 4.11 Part F (28 Aug 2026).** WF-06 **265777**
+   `mode=trigger` 05:45:00Z last **Empty queue**. Cached? did not
+   run (no job claimed). No new ledger row. Apollo 2599→2599.
+   ledger 6→6. records 12→12. queued 0. Architect 2599→2598 /
+   6→7 / 12→14: **not met** — enqueue never landed (capture_id
+   NOT NULL). Not skipped_cached; force was never tested.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
