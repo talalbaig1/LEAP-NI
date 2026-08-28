@@ -1,9 +1,10 @@
 # Packet 7.6 — Voice follow-up
 
 **Date:** 28 August 2026
-**Status:** **7.6-FIX-R APPLIED** 28 Aug 2026. One WF-10 PUT.
-Do **not** PUT WF-01. Do **not** set `language` on any
-transcribe node.
+**Status:** **7.12-FIX TO APPLY** on top of 7.6-FIX-R / 7.8 / 7.9 /
+7.10. Binding candidate contract is §4 D1–D3. One WF-10 PUT.
+Rollback `5b3d2913-…`. Do **not** PUT WF-01. Do **not** set
+`language` on any transcribe node.
 
 WF-10 live: `6f3dcfb5-6f36-4166-9864-d603ee374906` (106 nodes,
 ACTIVE). Rollback: `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8`.
@@ -448,29 +449,70 @@ gap. See §D.
 
 ## 4. Attachment selection from speech
 
-Live `Load candidate assets` (GET): owner-scoped, `stored`,
-`kind IN ('photo','selfie')`, capture linked via `interactions`
-for that person, `ORDER BY created_at DESC LIMIT 3`. Filename =
-`reverse(split_part(reverse(storage_path), '/', 1))`. No
-`filename` column on `assets`.
+**7.12-FIX (binding).** Causes accepted from 7.12-R: draft
+`ae2b9d7a` (19:44:53Z) had `attachment_asset_ids=[]` and no
+`Could not match:` line after the owner photographed during the
+await window and said "attach this photo". One WF-10 PUT.
+Rollback `5b3d2913-…`. Do **not** PUT WF-01.
 
-For voice extract, **load 20** (same WHERE, `LIMIT 20`). Send cap
-stays **3**. The model **selects**; it does not invent.
+### D1. Candidate set is a UNION, not interactions-only
+
+The 7.6 candidate WHERE was owner-scoped, `stored`,
+`kind IN ('photo','selfie')`, capture linked via `interactions`
+for that person. Filename =
+`reverse(split_part(reverse(storage_path), '/', 1))`. No
+`filename` column on `assets`. That set can never include a photo
+taken during the await window: that photo lands in a **new**
+capture with **no** `interactions` row (draft `ae2b9d7a`, asset
+`8cfa042b` on capture **#85**).
+
+Candidate set is the UNION of:
+
+- **(a) linked** — existing: stored photo/selfie on captures
+  linked to the person via `interactions`.
+- **(b) this_session** — NEW: stored photo/selfie owned by the
+  owner whose **capture opened at or after** the await was armed
+  (`follow_ups.created_at` of the `awaiting_voice` row pointed at
+  by `bot_state.awaiting_followup_id`), and `assets.created_at`
+  before `now()`.
+
+Deduplicate by asset id. If a row is in both, mark
+`source=this_session`. LIMIT **20** for the voice **and**
+callback extract path (`Load candidate assets 20`). Send cap
+stays **3** (Parse extract slice). Typed `/followup` with a brief
+uses the same Load-20 node so Format candidates always runs;
+without an armed await, (b) is empty.
+
+Do **not** widen (b) to "recent photos" by clock alone. The await
+window is the boundary that makes it safe: the owner has
+explicitly said a follow-up is in progress. Outside a window,
+nothing changes. Resolve the armed row from `bot_state` inside
+the SELECT (Claim await has not run yet). Do not bind a clock
+interval as `$3`.
+
+`Need voice wait?` false (typed-with-brief **and** `f7:p:`
+callback) wires to **Load candidate assets 20**, not the LIMIT-3
+node. Callback exec **272939** ran LIMIT 3 and skipped Format
+candidates, so `candidate_text` was empty.
 
 Pass into Extract, closed list, one line per row:
 
 ```
-id=<uuid> kind=<kind> filename=<filename> capture_no=<n> created_at=<iso> size_bytes=<n>
+id=<uuid> kind=<kind> filename=<filename> capture_no=<n> created_at=<iso> size_bytes=<n> source=<linked|this_session>
 ```
 
 `capture_no` requires JOIN `captures` on `a.capture_id`. Add it
-to the SELECT.
+to the SELECT. `source` is `linked` or `this_session`.
 
 **Prompt contract (wf10-v2), additions only:**
 
 - You are given a CLOSED candidate list. `selected_asset_ids` may
   contain only `id` values copied from that list. Maximum 3.
   Never invent an id. Never invent a filename.
+- Lines marked `source=this_session` are photos the owner just
+  took during this follow-up wait. Phrases like "this photo" or
+  "the photo I just took" refer to those. Lines marked
+  `source=linked` are earlier photos already tied to this person.
 - If the owner names a thing that is not in the list, put a short
   phrase in `unmatched_requests` (example: `whiteboard video`).
   Do not substitute a different asset.
@@ -483,14 +525,40 @@ Do **not** prompt "the voice note itself is not a candidate"
 category that cannot appear invites it to reason about one.
 
 Parse extract drops any id not in the list, then slices 3. Those
-ids become `attachment_asset_ids` on the UPDATE.
+ids become `attachment_asset_ids` on the UPDATE. Honor
+`selected_asset_ids` on **every** extract path (voice, callback,
+typed). Do not attach the whole loaded set on callback.
+
+### D2. unmatched_requests must survive the callback
+
+Parse extract copied `unmatched_requests` only when
+`source==='voice'`. The picker path is `source==='callback'`, so
+a named miss was dropped and the card showed nothing (Extract on
+**272939** returned `unmatched_requests: ["photo from Leap event"]`;
+Parse output was `[]`). Same class as the 7.8 brief loss: the
+picker execution discards what the voice execution produced.
+
+Copy `unmatched_requests` on **both** paths. Extract re-runs on
+callback against the brief on the row (7.8 A4). Do not add a
+column.
 
 **Unmatched on the confirm card**, plain line:
 
 `Could not match: <unmatched_requests joined by semicolon>`
 
 If the list is empty, omit the line. Never silent-drop a named
-miss.
+miss. Compose already uses `p.unmatched_requests || []` and only
+prints when `length > 0`. Empty and absent both skip the line —
+the defect was Parse wiping a non-empty array.
+
+### D3. Owner name in the Extract user message
+
+Exec **272935** threw on `[Your Name]`. The 7.3 guard (subject or
+body contains both `[` and `]`) stays **exactly** as it is. Add
+`Owner name: Talal` to the Extract **user** message so the model
+has a signature string and no reason to invent a placeholder.
+System prompt already says the email is from Talal; the user
+message must repeat the name.
 
 Omitted-for-size (18 MB) stays the existing `Omitted (too large):`
 line from 7.3b.
@@ -664,8 +732,11 @@ compose.
     `brief` plus `has_arabic` / `has_latin` columns;
     `prompt_version` is `wf10-v2` again. Typed drafts may still
     write `wf10-v2` / `wf10-v1`.
-12. Load candidate assets for extract is LIMIT 20. Insert/update
-    draft still caps 3 ids.
+12. Load candidate assets for extract is LIMIT 20, UNION of
+    person-linked and await-window photos (7.12-FIX D1). Insert/update
+    draft still caps 3 ids. Parse extract copies
+    `unmatched_requests` on callback as well as voice (D2).
+    Extract user message includes `Owner name: Talal` (D3).
 13. **7.6-FIX-R:** `language` still absent. Typed Lookup people
     query still `>= 0.4`. New nodes: Record script flags, Record
     script, Transliterate recipient, Lookup people voice, Voice

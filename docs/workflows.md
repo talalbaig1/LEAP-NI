@@ -2596,13 +2596,18 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     (`Record a voice note now (15 min). A photo still goes to capture.`)
     → Return. `person_id` may be non-null here; the PARTIAL CHECK
     only requires it on `awaiting_confirm`.
-13. **Load candidate assets** — owner-scoped, `upload_status='stored'`,
-    `kind IN ('photo','selfie')`, capture linked via
-    `interactions` for this person, newest first, cap 3. Size cap
-    18 MB: drop largest first; omitted names travel as
-    `omitted_names`. Live finding 28 Aug: the set was **empty**
-    for every person until packet 7.3b linked capture #54 to the
-    prove person. Cap 3 here, not at send.
+13. **Load candidate assets 20** — owner-scoped, `stored`,
+    `kind IN ('photo','selfie')`. UNION of (a) captures linked via
+    `interactions` for this person (`source=linked`) and (b)
+    captures that opened at or after the armed
+    `follow_ups.created_at` (`source=this_session`). Deduplicate.
+    LIMIT 20. Send cap 3 is Parse extract. Size cap 18 MB: drop
+    largest first; omitted names travel as `omitted_names`.
+    **7.12-FIX:** (b) is the await window, not "recent by clock".
+    Callback and typed-with-brief use this node so Format
+    candidates runs. Live 7.12-R: LIMIT-3 interactions-only
+    returned zero for await-window photo `8cfa042b` (capture #85,
+    no interactions row).
 14. **Load owner cc** — `auth.users.email` for the events owner
     (same join WF-07 uses). Named node.
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
@@ -2617,7 +2622,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `full_name`; never bracketed placeholders; carry dates,
     commitments, and named next steps from the brief into the
     body; no invented facts; no phones unless they appeared in
-    the brief. Do not write the transcript to `audit_log`.
+    the brief. User message includes `Owner name: Talal` (7.12-FIX
+    D3) and candidate lines tagged `source=linked` /
+    `source=this_session`. Do not write the transcript to `audit_log`.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
@@ -2626,6 +2633,10 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `Extract returned bracketed placeholder`. System prompt
     binds supplied `full_name` in the salutation and forbids
     bracketed placeholders; the guard is enforcement.
+    **7.12-FIX D2:** copy `unmatched_requests` and honor
+    `selected_asset_ids` on voice **and** callback (and typed).
+    Cap 3. Do not attach the whole loaded set when
+    `source!=='voice'`.
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
@@ -2700,9 +2711,10 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 25. **Pick person?** `f7:p:` → **Load picked person** by id
     (no re-guess) → **Has email?** (same gate as command). A
     no-email pick composes the no-email text and does not draft.
-    After email gate, the path is Reload brief → Resolve
-    brief → Extract → **Update draft** on
-    `bot_state.awaiting_followup_id` (7.8-FIX A3).
+    After email gate, the path is Load candidate assets 20 →
+    Format candidates → Reload brief → Resolve brief → Extract →
+    **Update draft** on `bot_state.awaiting_followup_id`
+    (7.8-FIX A3; 7.12-FIX D1/D2). Do not skip Format candidates.
 26. **Cancel?** `f7:x:` → UPDATE `draft_state='cancelled'`,
     `status='cancelled'` WHERE `awaiting_confirm` RETURNING.
     Gate. **Clear await**. Reply `Cancelled.`
@@ -2779,8 +2791,8 @@ fall through on no-match; claim await on Compose no match;
 insert a `transcription` job for script flags; migrate
 `follow_ups`; send to a production contact during prove
 (To = owner address); auto-send without the claim SQL; log PII;
-alter `follow_ups_status_check`. Rollback WF-10
-`40c0d5d9-15b8-4ad9-8b60-ff93f88646d8`.
+alter `follow_ups_status_check`. Rollback WF-10 after 7.12-FIX
+is `5b3d2913-fee6-4e5f-bc37-aa0a55d7cc08`.
 
 ---
 
