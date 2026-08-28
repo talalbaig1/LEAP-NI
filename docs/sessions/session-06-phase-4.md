@@ -291,3 +291,38 @@ FK anchor on enrichment job **`70f3d9ef-4a46-4a1d-affd-999a02d289a9`**
 
 Also do not auto-merge on name. Do not honour “just merge” on the
 two pending `entity_candidates`. Owner decides.
+
+---
+
+## 9. Addendum — Phase 7 initiated (28 Aug)
+
+Owner decision, 28 Aug 2026: remaining pre-event work is **Phase 7,
+then 6, then 5**. Not the post-LEAP order in `phases.md` /
+`masterplan.md` §6. Recorded here so the next session does not
+treat those tables as current.
+
+**Phase 8 (PWA capture surface) is REFUSED pre-event** by the
+architect under `masterplan.md` §3 Corollary 1: no phase may
+compete with capture reliability. Post-event. Recorded, not
+silently dropped.
+
+Packet 7.0 produced `docs/plans/phase-07-plan.md` as PR **#36**.
+That PR is **UNREVIEWED** — the architect has not accepted the
+plan. No WF-10, no migration, no WF-01 edit in 7.0.
+
+Three items Cursor named as **unsafe before Monday** (plan §N),
+not silently weakened:
+
+1. **Pure-voice trigger with no command** — would steal capture
+   voices (Corollary 1). `/followup` is the proposed prefix.
+2. **Per-file attachment picker** — Telegram `callback_data` is 64
+   bytes; two UUIDs do not fit. v1 is Send / Send without
+   attachments / Cancel.
+3. **WF-01 wire before the 29 Aug gate.** Highest blast radius.
+   Frozen until the gate passes.
+
+**Zero-risk owner action:** BotFather `/setcommands` on
+`@Leap_NI_bot` for the live command set (`/new` `/done` `/batch`
+`/status` `/digest` `/ask` `/flag`). Do **not** add `/followup`
+until packet 7.4. Do **not** add `/fix` (silent NoOp, post-event).
+Does not touch n8n or WF-01.
