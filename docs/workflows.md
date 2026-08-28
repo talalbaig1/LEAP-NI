@@ -1307,8 +1307,12 @@ without touching `wf04-v3`.
    `j.capture_id`. Missing run or missing capture → `stopAndError`.
    Source every field from the **named** node. Never `$json` after I/O.
 4. **Auto-link ONLY** on exact `people.email_normalized` or exact
-   `people.linkedin_url_normalized` (both `GENERATED … STORED`).
-   **Name similarity NEVER auto-merges**, at any score, for any reason.
+   `people.linkedin_url_normalized` **where
+   `people.linkedin_source = 'card'`** (both URL columns
+   `GENERATED … STORED`). An apollo-sourced LinkedIn URL must never
+   auto-link two people (packet 4.5). Live node: **Upsert people**
+   (`li_match` + insert `NOT EXISTS`). **Name similarity NEVER
+   auto-merges**, at any score, for any reason.
    Skip any extracted person with a null/empty `full_name` (defence in
    depth; WF-04 already dropped them).
 
@@ -1483,8 +1487,10 @@ NoOp `WF-06 dispatch (not yet)` is untouched. This workflow drains
 that a later packet will enqueue.
 
 Queued job `output.person_id` is the person uuid (no new column).
-`people.linkedin_url` is **not** written in this packet (architecture
-§7 sequencing: 018 is live; WF-05 LinkedIn-source guard is not).
+Packet 4.5: **Write match** may fill `people.linkedin_url` when it is
+NULL, with `linkedin_source = 'apollo'`. Never overwrite a non-null
+URL. Never touch email / full_name / title / phone. Sequencing in
+architecture §7 is satisfied (018 live + WF-05 guard live).
 
 ### Node graph (as built)
 
@@ -1558,7 +1564,12 @@ Queued job `output.person_id` is the person uuid (no new column).
     object; **second** row `entity_type='company'` only when
     `person.organization` is present AND `email_domain` is **not**
     in `lni_free_email_domains`. Job `'succeeded'`. Envelope
-    `result` = person. **Do not write `people.linkedin_url`.**
+    `result` = person. **LinkedIn write-back (packet 4.5):**
+    `UPDATE people SET linkedin_url = <apollo value>,
+    linkedin_source = 'apollo' WHERE id = <person> AND
+    linkedin_url IS NULL AND the Apollo value is non-empty`.
+    Never overwrite a non-null `linkedin_url`. Never touch email,
+    full_name, title, or phone.
 18. **Match done** NoOp.
 
 Adapter envelope on `processing_jobs.output` (Phase 2 shape):
