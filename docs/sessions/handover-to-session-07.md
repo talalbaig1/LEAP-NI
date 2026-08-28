@@ -11,7 +11,13 @@ Claude. Owner is Talal. Public repo: `https://github.com/talalbaig1/LEAP-NI`.
 Read first, in order: `docs/rules.md`,
 `.cursor/skills/lni-n8n-conventions/SKILL.md`, `docs/masterplan.md`,
 `docs/architecture.md`, `docs/phases.md`, `docs/prd.md`,
-`docs/workflows.md`, `docs/sessions/session-06-phase-4.md`.
+`docs/workflows.md`, `docs/sessions/session-06-phase-4.md`,
+`docs/sessions/cursor-handover-session-07.md`.
+
+Then read **PR #36 / `docs/plans/phase-07-plan.md`**. That plan is
+**UNREVIEWED**. The architect has not accepted it. Session 07 reads
+it **before any Phase 7 build packet is issued**. Do not implement
+from it until a packet says so.
 
 ## Role and hard stops
 
@@ -38,7 +44,32 @@ Read first, in order: `docs/rules.md`,
   execution (`SELECT name FROM public.events WHERE name = 'LEAP 2026'`),
   never the MCP creation response.
 - stopAndError messages: no comma, quote, or apostrophe (WF-00 redact).
+- **WF-01 is FROZEN until the 29 Aug gate passes.** No Route type
+  append, no callback wire, no `reply_markup` on the shared send.
 - Owner is CCIE: short, to the point.
+
+## Pre-event remaining work (owner decision, 28 Aug 2026)
+
+Build order is **fixed: Phase 7, then 6, then 5.**
+
+- **Phase 8 (PWA capture surface) is REFUSED pre-event** by the
+  architect under `masterplan.md` §3 Corollary 1: no phase may
+  compete with capture reliability. Post-event. Recorded, not
+  silently dropped.
+- **Phase 5 goes LAST** of the three. It requires GRANT SELECT to
+  `authenticated`, which finally exercises 16 RLS policies that
+  have never been evaluated (session 02). It gets its own
+  verification pass. Do not GRANT early.
+- **Phase 7 constraints are binding** (`masterplan.md` §4 decision
+  12 and packet 7.0):
+  1. No auto-send. The system drafts; the owner taps Send.
+  2. Confirm message shows the full recipient address, the subject,
+     the body, and every attachment filename.
+  3. CC the owner's own address on every send.
+  4. Attachments only from `lni-assets` assets already linked to
+     that person's captures.
+- **PR #36 is an UNREVIEWED plan.** Do not treat it as accepted
+  spec. Wait for the architect's packet after read-back.
 
 ## Do not touch (locked evidence)
 
@@ -67,8 +98,9 @@ only. Decision 8 is reversed (person-by-email auto; company from the
 same Apollo response) — owner decision, 2,500/mo credits removed the
 economy argument. Do not reopen it.
 
-Session 07 is event hardening and operations, not a new enrichment
-slice, unless the architect issues a packet.
+Session 07 continues from PR **#36** (unreviewed Phase 7 plan) after
+the architect reads it. Do not invent Phase 7 nodes before that
+packet. **WF-01 stays frozen** until the 29 Aug gate.
 
 Do **not** build `/fix`, album auto-detect, a provider benchmark,
 contact/vcard ingest, or an `/ask` relevance floor. Those stay CUT
@@ -229,6 +261,9 @@ name). Do not re-apply 012.
 
 - Decide the two pending person `entity_candidates`.
 - Signup / Confirm email / delete `7bf179a8`.
+- **BotFather `/setcommands`** on `@Leap_NI_bot` (zero-risk; does
+  not touch n8n). Live set only: `/new` `/done` `/batch` `/status`
+  `/digest` `/ask` `/flag`. Not `/followup` until 7.4. Not `/fix`.
 - Keep the production bot on. Do not rotate n8n or Telegram
   credentials unless the architect says so.
 - Ingest path at the event: photo of the card, or a voice note.
@@ -241,5 +276,7 @@ name). Do not re-apply 012.
 
 ## What you build next
 
-Nothing unless the architect issues a packet. Phase 4 is closed.
-Session 07 is hardening, not a new enrichment feature.
+Nothing until the architect issues a packet after reading PR #36.
+Phase 4 is closed. Remaining pre-event order is **7, then 6, then
+5**. Phase 8 is refused pre-event. WF-01 is frozen until the 29 Aug
+gate.
