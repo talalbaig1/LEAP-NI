@@ -1,11 +1,15 @@
 # Packet 7.4 — WF-01 wire (authored, not applied)
 
 **Date:** 28 August 2026 (PREP-R same day)
-**Status:** 7.4-B — STEP 2 green. Docs §4 below is the proven
-send mechanism. **One** WF-01 PUT is authorised after this
-file is committed. Rollback snapshot is GET `baa462d8-…`
-(97 nodes). Any read-back failure → PUT that snapshot
-immediately. There is not a fourth PUT.
+**Status:** 7.4-B **APPLIED** 28 Aug 2026. WF-01 PUT once
+(`4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`, 118 nodes, active).
+Config read-back passed. Live `/ask` **271785**, `/digest`
+**271788**, `/flag` **271790**, `/whatever` **271791**,
+`/followup` usage **271797** (no keyboard), confirm card
+**271799** `message_id` **369** **has** `reply_markup`
+(`f7:s:` / `f7:n:` / `f7:x:`). That is the 10.20 miss.
+WF-10 stays ACTIVE `8bd44005-…`. BotFather not changed
+(owner can add `followup` now). There is not a fourth PUT.
 
 APPLY 28 Aug 2026 **FAILED 10.20 and rolled back** (first
 apply). Confirm card `message_id` 349 was sent as plain text.
