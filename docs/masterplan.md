@@ -105,6 +105,11 @@ reason and a document update first.**
   Apollo People Enrichment returns the person's organization block in
   the same response, so person-first is both richer and cheaper than
   company-first. Recorded as a deliberate reversal, not a silent change.
+- **#12** — Decision 12 (draft-only, no auto-send) **STANDS unchanged.**
+  The architect's Phase 7 cut of voice follow-up was reversed by the
+  owner on 28 Aug 2026. Voice is the owner's primary intended use at
+  LEAP. Recorded as a deliberate reversal of the cut, not of Decision
+  12. 7.6 plan is authored (PR #41), not applied.
 
 ---
 
@@ -162,17 +167,17 @@ Fireflies, LinkedIn, Twilio, HeyGen.
 
 Full detail in `phases.md`.
 
-| Phase | Contents | Timing |
+| Phase | Contents | State |
 |---|---|---|
-| 0 | Foundation: Supabase project, schema, RLS, storage, bot, credentials, error handler | 26 Aug |
-| 1 | Capture path | **Live 30 Aug** |
-| 2 | Extraction | **Live 30 Aug** |
-| 3 | Digests, `/ask`, watchdog | **Live 30 Aug** |
-| 4 | Enrichment | Opened 27 Aug (owner override); 29 Aug capture gate unchanged |
-| 5 | Web dashboard | Post-LEAP |
-| 6 | pgvector RAG | Post-LEAP |
-| 7 | Follow-up drafting | Post-LEAP |
-| 8 | PWA capture surface | Post-LEAP |
+| 0 | Foundation: Supabase project, schema, RLS, storage, bot, credentials, error handler | COMPLETE |
+| 1 | Capture path | COMPLETE |
+| 2 | Extraction | COMPLETE |
+| 3 | Digests, `/ask`, watchdog | COMPLETE |
+| 4 | Enrichment | COMPLETE |
+| 7 | Follow-up drafting | COMPLETE (typed); voice = 7.6, in progress |
+| 6 | pgvector RAG | Planned, post-event |
+| 5 | Web dashboard | Planned, post-event, needs RLS re-proof |
+| 8 | PWA capture surface | Refused pre-event, post-event |
 
 **The 29 August gate.** If Phases 0–3 are not passing on the owner's actual
 phone with real cards, all feature work stops and 30 August is spent hardening.
@@ -202,18 +207,19 @@ fallback.
 
 | # | Item | Owner | Status | Blocks |
 |---|---|---|---|---|
-| 1 | Create Telegram bot via BotFather, supply token | Talal | **DONE** — credential `Leap-NI` in n8n. Token not yet proven on a real chat. | — |
-| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **DONE** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations `001`–`010` applied. | — |
-| 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | Held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeds `bot_state` from that value at apply time. | Phase 1 — `012` apply |
+| 1 | Create Telegram bot via BotFather, supply token | Talal | **CLOSED 28 Aug 2026** — credential `Leap-NI` in n8n. Proven on the owner's real chat. `/setcommands` includes `followup`. | — |
+| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **CLOSED 26 Aug 2026** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations applied through `026`. | — |
+| 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | **CLOSED 26 Aug 2026** — held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeded `bot_state`. Live allowlist proven. | — |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
-| 5 | Top up Apollo to ~750 credits (add ~575) | Talal | Open | Phase 4 |
+| 5 | Top up Apollo to ~750 credits (add ~575) | Talal | **CLOSED 28 Aug 2026** — Apollo Basic 2,500 credits/month. Phase 4 ran on that budget. | — |
 | 6 | Confirm whether anyone else needs access | Talal | **MOOT** — WF-01 allowlist **is** `bot_state`. Only a seeded row is admitted; extra access is another `bot_state` row, not a schema change. Launch remains single-owner. | — |
-| 7 | Create owner Auth user on LEAP-NI | Talal | **DONE** — confirmed Auth user; `009` bound seed via `lni.owner_email` | — |
-| 8 | Create second authenticated test user on LEAP-NI | Talal | **DONE** — throwaway test user for P3 | — |
+| 7 | Create owner Auth user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — confirmed Auth user; `009` bound seed via `lni.owner_email`. | — |
+| 8 | Create second authenticated test user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — throwaway test user for P3. | — |
 | 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |
 | 10 | Delete stray unconfirmed Auth user `7bf179a8` | Talal | Open | Bootstrap artefact. Needs service_role or dashboard. Harmless. |
 | 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | Turned off to unblock Phase 0 provisioning. |
 | 12 | Re-run the second-user RLS proof when Phase 5 grants SELECT to authenticated | Talal / implementer | Open | The 16 policies are verified correct by inspection but have never been exercised. PostgREST denies on GRANT before RLS is evaluated; `service_role` and `authenticated` both lack table privileges. RLS becomes load-bearing for the first time when the dashboard needs grants. Prove it then. |
+| 13 | `/done` receipt counts captures rather than enqueued jobs | — | Open — cosmetic, post-event. Do not fix pre-event. | Capture #77, exec 270954: "4 cards received" while 3 enqueued. WF-09 reconciler makes the data correct within 15 minutes. |
 
 ### Apollo credit budget
 
