@@ -35,6 +35,16 @@ expressions from Map markup `t0`/`d0` … `t4`/`d4`. Switch on
 `n_rows` picks the N-row send node. Do not use a whole-array
 expression. Do not use HTTP `sendMessage` on this instance.
 
+Live after 7.4-B PUT (GET + executions):
+
+| Fact | Value |
+|---|---|
+| WF-01 `versionId` = `activeVersionId` | `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3` |
+| WF-01 graph | 118 nodes. Route type.main length **13**. `[5]` Callback is f7?. `[11]` Followup payload. `[12]` Unknown type terminal. |
+| Confirm card | exec **271799**, `Send followup kb3`, `message_id` **369**, `reply_markup` present |
+| Usage `/followup` | exec **271797**, `Send followup reply`, `message_id` **368**, no keyboard |
+| Draft from prove | `68d7cc6d-00f6-449e-b9da-048f867fe79e` **cancelled**. Cancel tap WF-01 **271831** (`f7:x:` → Answer callback → Call WF-10 **271832**). `gmail_message_id` null. |
+
 Live after rollback (GET), before the 7.4-B PUT:
 
 | Fact | Value |
