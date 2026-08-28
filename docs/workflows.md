@@ -560,6 +560,31 @@ LNI bot only and must not disturb any ElderWise webhook.
    `X7zKL3wTFPIhwyaN`. WF-06 cache SQL already honours `force`;
    no WF-06 edit.
 
+   **Packet 4.10 measured (28 Aug 2026).** Route type `connection[10]`
+   / `[11]` swapped. Re-GET `versionId` = `activeVersionId` =
+   `1e23405f-4010-4e9b-a1a4-c3df1e1ce904`. Outputs 0–9 unchanged.
+   `flag` → Flag arg empty?. Fallback → Unknown type terminal.
+   Void 4.9 execs 265428–265446.
+
+   Re-prove (webhook, after the swap):
+   1. **265540** last **Flag sent terminal**. Reply
+      `Usage: /flag <name or email>`. Pass.
+   2. **265544** last **Flag sent terminal**. Reply
+      `No person matches zzzznotaperson.` Pass.
+   3. **265548** error at **Flag many?**.
+      `Wrong type: '2' is a string but was expecting a number`.
+      Lookup returned two probe rows (`hit_count` as text `2`).
+      `LNI LI Guard Probe` `email_normalized` null;
+      `LNI No-Match Probe` has an email. Flag list reply never
+      ran. `reply_text` never set. Fail.
+   4. **265551** error at **Flag many?**. `'1'` is a string.
+      No enqueue. Fail.
+   5. **265553** same as 4. Fail.
+   New enrichment jobs: none. WF-06 **265527** (05:15Z, before
+   the five messages) last **Empty queue**. Apollo 2599,
+   ledger 6, records 12 — no force cycle. The 05:15 drain is
+   not evidence for `/flag` force.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
