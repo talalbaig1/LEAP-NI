@@ -177,6 +177,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 16 | **First execution of any workflow must be self-identifying** | A bare `200` or `success` proves nothing about *which* system answered |
 | 17 | **Postgres via the shared Supavisor pooler, SSL `Require`** | Direct and dedicated endpoints are IPv6-only; the n8n container has no IPv6 route |
 | 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here: `$env` is blocked instance-wide, and configuration or state outside Postgres violates architecture.md §2 rule 2. Where a skill and this repo disagree, the repo wins, and you say so rather than silently following the skill. |
+| 19 | **n8n activation: PUT `active=true` is 400 read-only on this build. Activation is `POST /api/v1/workflows/{id}/activate`.** Do not send `active` in a PUT to an already-active workflow. Strip `settings.binaryMode` from any PUT (public PUT of `binaryMode` is 400). GET name, then act. | Packet 4.8: WF-06 inactive, PUT with `"active": true` returned 400 `request/body/active is read-only`. `POST /activate` published it. Already-active workflows (WF-01) are PUT without `active`. |
 
 ---
 

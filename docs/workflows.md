@@ -444,8 +444,11 @@ LNI bot only and must not disturb any ElderWise webhook.
    and `require('crypto')` is disallowed (verified 26 Aug 2026).
 4. **Self-identify LEAP-NI** (`SELECT name, timezone FROM public.events WHERE name = 'LEAP 2026'`)
    before any write. No matching row → **stopAndError** (`Wrong database terminal`).
-5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact** | **vcard**.
+5. **Branch:** command | photo | voice/audio | document/video | text | callback | **contact** | **vcard** | **flag**.
    Commands are `text` starting with `/` and win over the text branch.
+   `/flag` is a named Route type output **appended** after `vcard`.
+   Do not renumber existing outputs. Unknown commands still fall through
+   to `Unknown type terminal` (silent NoOp).
 
    **Telegram `contact` (packet 3.9) — reply only, no ingest.**
    Live `Classify update` previously had no `msg.contact` branch;
@@ -496,7 +499,8 @@ LNI bot only and must not disturb any ElderWise webhook.
    | `new` `done` `batch` `status` (`start` → `status`) | WF-02 | existing contract (`owner_id`, `telegram_user_id`, `action`, `correlation_id`) |
    | `digest` | WF-07 | `owner_id`, `correlation_id`, `source='call'` |
    | `ask` | WF-08 | `owner_id`, `correlation_id`, `question` = remainder of the text after `/ask` |
-   | `fix` `flag` | none | post-event; silent NoOp, no reply |
+   | `flag` | **none — WF-01 owns the branch** | See **/flag** below. Enqueue only. Do not call WF-06. Do not call Apollo. |
+   | `fix` | none | post-event; silent NoOp, no reply |
 
    **`waitForSubWorkflow: true` on `/ask` and `/digest` (packet 3.10).**
    These are request/response for text the owner is waiting on, not a
@@ -509,6 +513,43 @@ LNI bot only and must not disturb any ElderWise webhook.
    `is_ask` is hard-coded `false` in `Classify update`. The live `/ask`
    path is `branch = 'ask'` → Call WF-08. Harmless Phase 1 scaffolding.
    Leave it.
+
+   **`/flag <text>` (packet 4.9).** Named route `flag`, appended. WF-01
+   resolves and **enqueues**. It does not dispatch WF-06 and does not
+   call Apollo. The enqueue is the durable act. WF-06 drains on `*/15`.
+   A slow Apollo call must not cost the owner his Telegram reply.
+
+   1. **Parse argument.** Empty → reply `Usage: /flag <name or email>`.
+      No lookup.
+   2. **Lookup** (Postgres, `alwaysOutputData: true`, at most 5 rows).
+      Stop at the first step that yields a match: exact
+      `email_normalized`; exact `full_name` case-insensitive; trigram
+      similarity on `full_name`, threshold 0.4.
+   3. **Row-count gate.** Zero rows from `alwaysOutputData` is an empty
+      item, not a zero-count report. Gate before every send.
+   4. Outcomes, all reply-only except the single-match insert:
+      - 0 matches → `No person matches <text>.` Nothing enqueued.
+      - 2+ matches → list name + email for each, max 5. Nothing
+        enqueued. The owner re-issues `/flag` with an email. NEVER
+        guess.
+      - 1 match → `INSERT INTO processing_jobs` `capture_id` NULL,
+        `job_type='enrichment'`, `status='queued'`,
+        `output = jsonb_build_object('person_id', <id>, 'force', true)`
+        `ON CONFLICT` inferring `processing_jobs_enrichment_person_uniq`
+        `DO NOTHING RETURNING id`. Zero-row insert →
+        `Already queued for enrichment.` One row →
+        `Queued <name> for enrichment. Result within 15 minutes.`
+   5. Reply text escaped for the parse_mode WF-01 already uses.
+      Absent `parse_mode` is not plain text on this build (default
+      Markdown; `_` in an email will break an unescaped send).
+
+   `force=true` bypasses the 30-day cache **only**. It **never**
+   bypasses the daily or lifetime credit ceiling. WF-06 node order
+   (live): Load ceilings → Ceiling ok? → Cache check → Cached? →
+   (skip) Write cache skip / (continue) Read credits before. The
+   cache SQL returns `skip_cached=0` when `output.force` is true.
+   Ceiling sits before cache, so force cannot reach a provider past
+   the ceiling.
 
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
