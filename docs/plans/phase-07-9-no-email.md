@@ -1,9 +1,8 @@
 # Packet 7.9 — Compose no email return
 
 **Date:** 28 August 2026
-**Status:** IN FLIGHT.
-**WF-10 ONLY.** One PUT. Rollback `45f1fdd4-…`.
-**WF-01 / WF-06 / WF-09 are not touched.**
+**Status:** APPLIED. WF-10 `8722d214-…` (109 nodes). Rollback
+`45f1fdd4-…`. **WF-01 / WF-06 / WF-09 are not touched.**
 
 ## Cause (accepted)
 
