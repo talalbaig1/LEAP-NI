@@ -243,7 +243,7 @@ to `normal` / nothing open.
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-06 | Enrichment | 4 | Manual + Schedule (built **INACTIVE**; this packet does not publish). Drains `job_type='enrichment'`. WF-05 enqueue and `/flag` are later packets. |
+| WF-06 | Enrichment | 4 | Manual + Schedule (built **INACTIVE**; packet 4.7 does not publish). Drains `job_type='enrichment'`. WF-05 **enqueues** only; it does not dispatch. Enqueued jobs wait. That is intended. |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
 | WF-09 | Watchdog | 3 | Schedule, every 15 min |
@@ -1456,12 +1456,25 @@ without touching `wf04-v3`.
 9. Mark the `entity_resolution` job `succeeded` | `failed` |
    `needs_review`. Same failure discipline as WF-03/WF-04.
    `retryOnFail: true` on DB nodes.
-10. Terminate at a NoOp named **`WF-06 dispatch (not yet)`**. Packet 4.0
-    does **not** change this live node. Intended Phase 4 behaviour:
-    WF-05 **enqueues** `job_type='enrichment'` and does **not** dispatch
-    WF-06 per capture. WF-06 drains the queue on a schedule. Do not call
-    WF-06 from this workflow until a later packet replaces the NoOp with
-    an INSERT.
+10. **Enqueue enrichment** (replaces the NoOp `WF-06 dispatch (not yet)`).
+    `INSERT INTO processing_jobs` `job_type='enrichment'` `status='queued'`
+    for each person on this capture with a non-null `email_normalized`
+    whose capture is **not** `needs_review`.
+    `ON CONFLICT ((output->>'person_id'), job_type) WHERE job_type =
+    'enrichment' AND (output->>'person_id') IS NOT NULL AND status =
+    'queued' DO NOTHING`.
+    `force` is absent, so the cache guard applies. **Do not call WF-06.
+    Do not dispatch.** Enqueue is the durable act. `alwaysOutputData:
+    true`. Explicit row-returned gate (`id` notEmpty) — a zero-row
+    write returns `{success:true}`. False → **No enrichment to enqueue**
+    NoOp. True → **Enrichment queued** NoOp. WF-06 stays INACTIVE;
+    queued jobs wait.
+
+    **Packet 4.7 measured.** Capture 64 re-run of entity resolution:
+    WF-05 exec **263857**, last node **Enrichment queued**. Job
+    `6b21fbf5` `job_type='enrichment'` `status='queued'`. WF-06 did
+    not run (`activeVersionId` null; zero WF-06 executions after
+    that timestamp).
 
 **Must not:** auto-merge on name; overwrite `field_corrections`; unwrap
 `extraction_runs` provider envelopes (there are none — read
@@ -1477,26 +1490,45 @@ in WF-05.
 ## WF-06 — Enrichment
 
 **Phase 4** · **Triggers:** Manual + Schedule `*/15 * * * *`.
-**Live:** built **INACTIVE**. Packet 4.4 does not publish. Timezone is
+**Live:** built **INACTIVE**. Packet 4.7 does not publish. Timezone is
 `settings.timezone: Asia/Riyadh` only. `availableInMCP: true`,
 `errorWorkflow` = LNI WF-00, `executionTimeout: 300`,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
 settings or credentials — REST PUT after create, then re-GET. Postgres
-**Leap-NI**. HTTP **Apollo Leap-NI** (`httpHeaderAuth`). First
-httpHeaderAuth on this instance is Storage; MCP will bind the wrong
-one. Proof of bind is re-GET, then a self-identifying execution
-(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`).
+**Leap-NI**. HTTP **Apollo Leap-NI** and **Tavily Leap-NI**
+(`httpHeaderAuth`). First httpHeaderAuth on this instance is Storage;
+MCP will bind the wrong one. Bind by REST PUT; prove by re-GET, then a
+self-identifying execution (`SELECT name FROM public.events WHERE
+name = 'LEAP 2026'`).
 
-WF-05 enqueue and `/flag` are **not** in this packet. The live WF-05
-NoOp `WF-06 dispatch (not yet)` is untouched. This workflow drains
-`job_type='enrichment'` jobs that were inserted by hand for prove, or
-that a later packet will enqueue.
+WF-05 **enqueues** `job_type='enrichment'` in this packet. It does
+**not** dispatch. `/flag` is still later. WF-06 remains INACTIVE, so
+enqueued jobs wait. That is intended and safe. This workflow drains
+the queue on schedule once published; until then, prove runs are
+manual.
 
 Queued job `output.person_id` is the person uuid (no new column).
-Packet 4.5: **Write match** may fill `people.linkedin_url` when it is
-NULL, with `linkedin_source = 'apollo'`. Never overwrite a non-null
-URL. Never touch email / full_name / title / phone. Sequencing in
-architecture §7 is satisfied (018 live + WF-05 guard live).
+`force` absent means false. Packet 4.5: **Write match** may fill
+`people.linkedin_url` when it is NULL, with `linkedin_source =
+'apollo'`. Never overwrite a non-null URL. Never touch email /
+full_name / title / phone.
+
+**Tavily company fallback.** Off the **Write no match** path only.
+Fires only when Apollo returned hollow (`name` empty) AND the person's
+company has a non-null domain not on `lni_free_email_domains`. Enriches
+the company, never the person. Rows: `provider='tavily'`,
+`entity_type='company'`. Never merged with an Apollo row. Never written
+to `people.*`. Ceiling `tavily_lifetime_ceiling` checked **before** the
+call (`sum(credits_spent)` where `provider='tavily'` and `status IN
+('attempted','confirmed')`). Ledger `operation='tavily_search'`, row
+inserted `attempted` before the HTTP call. Success → `confirmed`,
+`credits_spent=1` **by contract** (Tavily has no free balance endpoint
+equivalent to Apollo's profile). Empty/no useful result → `no_match`,
+no enrichment row. HTTP error → ledger `failed`, job `failed`. Over
+ceiling → job `needs_review`, `error_code='ceiling_reached'`, no call.
+The 30-day cache applies to company/tavily rows too. Tavily
+pay-as-you-go is ENABLED with an $8 / 1000-credit cap; an unguarded
+loop would bill real money.
 
 ### Node graph (as built)
 
@@ -1517,8 +1549,9 @@ architecture §7 is satisfied (018 live + WF-05 guard live).
 5. **Job returned?** — claimed `id` notEmpty, strict. False →
    **Empty queue** NoOp (not an error).
 6. **Load person** — `people` by `output.person_id`, plus current
-   `company_id` and `split_part(email_normalized, '@', 2)` as
-   `email_domain`. Named-node sourcing after this I/O.
+   `company_id`, `companies.domain` as `company_domain`, and
+   `split_part(email_normalized, '@', 2)` as `email_domain`.
+   Named-node sourcing after this I/O.
 7. **Person has email?** — `email_normalized` notEmpty. False →
    **No email terminal** (`stopAndError`).
 8. **Load ceilings** — `lni_config` keys `apollo_daily_ceiling` and
@@ -1566,12 +1599,9 @@ architecture §7 is satisfied (018 live + WF-05 guard live).
 16. **Person matched?** — Apollo `body.person.name` non-empty after
     trim, coerced to string. **Never `person.id`.** Apollo mints an
     id for a hollow shell (packet 4.3, `.example` domain).
-    `typeValidation: strict`. False → **Write no match**.
-17. **Write no match** — hollow response. Ledger `'no_match'`,
-    `credits_spent=0` (overwrite the attempted hold). Job
-    `'succeeded'`. Envelope `result` null. **No
-    `enrichment_records` row.** → **No match** NoOp.
-18. **Write match** — `credits_spent` = measured delta (`Read credits
+    `typeValidation: strict`. True → **Write match**. False →
+    **Write no match**.
+17. **Write match** — `credits_spent` = measured delta (`Read credits
     before` minus `Read credits after`, floored at 0). Status
     `'confirmed'` when the name is non-empty — including
     `'confirmed'` / `credits_spent=0` when a named reveal cost
@@ -1585,8 +1615,46 @@ architecture §7 is satisfied (018 live + WF-05 guard live).
     linkedin_source = 'apollo' WHERE id = <person> AND
     linkedin_url IS NULL AND the Apollo value is non-empty`.
     Never overwrite a non-null `linkedin_url`. Never touch email,
-    full_name, title, or phone.
-19. **Match done** NoOp.
+    full_name, title, or phone. → **Match done** NoOp.
+18. **Write no match** — hollow response. Ledger `'no_match'`,
+    `credits_spent=0` (overwrite the attempted hold). Envelope
+    `result` null. **No `enrichment_records` row** for the person.
+    Then **Tavily eligible?** — `company_id` not null AND
+    `companies.domain` not null AND domain not in
+    `lni_free_email_domains`. False → **No match** NoOp (finish as
+    today, no Tavily call). True → continue. Job status is updated
+    again by the Tavily writers.
+19. **Tavily ceiling** — `tavily_lifetime_ceiling` vs
+    `sum(credits_spent)` where `provider='tavily'` and `status IN
+    ('attempted','confirmed')`. False → **Mark tavily ceiling**
+    (job `needs_review`, `error_code='ceiling_reached'`, envelope
+    provider `tavily`) → **Tavily ceiling stop** NoOp. **No HTTP.
+    No ledger row.**
+20. **Tavily cache check** — company/tavily `enrichment_records`
+    row younger than 30 days. `force=true` bypasses. True →
+    **Write tavily cache skip** (`skipped_cached` / `no_match` / 0,
+    job `'succeeded'`, no new enrichment row) → **Tavily cache skip**
+    NoOp. False → continue.
+21. **Insert tavily ledger** — `provider='tavily'`,
+    `credits_spent=1` (contract hold), `operation='tavily_search'`,
+    `status='attempted'`, `entity_id` = company. **Before the HTTP
+    call.**
+22. **Tavily search** — POST `https://api.tavily.com/search` JSON
+    `{query: company_domain}`. `httpHeaderAuth` **Tavily Leap-NI**
+    (REST PUT bind; re-GET proof). `neverError: true`,
+    `fullResponse: true`. **No** `retryOnFail`. Do not log payloads.
+23. **Tavily HTTP ok?** — `statusCode` >= 200 AND < 300. False →
+    **Write tavily HTTP failed** (ledger `'failed'`, job `'failed'`)
+    → **Tavily HTTP failed** NoOp.
+24. **Tavily useful?** — `body.answer` non-empty after trim, or
+    `body.results` length > 0. False → **Write tavily no match**
+    (ledger `'no_match'`, `credits_spent=0`, job `'succeeded'`, no
+    enrichment row) → **Tavily no match** NoOp.
+25. **Write tavily match** — ledger `'confirmed'`, `credits_spent=1`
+    by contract (not measured). `enrichment_records`
+    `entity_type='company'` `provider='tavily'` payload = Tavily
+    body. Job `'succeeded'`. Never touch `people.*`. → **Tavily
+    done** NoOp.
 
 Adapter envelope on `processing_jobs.output` (Phase 2 shape):
 `provider`, `model` (`people/match`), `job_type` (`enrichment`),
@@ -1659,13 +1727,43 @@ md5 unchanged). Did **re-enrich and spend**: 2601 → 2600, ledger
    11 → 11. Profile / Apollo nodes did not run. Probe person not
    edited.
 
-**Must not:** publish/activate this workflow in packet 4.6; touch
+**Packet 4.7 measured (28 Aug 2026).** WF-06 still inactive
+(`active: false`, `activeVersionId: null`). Self identify:
+`LEAP 2026`. Ledger `73fc2831` untouched. Apollo
+`num_credits_remaining` 2599 → 2599 (moved only on the two hollow
+Apollo calls which cost 0; no reveal).
+
+1. Tavily hit, Amer / BTGroup `hasoub.com`. Exec **263839**, last
+   node **Tavily done**. Apollo ledger `b7027914` `people_match` /
+   `no_match` / 0. Tavily ledger `24a93ea3` `tavily` /
+   `tavily_search` / `confirmed` / 1 (contract). Job `d69c89ee`
+   succeeded. `enrichment_records` 11 → 12. New row
+   `0ac1fe43` `entity_type='company'` `provider='tavily'`.
+   Workflow Apollo balances 2599 → 2599.
+2. Tavily ceiling. `tavily_lifetime_ceiling=0`. Imran / Qatar
+   Airways. Exec **263849**, last node **Tavily ceiling stop**.
+   Job `4b345fa7` `needs_review` `error_code='ceiling_reached'`.
+   **Tavily search** and **Insert tavily ledger** did not run.
+   Only Apollo ledger `4c8a15cc` `no_match` / 0. No tavily
+   `attempted` row. `enrichment_records` stayed 12. Restored
+   ceiling to 1000. Live `lni_config`: `apollo_daily_ceiling=60`,
+   `apollo_lifetime_ceiling=2200`, `tavily_lifetime_ceiling=1000`.
+3. WF-05 enqueue, capture 64. Exec **263857**, last node
+   **Enrichment queued**. Created enrichment job `6b21fbf5`
+   `status='queued'` `force` absent. WF-06 executions after that
+   timestamp: none. WF-06 `activeVersionId` null.
+
+**Tavily credits_spent is 1 by contract**, not measured. Tavily has
+no profile-equivalent remaining-credit read. Pay-as-you-go is ENABLED
+with an $8 / 1000-credit cap.
+
+**Must not:** publish/activate this workflow in packet 4.7; touch
 WF-01; overwrite captured email / full_name / title / phone; `$env`;
 `$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
 phones, or payloads; treat enrichment as card evidence; call
-`organizations/enrich`; edit ledger `73fc2831`. The WF-05 dispatch
-NoOp stays. LinkedIn write-back is NULL-fill only. Cache skip must
-not reach the provider.
+`organizations/enrich`; edit ledger `73fc2831`. WF-05 enqueues
+only — it does not dispatch WF-06. LinkedIn write-back is NULL-fill
+only. Cache skip must not reach the provider.
 
 ---
 

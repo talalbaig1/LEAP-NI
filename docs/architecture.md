@@ -190,6 +190,15 @@ that are capture-scoped, not asset-scoped).
 `processing_jobs.output` is the **adapter envelope** defined in §6 — not a
 raw provider blob. WF-04 reads `output.result`.
 
+**Enrichment enqueue natural key.** Partial unique index
+`processing_jobs_enrichment_person_uniq` on
+`((output->>'person_id'), job_type)` where `job_type = 'enrichment'`
+and `output->>'person_id'` is not null **and `status = 'queued'`**.
+WF-05 enqueues one queued enrichment job per emailed person; a re-run
+`ON CONFLICT DO NOTHING`. Completed jobs are outside the index so a
+later `/flag` can enqueue again. This uniqueness is a **partial unique
+index**, not a table constraint. Created by migration `023`.
+
 **Enqueue natural key.** Unique index `processing_jobs_asset_job_uniq` on
 `(asset_id, job_type) WHERE asset_id IS NOT NULL` (migration `016`). WF-02
 `/done` **and the inactivity sweep** `INSERT … ON CONFLICT DO NOTHING` on
@@ -487,6 +496,7 @@ so the post-event build does not invent a second buffer.
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
 | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING` makes a re-run enqueue nothing twice. This uniqueness is a **partial unique index**, not a table constraint — `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq` will not run. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
+| Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` `WHERE job_type = 'enrichment' AND (output->>'person_id') IS NOT NULL AND status = 'queued'` | Natural key for WF-05 enrichment enqueue. `ON CONFLICT ((output->>'person_id'), job_type) WHERE job_type = 'enrichment' AND (output->>'person_id') IS NOT NULL AND status = 'queued' DO NOTHING`. One **queued** job per person. Created by migration `023`. |
 | `people.name_original_script` separate from `full_name` | **Never discard Arabic original script.** `name_original_script` is the verbatim original. `full_name` is identity and must be non-null. If the card prints a Latin name, `full_name` uses it **exactly as printed**. An Arabic-only (non-Latin) `full_name` is **accepted as identity** and does not force `needs_review` (packet 3.6 ruling; packet 3.7 capture status). Captures **#62** / **#63** evidence, **not retro-fixed**. `name_original_script` alone is still not identity (trap 7 unchanged). Never invent a Latin name the card does not support. |
 | Merges never cascade-delete raw assets | Replayability |
 
@@ -871,17 +881,41 @@ person path.
 **`organizations/enrich` is a fallback only**, for a company that still has
 no enriched person. It is not the default.
 
-**Tavily is a company-website fallback only.** `provider = 'tavily'`. Never
-a source of people data. Never merged into an Apollo row.
+**Tavily is a company-website fallback only.** It fires **only** when
+Apollo returned hollow (`name` empty after trim) **and** the person's
+company has a non-null `companies.domain` that is not on
+`lni_free_email_domains`. It enriches the **company**, never the
+person. Rows carry `provider='tavily'`, `entity_type='company'`.
+Never merged with an Apollo row. Never written to `people.*`.
+
+Tavily spend is ledgered exactly like Apollo: `credit_ledger`
+`provider='tavily'`, `operation='tavily_search'`. Ceiling key
+`tavily_lifetime_ceiling` = 1000, checked **before** the call, same
+gate pattern as Apollo (`sum(credits_spent)` where `status IN
+('attempted','confirmed')`). Over ceiling → job `needs_review`,
+`error_code='ceiling_reached'`, no call.
+
+**Tavily has no free balance endpoint** equivalent to Apollo's
+profile GET. `credits_spent` is therefore **1 per call by contract**,
+not measured. Do not imply a Tavily remaining-credit delta. Tavily
+pay-as-you-go is **ENABLED** on this account with an **$8 / 1000-credit
+cap**, so an unguarded loop would bill real money where Apollo would
+merely fail closed.
+
+The 30-day cache guard applies to Tavily company rows too: a
+company/tavily `enrichment_records` row younger than 30 days skips
+the call (`operation='skipped_cached'`, `status='no_match'`,
+`credits_spent=0`, no new enrichment row). `force=true` bypasses.
 
 **Hard credit guard.** Both provider ceilings are read from
 `lni_config` (never `$env`). Keys: `apollo_daily_ceiling`,
 `apollo_lifetime_ceiling`, `tavily_lifetime_ceiling`. A `credit_ledger`
-counter is independent of Apollo's reporting. The ledger row is written
-**before** the provider call (`status = 'attempted'`) — a crash must not
-lose a spend. Reconcile against the **measured delta** in
-`num_credits_remaining` (Profile GET before and after the enrich call),
-never `num_lead_credits_used`, never an assumed 1.
+counter is independent of Apollo's reporting. The Apollo ledger row is
+written **before** the provider call (`status = 'attempted'`) — a crash
+must not lose a spend. Apollo reconcile against the **measured delta**
+in `num_credits_remaining` (Profile GET before and after the enrich
+call), never `num_lead_credits_used`, never an assumed 1. Tavily has
+no equivalent read; its `credits_spent` is 1 by contract.
 
 **Match test is `name` non-empty after trim, never `person.id`.** Apollo
 mints an id for a hollow shell. Measured packet 4.3 on a `.example`
@@ -922,6 +956,8 @@ Do not edit or delete that row or the three existing
 
 **WF-06 drains a queue on a schedule.** WF-05 **enqueues**
 `job_type = 'enrichment'`; it does not dispatch WF-06 per capture.
+WF-06 remains **INACTIVE** in packet 4.7, so enqueued jobs simply
+wait. That is intended and safe.
 
 ### Enrichment data boundary
 
@@ -1020,7 +1056,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`022`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, and the free-mail blocklist. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`023`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, and the enrichment-person enqueue key. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -1049,6 +1085,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 020 | `020_lni_config_credit_ceilings` | `lni_config` + seed ceilings. First config table; none existed. |
 | 021 | `021_credit_ledger_status` | `credit_ledger.status` default `'attempted'`, CHECK `attempted` \| `confirmed` \| `no_match` \| `failed`. |
 | 022 | `022_lni_free_email_domains` | Owner-scoped free-mail blocklist + seed. RLS matches `lni_config`. |
+| 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. |
 
 ### Connection policy — verified 25 Aug 2026
 
