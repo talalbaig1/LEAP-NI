@@ -2424,6 +2424,213 @@ delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
 
 ---
 
+## WF-10 — Follow-up drafting
+
+**Phase 7** · **Triggers:** Manual + Execute Workflow Trigger **only**.
+No Telegram trigger. No Schedule. **INACTIVE** for packets 7.1–7.3.
+Do not `POST /activate`. Do not send `active` on a PUT. WF-01 is
+**not** called and **not** edited in this packet.
+
+Settings (REST PUT after MCP create — create is not evidence):
+`availableInMCP: true`, `errorWorkflow` = LNI WF-00
+(`X7zKL3wTFPIhwyaN`), `executionTimeout: 300`,
+`timezone: Asia/Riyadh`, `callerPolicy: workflowsFromSameOwner`.
+Strip `binaryMode` and `timeSavedMode` from any public PUT.
+
+Credentials (REST PUT, never ElderWise): Postgres **Leap-NI**,
+Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
+**Supabase_Leap-NI** on the attachment GET (unused when the
+attachment set is empty). First execution is self-identifying:
+`SELECT name FROM public.events WHERE name = 'LEAP 2026'`.
+
+**Input** (Execute Workflow Trigger): `owner_id`, `correlation_id`,
+`source` (`command` \| `voice` \| `callback`), `text` (command),
+`callback_data` (callback, `f7:` prefix), `file_id` (voice).
+**Return contract:** `{ ok, reply_text, reply_text_2?, reply_markup? }`.
+Empty `reply_text` is a defect.
+
+**Does not Call WF-03.** Whisper (language **absent**) lives on
+WF-10 so a follow-up brief never claims a capture transcription
+job. Does not rewrite `interactions.summary`. Does not alter
+WF-07 SQL. Does not GRANT SELECT.
+
+Every Postgres node: `alwaysOutputData: true`, `retryOnFail: true`,
+`replaceEmptyStrings: false`, `queryReplacement` = **one** array
+expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
+`count(*) OVER()::int AS hit_count`. `.first()` after any Merge.
+`stopAndError` messages: no comma, quote, or apostrophe.
+
+### Node graph (as built, packets 7.1–7.3)
+
+**Shared head**
+
+1. **Manual Trigger** and **When called** (executeWorkflow) both
+   feed **Self identify**.
+2. **Self identify** — Postgres
+   `SELECT name, owner_id FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`.
+   `executeOnce: true`.
+3. **Row returned?** — `name` equals `LEAP 2026`, strict. False →
+   **Wrong database terminal** (`stopAndError`:
+   `Wrong database LEAP 2026 row missing`).
+4. **Normalize input** — Code. Named-node source. Copies
+   `source`, `text`, `callback_data`, `file_id`, `owner_id`,
+   `correlation_id` from **When called** when executed, else from
+   the manual item. No backslash regex.
+5. **Route source** Switch: `command` \| `voice` \| `callback`.
+   Fallback → **Unknown source terminal** (`stopAndError`:
+   `Unknown followup source`). After any append, re-GET every
+   connection index.
+
+**Command path**
+
+6. **Parse argument** — Code. Strips a leading `/followup` token
+   (and an `@bot` suffix on that token) by `split(' ')`. `name` =
+   first remaining token; `brief` = the rest joined. No `\\`
+   regex.
+7. **Usage?** — `name` empty AND `brief` empty. True →
+   **Compose usage** (`Usage: /followup <name or email>`) →
+   **Return to caller**.
+8. **Lookup people** — same ladder as WF-01 Flag lookup: exact
+   `email_normalized`, then exact `full_name` case-insensitive,
+   then trigram `similarity >= 0.4`. Max 5.
+   `count(*) OVER()::int AS hit_count`.
+9. **Lookup returned?** — named `id` notEmpty. False →
+   **Compose no match** → Return.
+10. **Flag many?** — `hit_count` number `gt` 1, **strict**. True →
+    **Compose many** (inline buttons `f7:p:<person uuid>`,
+    `<name> (no email)` when email is null) → Return. NEVER guess.
+11. **Has email?** — `email_normalized` notEmpty. False →
+    **Compose no email**
+    (`<name> has no email. Capture a card with an address first.`)
+    → Return.
+12. **Need voice wait?** — `brief` empty AND `source` equals
+    `command`. True → **Insert awaiting voice** (`draft_state='awaiting_voice'`,
+    `status='open'`, `title='Follow-up'`, `person_id` set when
+    known) → **Set bot await** (`awaiting_followup_id`,
+    `awaiting_followup_until = now() + 15 minutes`) →
+    **Compose record now**
+    (`Record a voice note now (15 min). A photo still goes to capture.`)
+    → Return. `person_id` may be non-null here; the PARTIAL CHECK
+    only requires it on `awaiting_confirm`.
+13. **Load candidate assets** — owner-scoped, `upload_status='stored'`,
+    `kind IN ('photo','selfie')`, capture linked via
+    `interactions` for this person, newest first, cap 3. Size cap
+    18 MB: drop largest first; omitted names travel as
+    `omitted_names`. Live finding 28 Aug: this set is **empty**
+    for every current person. `alwaysOutputData` empty item is
+    treated as `(none)`, not an error.
+14. **Load owner cc** — `auth.users.email` for the events owner
+    (same join WF-07 uses). Named node.
+15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
+    OpenAI audio, `language` **absent**. False → skip.
+16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
+    Responses JSON schema `wf10-v1`. Fields: `recipient_ref`,
+    `agreed`, `send_what`, `deadline`, `subject`, `body`. All
+    strings; no “return null”. Do not write the transcript to
+    `audit_log`.
+17. **Parse extract** — Code. Empty `subject` or `body` →
+    `stopAndError` (`Extract returned empty subject or body`).
+    Sentinel `deadline = none mentioned` maps to SQL NULL in the
+    write, not in the model.
+18. **Insert draft** — `draft_state='awaiting_confirm'`,
+    `status='open'`, freeze `to_email` (person
+    `email_normalized`), `cc_email` (owner), `subject`, `body`,
+    `attachment_asset_ids`, `confirm_expires_at`,
+    `prompt_version='wf10-v1'`, `title` = subject. `RETURNING id`.
+19. **Draft row returned?** False → `stopAndError`
+    (`Draft insert returned no row`). True →
+20. **Compose confirm** — HTML-escaped. Full `to_email`, CC,
+    subject, full body, attachment filenames or `(none)`, omitted
+    list if any. `reply_markup` buttons: `f7:s:<id>` Send,
+    `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
+    `parse_mode` is a WF-01 concern at 7.4; the payload carries
+    the escaped HTML string. → **Return to caller**.
+
+**Voice path** (built, not device-proved in 7.1–7.3)
+
+21. **Load await** — `bot_state.awaiting_followup_id` where
+    `awaiting_followup_until > now()`. Gate `id` notEmpty. False →
+    **Compose no await** (`No follow-up is waiting. Use /followup <name or email>.`)
+    → Return.
+22. Then **Transcribe** → **Extract draft**. If the awaiting row
+    has `person_id`, skip the ladder and continue from **Has
+    email?** using that id. If not, ladder on `recipient_ref`.
+    `"none named"` and empty →
+    **Compose nobody named** (`No person named. Try /followup <name or email>.`)
+    → Return.
+
+**Callback path**
+
+23. **Parse callback** — Code. `f7:` prefix. Kinds: `p` pick,
+    `s` send, `n` send-none, `x` cancel. No backslash regex.
+24. **Route callback** Switch. Fallback →
+    **Unknown callback terminal**.
+25. **Pick person?** `f7:p:` → **Load picked person** by id
+    (no re-guess) → **Has email?** (same gate as command). A
+    no-email pick composes the no-email text and does not draft.
+26. **Cancel?** `f7:x:` → UPDATE `draft_state='cancelled'`,
+    `status='cancelled'` WHERE `awaiting_confirm` RETURNING.
+    Gate. **Clear await**. Reply `Cancelled.`
+27. **Claim send** — `f7:s:` keeps listed attachments; `f7:n:`
+    sets `attachment_asset_ids='{}'` on the claim. SQL:
+
+    ```
+    UPDATE follow_ups
+    SET draft_state = 'sending'
+    WHERE id = $1
+      AND owner_id = $2
+      AND draft_state = 'awaiting_confirm'
+      AND confirm_expires_at > now()
+      AND to_email IS NOT NULL
+    RETURNING id, to_email, cc_email, subject, body,
+              attachment_asset_ids,
+              coalesce(array_length(attachment_asset_ids, 1), 0)::int
+                AS attachment_count,
+              person_id;
+    ```
+
+    `alwaysOutputData: true`. Gate RETURNING `id` notEmpty.
+    Zero-row UPDATE is `{success:true}` — without the gate Gmail
+    fires on a stale or double tap.
+28. **Claimed?** False → **Load draft state** → compose
+    `Already sent.` / `Cancelled.` /
+    `This draft expired. /followup again.` /
+    `Send already in progress.` → Return.
+29. **Need files?** `attachment_count` number `gt` 0, strict.
+    True → **GET each object** HTTP Storage `responseFormat: file`.
+    Never Code-read bytes. False → skip (Stage C prove: skip).
+    If listed files were required and every GET fails, refuse the
+    send (do not body-only unless the owner tapped send-none).
+30. **Gmail send** — To = frozen `to_email`, CC = frozen
+    `cc_email`, subject, body. `retryOnFail: true` once. Do **not**
+    set `onError: continueRegularOutput`. Credential = WF-07 Gmail.
+31. **Gmail id present?** `.first()` `id` notEmpty. False →
+    **Mark failed** (`draft_state='failed'`, `status` stays
+    `open`) → compose
+    `Gmail refused the send. Draft kept. Try later or Cancel.`
+    → Return.
+32. **Mark sent** — UPDATE `draft_state='sent'`, `status='done'`,
+    `gmail_message_id`, `sent_at=now()` WHERE
+    `draft_state='sending'` RETURNING.
+33. **Sent row returned?** False → `stopAndError`
+    (`Sent mark returned no row`) — Gmail may have sent; do **not**
+    send again; WF-00. True →
+34. **Write audit** — `actor_type='user'`, `action='followup_sent'`,
+    `entity_type='follow_up'`,
+    `after = {follow_up_id, person_id, gmail_message_id, attachment_count}`.
+    **No email, no body, no transcript.**
+35. **Clear await** — `bot_state.awaiting_followup_id` / `_until`
+    null where they point at this draft.
+36. **Compose sent** — `Sent to <name> <email>. Subject: … Files: …`
+    (escaped). → **Return to caller**.
+
+**Must not:** activate this workflow; Call WF-01; Call WF-03;
+touch WF-01 Route type; send to a production contact during
+prove (To = owner address); auto-send without the claim SQL;
+log PII; alter `follow_ups_status_check`.
+
+---
+
 ## 3. Build and verification order
 
 | Order | Workflow | Verify by |
@@ -2434,6 +2641,7 @@ delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
 | 4 | WF-03, WF-04 | Live JSON read-back for unset `language`; envelope keys; extraction_runs row |
 | 5 | WF-07, WF-08, WF-09 | Observed execution `startedAt` in Riyadh; `/digest` and `/ask` on the production bot; watchdog silent when clean and loud when a TEST-stuck job is planted then restored |
 | 6 | WF-06 | Forced retry loop must not breach the credit ceiling |
+| 7 | WF-10 | Inactive. Self-id LEAP 2026. Command confirm `(none)` attachments. Gmail To+CC owner address. Double send does not send twice. WF-01 versionId unchanged. |
 
 **Verification is by read-back, never by report.** The architect reads live
 workflow JSON through MCP and compares against this document. Cursor's summary

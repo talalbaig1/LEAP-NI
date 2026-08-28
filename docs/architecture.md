@@ -129,6 +129,8 @@ UNIQUE `(owner_id, telegram_user_id)`.
 | `mode` | text | `'normal'` | NO |
 | `last_activity_at` | timestamptz | `now()` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+| `awaiting_followup_id` | uuid → `follow_ups` | — | YES |
+| `awaiting_followup_until` | timestamptz | — | YES |
 
 **`captures`** — one `/new`…`/done` unit. UNIQUE `capture_no`.
 
@@ -296,6 +298,30 @@ write this table.
 | `priority` | text | `'medium'` | NO |
 | `status` | text | `'open'` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+| `to_email` | text | — | YES |
+| `cc_email` | text | — | YES |
+| `subject` | text | — | YES |
+| `body` | text | — | YES |
+| `attachment_asset_ids` | uuid[] | `'{}'` | NO |
+| `draft_state` | text | `'draft'` | NO |
+| `idempotency_key` | uuid UNIQUE | `gen_random_uuid()` | NO |
+| `gmail_message_id` | text | — | YES |
+| `sent_at` | timestamptz | — | YES |
+| `confirm_expires_at` | timestamptz | `now() + interval '12 hours'` | YES |
+| `prompt_version` | text | — | YES |
+
+**`follow_ups.draft_state`** (packet 7.1). Email lifecycle, separate
+from `status`. `status` stays `open` \| `done` \| `cancelled` —
+**do not alter `follow_ups_status_check`** (WF-07 counts
+`status='open'`). Mapping: awaiting confirm = `open`; sent = `done`;
+cancel = `cancelled`; Gmail fail stays `open` with
+`draft_state='failed'`.
+
+**`follow_ups_person_id_confirm_check` (PARTIAL).**
+`person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
+A plain NOT NULL breaks `awaiting_voice`, which is inserted before
+person resolution finishes. Sendable drafts freeze `to_email` at
+confirm time.
 
 **`entity_candidates`** — duplicate suggestions.
 
@@ -594,6 +620,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1077,7 +1104,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`023`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, and the enrichment-person enqueue key. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`024`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, the enrichment-person enqueue key, and follow-up email-draft columns. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -1106,7 +1133,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 020 | `020_lni_config_credit_ceilings` | `lni_config` + seed ceilings. First config table; none existed. |
 | 021 | `021_credit_ledger_status` | `credit_ledger.status` default `'attempted'`, CHECK `attempted` \| `confirmed` \| `no_match` \| `failed`. |
 | 022 | `022_lni_free_email_domains` | Owner-scoped free-mail blocklist + seed. RLS matches `lni_config`. |
-| 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. |
+| 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. Live catalog name is **`processing_jobs_enrichment_person_uniq`** (no `023_` prefix). Do not re-apply. |
+| 024 | `024_follow_ups_email_draft` | Additive `follow_ups` email-draft columns + `bot_state` awaiting-followup columns. Catalog name **must** be `024_follow_ups_email_draft`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. |
 
 ### Connection policy — verified 25 Aug 2026
 
