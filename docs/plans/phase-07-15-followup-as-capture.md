@@ -1,8 +1,9 @@
 # Packet 7.15-PLAN — Follow-up is a capture
 
 **Date:** 28 August 2026
-**Status:** PLAN ONLY. No PUT. No migration. No code. Wait for
-architect review.
+**Status:** ACCEPTED with architect/owner corrections C1–C4
+(PACKET 7.16). Docs precede implementation. Apply is packet 7.16,
+not this file.
 **Live GET this packet (name-checked, then read):**
 
 | WF | id | versionId | nodes | active |
@@ -12,9 +13,56 @@ architect review.
 | WF-10 | `D9PRjbZMQxe9ESVW` | `f1013395-c88b-4c6f-83dc-f2ef83844a12` | 109 | true |
 | WF-03 | `k0bPD3GJBNN2EHDB` | `852f300b-069e-4763-b97b-3068fbf06a9b` | 38 | true |
 
-Do **not** apply from memory. Do **not** touch WF-01 / WF-02 / WF-10
-or the database in this packet. Leave draft `5df341f8` `awaiting_confirm`
-as evidence. Cancel nothing.
+Leave draft `5df341f8` `awaiting_confirm` as evidence. Cancel nothing.
+
+---
+
+## Architect corrections C1–C4 (PACKET 7.16, binding)
+
+Source: PACKET 7.16 scenario matrix (C3 and C4 named there) plus
+the matrix rows that close D1/D2. Owner asleep; nothing here is
+invented beyond what that packet requires.
+
+**C1. Nested card on `/done`. Sweep must Call WF-10 (dispatch),
+not silently die.**
+`/done` on a followup capture: WF-02 closes the row, returns
+`capture_mode='followup'` + `capture_id`. WF-01 then Call WF-10
+(`source='done'`, `waitForSubWorkflow: true`) on the **existing**
+Call WF-10 node and the existing Map markup / kb send path.
+Followup has reply? and Map markup keep reading `$('Call WF-10')`.
+Do not put markup on `Send command reply`. Receipt may be skipped
+when the card is the reply; the card is the owner-visible `/done`
+result (scenarios 1, 12, 15).
+
+Sweep: Action sweep exposes `capture_mode`. Followup ids Call
+WF-10 (`source='done'`, `wait false`, `onError continueRegularOutput`).
+Scenario 10 proves the **Call**, not Telegram delivery. Sweep has
+no WF-01 parent. Do not add Telegram credentials to WF-10. Draft
+is written; card waits for the next owner `/status` or digest.
+
+**C2. Close-and-process when a standard capture is open.**
+Scenario 7. If `open_capture_id` is an open `standard` capture,
+run the Action done close + enqueue + Call WF-03 path
+(`close_reason='superseded'`), then INSERT `capture_mode='followup'`.
+Prove the closed capture enqueued. Batch open: refuse. Followup
+already open: refuse.
+
+**C3. Photo-only `/done` still produces a draft.**
+Exact owner-visible wording:
+
+`No spoken note. Photos in this block are kept. Draft saved without a recipient.`
+
+Insert `follow_ups` `draft_state='draft'`, `person_id` null,
+`capture_id` set, `brief` empty or typed_note only. Do not
+promote to `awaiting_confirm` (person_id CHECK). No Send buttons.
+Capture is closed. Photos stay `stored`.
+
+**C4. `/new` while a followup block is open refuses.**
+Do not copy Action new's silent supersede. Reply:
+
+`Follow-up #<n> is open. /done to draft first.`
+
+Batch and followup-open refusals for `/followup` stay as §1.
 
 ---
 
@@ -425,6 +473,15 @@ photo-without-followup unchanged.
 ---
 
 ## 12. Disagreements
+
+C1–C4 (PACKET 7.16) accept D2 close-and-process, D3 extra tokens as
+`typed_note`, D4 no WF-03, D5 `/new` refuse (C4), D6 10-minute idle.
+D1: nested card on `/done` via existing WF-01 Call WF-10 send path;
+sweep Call WF-10 without Telegram (prove dispatch).
+
+---
+
+## 12b. Disagreements (original 7.15-PLAN, superseded by C1–C4)
 
 **D1. Who sends the confirm card on `/done` and on sweep.**
 WF-01 owns Telegram send. WF-02 owns the decision and returns

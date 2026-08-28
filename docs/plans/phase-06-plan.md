@@ -6,6 +6,13 @@
 PWA stays post-event (`masterplan.md` §3 Corollary 1).
 **Main at plan time:** `952ab05`.
 
+**Catalog correction 28 Aug 2026 (packet 7.16, binding):**
+027 is taken (`027_follow_ups_brief`, applied). 028 is
+`028_captures_followup_mode` (follow-up-as-capture). Embeddings
+catalog is **`029_embeddings`**, file `supabase/migrations/029_embeddings.sql`.
+Every embeddings "027" / `027_embeddings` reference below means **029**.
+This packet still does not apply embeddings.
+
 Owner intent (paraphrase): `/ask` should retrieve what was actually
 said, not the entire interaction table ranked by a trigram boolean.
 
