@@ -314,8 +314,8 @@ write this table.
 from `status`. `status` stays `open` \| `done` \| `cancelled` —
 **do not alter `follow_ups_status_check`** (WF-07 counts
 `status='open'`). Mapping: awaiting confirm = `open`; sent = `done`;
-cancel = `cancelled`; Gmail fail stays `open` with
-`draft_state='failed'`.
+cancel = `cancelled` on both `status` and `draft_state` (025);
+Gmail or attachment fail stays `open` with `draft_state='failed'`.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -620,7 +620,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1135,6 +1135,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 022 | `022_lni_free_email_domains` | Owner-scoped free-mail blocklist + seed. RLS matches `lni_config`. |
 | 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. Live catalog name is **`processing_jobs_enrichment_person_uniq`** (no `023_` prefix). Do not re-apply. |
 | 024 | `024_follow_ups_email_draft` | Additive `follow_ups` email-draft columns + `bot_state` awaiting-followup columns. Catalog name **must** be `024_follow_ups_email_draft`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. |
+| 025 | `025_follow_ups_cancelled_state` | Adds `cancelled` to `follow_ups_draft_state_check`. Does not remove values. Does not alter `follow_ups_status_check`. |
 
 ### Connection policy — verified 25 Aug 2026
 

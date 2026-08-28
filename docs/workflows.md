@@ -2439,8 +2439,8 @@ Strip `binaryMode` and `timeSavedMode` from any public PUT.
 
 Credentials (REST PUT, never ElderWise): Postgres **Leap-NI**,
 Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
-**Supabase_Leap-NI** on the attachment GET (unused when the
-attachment set is empty). First execution is self-identifying:
+**Supabase_Leap-NI** on the attachment GET (bucket prefix +
+`storage_path`). First execution is self-identifying:
 `SELECT name FROM public.events WHERE name = 'LEAP 2026'`.
 
 **Input** (Execute Workflow Trigger): `owner_id`, `correlation_id`,
@@ -2460,7 +2460,12 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
 `count(*) OVER()::int AS hit_count`. `.first()` after any Merge.
 `stopAndError` messages: no comma, quote, or apostrophe.
 
-### Node graph (as built, packets 7.1–7.3)
+### Node graph (as built, packet 7.3b)
+
+The 7.3 attachment path was reported as built while
+non-functional (uuid URL, Gmail with no attach parameter, silent
+1-file cap). 7.3b rebuilds that path on real objects. WF-10 stays
+INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 
 **Shared head**
 
@@ -2531,7 +2536,11 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
-    (`Extract returned empty subject or body`).
+    (`Extract returned empty subject or body`). If subject or
+    body contains both `[` and `]` →
+    `Extract returned bracketed placeholder`. System prompt
+    binds supplied `full_name` in the salutation and forbids
+    bracketed placeholders; the guard is enforcement.
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
@@ -2543,21 +2552,19 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
     cannot be bound as timestamptz). `RETURNING id`.
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
-20. **Compose confirm** — HTML-escaped. Full `to_email`, CC,
+20. **Compose confirm** — plain text. Full `to_email`, CC,
     subject, full body, attachment filenames or `(none)`, omitted
     list if any. `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
-    `parse_mode` is a WF-01 concern at 7.4; the payload carries
-    the escaped HTML string. → **Return to caller**.
+    → **Return to caller**.
+    `parse_mode` is absent on WF-01 sends; WF-10 returns **plain
+    text** (no HTML entity escaping). Real newlines.
 
-**Voice path** (built, not device-proved in 7.1–7.3)
+**Voice path** (`source=voice` is a non-functional stub pending 7.4)
 
-21. **Load await** — `bot_state.awaiting_followup_id` where
-    `awaiting_followup_until > now()`. Gate `id` notEmpty. False →
-    **Compose no await** (`No follow-up is waiting. Use /followup <name or email>.`)
-    → Return. Packets 7.1–7.3: both IF outputs currently compose
-    no-await (voice not device-proved). Do not treat this as a
-    voice-path proof.
+21. **Load await** — both IF outputs compose no-await. Do not
+    treat this as a voice-path proof. Transcribe is not reachable
+    from `source=voice`. Nothing fetches a Telegram file.
 22. Then **Transcribe** → **Extract draft**. If the awaiting row
     has `person_id`, skip the ladder and continue from **Has
     email?** using that id. If not, ladder on `recipient_ref`.
@@ -2574,12 +2581,11 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
 25. **Pick person?** `f7:p:` → **Load picked person** by id
     (no re-guess) → **Has email?** (same gate as command). A
     no-email pick composes the no-email text and does not draft.
-26. **Cancel?** `f7:x:` → UPDATE `status='cancelled'`,
-    `draft_state='failed'` WHERE `awaiting_confirm` RETURNING.
-    `draft_state` CHECK has no `cancelled` (that value lives on
-    `status`). Gate. **Clear await**. Reply `Cancelled.`
-    Compose already checks `status='cancelled'` before
-    `draft_state`.
+26. **Cancel?** `f7:x:` → UPDATE `draft_state='cancelled'`,
+    `status='cancelled'` WHERE `awaiting_confirm` RETURNING.
+    Gate. **Clear await**. Reply `Cancelled.`
+    Compose already: `cancelled` → `Cancelled.`; `failed` →
+    failed text (Gmail or attachment failure only).
 27. **Claim send** — `f7:s:` keeps listed attachments; `f7:n:`
     sets `attachment_asset_ids='{}'` on the claim. SQL:
 
@@ -2595,7 +2601,9 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
               attachment_asset_ids,
               coalesce(array_length(attachment_asset_ids, 1), 0)::int
                 AS attachment_count,
-              person_id;
+              person_id,
+              attachments json (each: id, storage_path, filename,
+                size_bytes) joined from public.assets in array order.
     ```
 
     `alwaysOutputData: true`. Gate RETURNING `id` notEmpty.
@@ -2606,12 +2614,20 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
     `This draft expired. /followup again.` /
     `Send already in progress.` → Return.
 29. **Need files?** `attachment_count` number `gt` 0, strict.
-    True → **GET each object** HTTP Storage `responseFormat: file`.
-    Never Code-read bytes. False → skip (Stage C prove: skip).
-    If listed files were required and every GET fails, refuse the
-    send (do not body-only unless the owner tapped send-none).
+    True → **GET attach 0/1/2** HTTP Storage `responseFormat: file`,
+    `outputPropertyName` `attach_0` / `attach_1` / `attach_2`,
+    URL = bucket prefix + that row's `storage_path`. `neverError`
+    absent. `fullResponse` true. Gate statusCode 200 and
+    Content-Length > 0. Any fail → **Mark failed**, Gmail does
+    **not** run, reply
+    `Could not attach <filename>. Draft kept. Try again or Cancel.`
+    No 1-file cap. Cap 3 is on **Load candidate assets**.
+    False → Gmail with no attachments (send-none or empty set).
 30. **Gmail send** — To = frozen `to_email`, CC = frozen
-    `cc_email`, subject, body. `retryOnFail: true` once. Do **not**
+    `cc_email`, subject, body.
+    `options.attachmentsUi.attachmentsBinary[0].property` =
+    comma-separated `attach_0`… keys actually downloaded.
+    `retryOnFail: true` once. Do **not**
     set `onError: continueRegularOutput`. Credential = WF-07 Gmail.
 31. **Gmail id present?** `.first()` `id` notEmpty. False →
     **Mark failed** (`draft_state='failed'`, `status` stays
@@ -2630,8 +2646,9 @@ expression. Gate `id` notEmpty after every INSERT/UPDATE/lookup.
     **No email, no body, no transcript.**
 35. **Clear await** — `bot_state.awaiting_followup_id` / `_until`
     null where they point at this draft.
-36. **Compose sent** — `Sent to <name> <email>. Subject: … Files: …`
-    (escaped). → **Return to caller**.
+36. **Compose sent** — plain text
+    `Sent to <name> <email>. Subject: … Files: …`
+    → **Return to caller**.
 
 **Must not:** activate this workflow; Call WF-01; Call WF-03;
 touch WF-01 Route type; send to a production contact during

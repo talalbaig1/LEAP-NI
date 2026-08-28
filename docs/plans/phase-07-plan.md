@@ -227,7 +227,34 @@ large): …`). Never send a silent subset. If even one file is over
 Code buffer length (filesystem-v2 cannot be read in Code).
 
 **Download for attach:** HTTP GET Storage, `responseFormat: file`.
-Never Code-read bytes. Pin data is not evidence.
+URL = bucket prefix + `assets.storage_path` (the object key).
+Never a bare asset uuid. Never Code-read bytes. Pin data is not
+evidence. Cap 3 at candidate select, not at send.
+
+**7.3 defect (packet 7.3b).** The 7.3 attachment path was reported
+as built while non-functional: GET used `attachment_asset_ids[0]`
+(a uuid, not a storage key), Gmail had no attachment parameter,
+and send was silently capped at 1 file. Owner ruled attachments
+are **not** cut. Packet 7.3b builds and proves them on real
+objects.
+
+**Live node answers (n8n types, not memory) — required before
+7.3b graph:**
+
+- **(a)** Gmail v2.2 send: `options.attachmentsUi.attachmentsBinary`
+  is an array of `{ property }`. `property` is the input item's
+  binary field name (default `data`).
+- **(b)** Multiple binaries on **one item** are supported.
+  `property` hint: "Multiple properties can be set separated by
+  comma." Names are the item binary keys (e.g. `attach_0,attach_1`).
+- **(c)** HTTP Request v4.4 `responseFormat: file` writes a **named**
+  binary via `options.response.response.outputPropertyName`
+  (default `data`). Merge v3.2 `combine` + `combineByPosition`
+  has `numberInputs` 2–10, so three inputs can land on one item.
+  Variable 1–3 files must not wait on unused GET inputs; sequential
+  GET with distinct `outputPropertyName` is the live shape if HTTP
+  keeps prior binary keys. If it does not, Switch 1/2/3 + Merge
+  `numberInputs` matching the count. Do not invent a third shape.
 
 ---
 
@@ -245,7 +272,7 @@ Live `follow_ups` (read 28 Aug 2026, `information_schema` +
 | `title` | text | NO | Use the email subject. |
 | `due_at` | timestamptz | YES | From `deadline` sentinel-mapped. NULL if none. |
 | `priority` | text | NO | Default `medium`. Not in v1 UI. |
-| `status` | text | NO | Keep `open` \| `done` \| `cancelled`. **Do not extend this CHECK.** WF-07 counts `status='open'` due today. Mapping: awaiting confirm = `open`; sent = `done`; cancel = `cancelled`; Gmail fail stays `open`. |
+| `status` | text | NO | Keep `open` \| `done` \| `cancelled`. **Do not extend this CHECK.** WF-07 counts `status='open'` due today. Mapping: awaiting confirm = `open`; sent = `done`; cancel = `cancelled` on **both** `status` and `draft_state` (025 adds `cancelled` to `draft_state`); Gmail or attachment fail stays `open` with `draft_state='failed'`. |
 | `created_at` | timestamptz | NO | Insert time. |
 
 **Missing — migration `024_follow_ups_email_draft.sql` (file prefix
@@ -260,7 +287,7 @@ forbid schema refactors.
 | `subject` | text | May match `title`; store both so a title edit cannot desync. |
 | `body` | text | Full sent body. |
 | `attachment_asset_ids` | uuid[] not null default `{}` | Chosen set. |
-| `draft_state` | text not null default `'draft'` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed`. Separate from `status` so digest SQL does not change. |
+| `draft_state` | text not null default `'draft'` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` (025). Separate from `status` so digest SQL does not change. `failed` = Gmail or attachment failure only. |
 | `idempotency_key` | uuid not null default `gen_random_uuid()` unique | Callback and send claim. |
 | `gmail_message_id` | text | After send. |
 | `sent_at` | timestamptz | After send. |
@@ -308,9 +335,10 @@ look like double taps.
 - every attachment filename, or `(none)`
 - omitted-for-size list if any
 
-HTML `parse_mode` explicit. Escape `& < >`. Emails in HTML are
-fine; `_` in Markdown is why this build does not leave parse_mode
-absent.
+WF-01 command/callback sends set **no** `parse_mode`, so HTML
+entities render literally. WF-10 compose returns **plain text**.
+No `&amp;` / `&lt;` / `&gt;`. Real newlines, never a literal
+backslash-n.
 
 **Idempotent send** (not a hope):
 
@@ -431,7 +459,9 @@ after Postgres. `queryReplacement` one array expression.
 13. **Transcribe** OpenAI audio, language absent →
 14. **Extract draft** OpenAI JSON schema `wf10-v1` →
 15. **Parse extract** (Code). Empty subject/body is a defect,
-    `stopAndError`.
+    `stopAndError`. If subject or body contains both `[` and `]`,
+    throw (placeholder guard). Prompt also binds `full_name` in
+    the salutation; the guard is enforcement.
 16. **Insert draft** (Postgres) `draft_state='awaiting_confirm'`,
     freeze to/cc/subject/body/attachments/expiry. `RETURNING id`.
 17. **Draft row returned?** False → stopAndError. True →
@@ -446,13 +476,26 @@ Voice-await insert is a shorter branch at 6: insert
 19. **Parse callback** (Code) `f7:`.
 20. **Pick person?** `f7:p:` → jump to command from step 10 with
     that id (load email; no re-guess).
-21. **Cancel?** `f7:x:` UPDATE `cancelled` where
-    `awaiting_confirm` RETURNING. Gate. Reply `Cancelled.`
-22. **Claim send** UPDATE `sending` … RETURNING (SQL in §F).
+21. **Cancel?** `f7:x:` UPDATE `draft_state='cancelled'`,
+    `status='cancelled'` where `awaiting_confirm` RETURNING.
+    Gate. Reply `Cancelled.`
+22. **Claim send** UPDATE `sending` … RETURNING. Join
+    `public.assets` on the claimed array. Each chosen asset:
+    `id`, `storage_path`, `filename`, `size_bytes`. Never rebuild
+    a URL from a bare uuid.
 23. **Claimed?** False → already/expired compose → return.
-24. **Need files?** attachment ids length `::int` gt 0.
-25. **GET each object** HTTP file. Merge. **Do not** Code-read.
-26. **Gmail send** To/CC/subject/body/attachments.
+    `cancelled` → `Cancelled.` `failed` → its own failed text.
+24. **Need files?** attachment count `::int` gt 0. Cap is 3 at
+    candidate select, not here. No 1-file send cap.
+25. **GET each object** HTTP file, URL = bucket + `storage_path`,
+    named `outputPropertyName` `attach_0` / `attach_1` /
+    `attach_2`. `neverError` absent. Gate statusCode 200 and
+    non-zero body. Any GET fail → `draft_state='failed'`, **no
+    Gmail**, reply `Could not attach <filename>. Draft kept. Try
+    again or Cancel.`
+26. **Gmail send** To/CC/subject/body plus
+    `options.attachmentsUi.attachmentsBinary.property` listing
+    those named binaries.
 27. **Gmail id present?** `id` notEmpty (`.first()` if any Merge).
     False → mark `failed` → compose error → return.
 28. **Mark sent** UPDATE `sent` / `done` / `gmail_message_id` /
