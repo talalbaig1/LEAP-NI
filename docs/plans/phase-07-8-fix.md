@@ -86,15 +86,40 @@ case (packet 4.3). Blind retry would hit the existing record.
 
 ## Prove
 
-1. 027 catalogued; `follow_ups.brief` exists.
-2. Voice that triggers the picker: brief stored before buttons;
-   after `f7:p:` the **same** row is updated; body contains the
-   spoken date/commitment. Asset `8402c99a-…` (10 September note).
-3. Voice that does not trigger the picker (person already on the
-   awaiting row / exact) still drafts.
-4. WF-06 one tick claims 4 jobs; record execution time.
-5. Enrichment queued < 60 min is not `stuck_queued` in Scan SQL.
-6. GET WF-01: `864bcb8b-…`, 128 nodes, unchanged.
+1. **027 catalogued.** MCP `list_migrations` name `027_follow_ups_brief`.
+   Columns `brief` / `has_arabic` / `has_latin` exist, nullable.
+
+2. **Voice + picker/callback.** Asset `8402c99a-…`. Record script on
+   exec **272708** wrote brief on `a3e22fb5-…` **before** the next
+   owner-visible node (`Compose no email`). Full Whisper text includes
+   `10th of September`. English auto-detect exact-matched person
+   `Ahmed Tufa` (no email, created 19:00Z) so `Voice disambiguate?`
+   was false and Compose many did not run. `f7:p:` stayed 41 bytes.
+   Callback exec **272726** UPDATEd **the same row** to
+   `awaiting_confirm` / `ahmed.eltohfa@veeam.com`. Body: `meeting on
+   the 10th of September`. No second `follow_ups` insert. Prove drafts
+   cancelled after. Owner `bot_state` restored to `becb0e07-…`.
+
+3. **No-picker (person already on the row).** `5e4fc08a-…` with
+   `person_id` = Ahmed Eltohfa. Exec **272733**. Confirm card, same
+   row, body has `10th of September`. No `f7:p:` buttons.
+
+4. **WF-06 LIMIT 4.** Exec **272743** `19:24:00.041Z`–`19:24:00.910Z`
+   (**869 ms**). Claimed 4 jobs. `Load person` / `Cache skip` ran 4
+   times. Last node `Drain done`. All four `succeeded` /
+   `skipped_cached`. Schedule still `*/15`. Ceiling unchanged.
+
+5. **WF-09 silent for young enrichment.** Four queued enrichment jobs
+   aged 2 min: Scan CASE `kind_78` null; old 1-min rule would have
+   been `stuck_queued`. Did **not** run WF-09 Telegram (`failed_24h`
+   on `b4dbf8cf` would still alert).
+
+6. **GET WF-01** `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`, 128 nodes,
+   unchanged after all PUTs.
+
+Leftover (not this PUT): `Compose no email` still reads
+`$('Lookup people')` and throws on a unique voice match with no
+email (272708).
 
 ## Rollback
 
