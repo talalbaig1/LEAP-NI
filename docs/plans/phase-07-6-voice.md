@@ -1,14 +1,27 @@
 # Packet 7.6 — Voice follow-up
 
 **Date:** 28 August 2026
-**Status:** 7.6-APPLY accepted. **PACKET 7.6-FIX-R** in flight
-(WF-10 only). Do **not** PUT WF-01. Do **not** set `language`
-on any transcribe node.
+**Status:** **7.6-FIX-R APPLIED** 28 Aug 2026. One WF-10 PUT.
+Do **not** PUT WF-01. Do **not** set `language` on any
+transcribe node.
 
-WF-10 rollback target (pre-FIX-R):
-`40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes, ACTIVE).
-WF-01 must stay `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`
-(128 nodes). GET name after the WF-10 PUT and confirm unchanged.
+WF-10 live: `6f3dcfb5-6f36-4166-9864-d603ee374906` (106 nodes,
+ACTIVE). Rollback: `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8`.
+GET WF-01 after PUT: `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`
+(128 nodes, unchanged).
+
+Prove: TEST `LNI-TEST-WF10-voice-exec` `ygHqk6TGlXq7wJvd`
+activated → webhook → WF-10 exec **272317** on capture #82
+asset `f88d975b-f549-49b2-923b-d8862aa97c5f` → deactivated.
+Compose many listed **Ahmed Eltohfa** (0.706, step 3) and
+**Ahmad** (0.545, step 3) among five fuzzy hits. Typed Lookup
+people did **not** run. Claim await did **not** run.
+`follow_ups` `fbe0429b-4df0-4b59-881a-521c17b15f8f` stayed
+`awaiting_voice` with `prompt_version=wf10-v2;has_arabic=true;has_latin=false`.
+Transcribe stored `{text, usage}` only; transcript Arabic,
+no Latin. Variants included `ahmad al tohfa`. Owner
+`bot_state` snapshotted and restored to `f9ba0b14-…`.
+TEST left inactive.
 
 7.6-R2 accepted: Whisper auto-detected Arabic on English speech
 that contained Arabic proper nouns. Config was clean
@@ -27,7 +40,7 @@ Live baseline to confirm before apply (GET, then act):
 | Fact | Value |
 |---|---|
 | WF-01 | `ZMYx19qEr72mJoCX`, `active=true`, **was** `4d4d6e6c-…` (118). After 7.6 PUT: `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` (128). Rollback target `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`. |
-| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`. Rollback `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes). 7.6-FIX-R is one PUT on this workflow only. |
+| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`, versionId `6f3dcfb5-6f36-4166-9864-d603ee374906` (106). Rollback `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8`. |
 | WF-03 | `k0bPD3GJBNN2EHDB`, Whisper node `OpenAI transcribe` |
 | Route type `[2]` | `Duplicate check` (voice). Length **13**. **Do not intercept.** |
 | `executionTimeout` | 300 on WF-01, WF-03, WF-10 |
@@ -648,7 +661,10 @@ compose.
 10. `Set bot await` interval is `20 minutes`. Compose record now
     matches.
 11. Extract schema is `wf10-v2` with `selected_asset_ids` and
-    `unmatched_requests`. Prompt version column `wf10-v2`.
+    `unmatched_requests`. After 7.6-FIX-R, voice rows record
+    script flags in `prompt_version`
+    (`wf10-v2;has_arabic=…;has_latin=…`). Typed drafts may still
+    write `wf10-v2` / `wf10-v1`.
 12. Load candidate assets for extract is LIMIT 20. Insert/update
     draft still caps 3 ids.
 13. **7.6-FIX-R:** `language` still absent. Typed Lookup people
