@@ -576,10 +576,9 @@ duplicate-person (item 14). Do not start it before 4 September 2026.
 
 ## What this file is not
 
-- Not an apply packet. Not a PUT. Not 028 applied.
+- Not a PUT. Apply is packet 7.16.
+- C1–C4 are binding. D1–D6 original text kept under §12b.
 - Not a WF-03 / WF-05 fix (item 14 stays).
 - Not a drop of await columns.
-- Not a sixth WF-01 PUT tonight.
-
-Evidence draft `5df341f8` stays `awaiting_confirm`. Do not send.
-Do not cancel.
+- Evidence draft `5df341f8` stays `awaiting_confirm`. Do not send.
+  Do not cancel.
