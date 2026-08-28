@@ -178,6 +178,9 @@ One task packet at a time. One vertical slice or bounded feature.
 | 17 | **Postgres via the shared Supavisor pooler, SSL `Require`** | Direct and dedicated endpoints are IPv6-only; the n8n container has no IPv6 route |
 | 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here: `$env` is blocked instance-wide, and configuration or state outside Postgres violates architecture.md §2 rule 2. Where a skill and this repo disagree, the repo wins, and you say so rather than silently following the skill. |
 | 19 | **n8n activation: PUT `active=true` is 400 read-only on this build. Activation is `POST /api/v1/workflows/{id}/activate`.** Do not send `active` in a PUT to an already-active workflow. Strip `settings.binaryMode` from any PUT (public PUT of `binaryMode` is 400). GET name, then act. | Packet 4.8: WF-06 inactive, PUT with `"active": true` returned 400 `request/body/active is read-only`. `POST /activate` published it. Already-active workflows (WF-01) are PUT without `active`. |
+| 20 | **n8n Telegram v1.2: `inlineKeyboard.rows` must be FIXED collection entries with scalar expressions.** A whole-array expression saves successfully and sends no keyboard. Node config saving is not proof; read the `sendMessage` API result. | 7.4 10.20 `message_id` 349; 7.4-B exec 271606/271732/271738 |
+| 21 | **`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node. | 7.4-B LNI-TEST-WF10-buttons |
+| 22 | **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads. | GATE-FIX capture #77; WF-09 orphan reconciler |
 
 ### Traps already proven
 
@@ -211,6 +214,12 @@ are required. Proven WF-00 Telegram owner alert, packet 4.11: 0 real
 newlines / 4 literal `\n` before the PUT; after, 4 real newlines /
 0 literal `\n`. `timeSavedMode` is an additional property — strip it
 from any public PUT the same way as `binaryMode`.
+
+**n8n Telegram v1.2: `inlineKeyboard.rows` must be FIXED collection entries with scalar expressions.** A whole-array expression saves successfully and sends no keyboard. Node config saving is not proof; read the `sendMessage` API result.
+
+**`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node.
+
+**The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads.
 
 ---
 
