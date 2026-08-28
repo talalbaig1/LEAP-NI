@@ -179,6 +179,17 @@ One task packet at a time. One vertical slice or bounded feature.
 | 18 | **Project documents override any installed skill** | A general n8n skill will recommend `$env` and `$getWorkflowStaticData`. Both are FORBIDDEN here: `$env` is blocked instance-wide, and configuration or state outside Postgres violates architecture.md §2 rule 2. Where a skill and this repo disagree, the repo wins, and you say so rather than silently following the skill. |
 | 19 | **n8n activation: PUT `active=true` is 400 read-only on this build. Activation is `POST /api/v1/workflows/{id}/activate`.** Do not send `active` in a PUT to an already-active workflow. Strip `settings.binaryMode` from any PUT (public PUT of `binaryMode` is 400). GET name, then act. | Packet 4.8: WF-06 inactive, PUT with `"active": true` returned 400 `request/body/active is read-only`. `POST /activate` published it. Already-active workflows (WF-01) are PUT without `active`. |
 
+### Traps already proven
+
+**n8n Switch connections are INDEX-based and the fallback extra
+output does NOT shift when a rule is appended.** Appending rule N
+makes the fallback N+1, but the pre-existing wire at index N stays
+attached to the old fallback target. After appending any Switch
+rule, re-GET and verify `connection[i]` target for EVERY output,
+not just the new one. Proven on WF-01 Route type, 28 Aug 2026,
+execs 265428–265446: five `/flag` messages routed to a silent NoOp
+with `reply_text` never set and every execution reporting success.
+
 ---
 
 ## 8. Scope discipline
