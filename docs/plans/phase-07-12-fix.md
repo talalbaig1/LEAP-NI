@@ -1,8 +1,8 @@
 # Packet 7.12-FIX — await-window candidates + unmatched on callback
 
 **Date:** 28 August 2026
-**Status:** TO APPLY. One WF-10 PUT. Rollback `5b3d2913-…`.
-**WF-01 is not touched** (`864bcb8b-…`, 128 nodes).
+**Status:** APPLIED. WF-10 `f1013395-…` (109 nodes). Rollback
+`5b3d2913-…`. **WF-01 is not touched** (`864bcb8b-…`, 128 nodes).
 
 Causes accepted from 7.12-R. Binding design is
 `docs/plans/phase-07-6-voice.md` §4 (D1–D3). Do not apply from

@@ -1,8 +1,9 @@
 # Packet 7.6 — Voice follow-up
 
 **Date:** 28 August 2026
-**Status:** **7.12-FIX TO APPLY** on top of 7.6-FIX-R / 7.8 / 7.9 /
-7.10. Binding candidate contract is §4 D1–D3. One WF-10 PUT.
+**Status:** **7.12-FIX APPLIED** 28 Aug 2026 on top of 7.6-FIX-R /
+7.8 / 7.9 / 7.10. Binding candidate contract is §4 D1–D3. One
+WF-10 PUT `f1013395-c88b-4c6f-83dc-f2ef83844a12` (109 nodes).
 Rollback `5b3d2913-…`. Do **not** PUT WF-01. Do **not** set
 `language` on any transcribe node.
 
