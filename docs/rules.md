@@ -199,6 +199,19 @@ should be right where it is produced. Proven WF-01 Flag many?,
 28 Aug 2026, execs 265548/265551/265553: three `/flag` messages
 errored, no reply, no enqueue, WF-00 alerted on the second and third.
 
+**PUT `active=true` is 400 on this n8n build.** Activation of an
+inactive workflow is `POST /api/v1/workflows/{id}/activate`. Do not
+send `active` in a PUT to an already-active workflow. Packet 4.8
+proved it on WF-06. This is also rule 19 in the table above.
+
+**Telegram `text` fields store a literal backslash-n when the JSON
+string is written that way.** The node will send the two characters
+`\` and `n`, not a newline. Real newlines in the stored parameter
+are required. Proven WF-00 Telegram owner alert, packet 4.11: 0 real
+newlines / 4 literal `\n` before the PUT; after, 4 real newlines /
+0 literal `\n`. `timeSavedMode` is an additional property — strip it
+from any public PUT the same way as `binaryMode`.
+
 ---
 
 ## 8. Scope discipline
