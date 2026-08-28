@@ -1547,6 +1547,12 @@ Adapter envelope on `processing_jobs.output` (Phase 2 shape):
 `provider`, `model` (`people/match`), `job_type` (`enrichment`),
 `result`, `raw`, `error`, `completed_at`.
 
+**OPEN QUESTION.** Ceiling accounting counts `credit_ledger` rows with
+status IN (`attempted`,`confirmed`). A `no_match` row is NOT counted.
+This is correct ONLY if an Apollo no-match consumes zero credits.
+Measured in packet 4.3; the result decides whether `no_match` joins
+the IN list.
+
 **Must not:** publish/activate this workflow in packet 4.2; touch
 WF-01 / WF-05 / the dispatch NoOp; write `people.linkedin_url`;
 overwrite captured email / full_name / title / phone; `$env`;
