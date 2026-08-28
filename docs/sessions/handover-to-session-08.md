@@ -13,7 +13,9 @@ Read first, in order: `docs/rules.md`,
 `docs/architecture.md`, `docs/phases.md`, `docs/prd.md`,
 `docs/workflows.md`, `docs/sessions/session-06-phase-4.md`,
 `docs/sessions/session-07-phase-7.md`,
-`docs/plans/phase-07-plan.md`.
+`docs/plans/phase-07-plan.md`,
+`docs/plans/phase-07-4-wf01-wire.md`,
+`docs/plans/phase-06-plan.md`.
 
 The Phase 7 plan is on `main` (squash-merge PR **#38** `952ab05`).
 PR **#36** is closed as superseded. Do not reopen it.
@@ -60,18 +62,22 @@ Until that packet:
   close: `e3f817e2-9989-4486-8c7d-fe2ebb0d1b8a`. Unexpected change
   means someone PUT without a packet.
 
-When 7.4 **is** issued, Switch-index assertion (session 06 trap, 4.9
-void prove):
+When 7.4 **is** issued, apply
+`docs/plans/phase-07-4-wf01-wire.md` mechanically. Do not invent a
+second graph. Switch-index assertion (session 06 trap, 4.9 void
+prove):
 
 - Named Route type output **followup** is **appended** after `flag`.
 - Do **not** renumber outputs 0–10.
-- After the PUT, **`connection[11]` is followup**.
+- After the PUT, **`connection[11]` is Followup payload**.
 - **`connection[12]` is the re-wired fallback** (Unknown type).
+- **`connection[5]` is `Callback is f7?`**, not Callback terminal.
 - Re-GET **every** `connection[i]`. Appending a named rule does not
   move the old fallback wire.
 
-`source=voice` is a **non-functional stub** pending 7.4. Declared in
-`workflows.md`. Do not build it in a different packet.
+`source=voice` is a **non-functional stub**. The authored 7.4 apply
+**does not** intercept voice. Capture voice stays Route type `[2]`.
+Do not build the intercept unless a packet after the gate says so.
 
 ## Schema (024 / 025)
 
@@ -206,7 +212,12 @@ stay the parallel Telegram + Gmail standard (`.first()` after Merge).
 | live catalog rows | 24 |
 
 Older `processing` captures have **no** `entity_resolution` job.
-Leave them unless the architect orders a backfill.
+Leave them unless the architect orders a backfill. Live WF-07
+`Load digest` (28 Aug): all 43 are `processing` with `closed_at`
+set, but `opened_at` is before `events.starts_at`
+(`2026-08-30 21:00:00+00`), so they are **not** on the 7 AM
+`stuck (event to date)` number today. Full predicate in
+`docs/plans/phase-06-plan.md` §H. Not a fix.
 
 ## Operating rules (do not re-learn)
 
@@ -241,12 +252,17 @@ Session 06 1–16 still hold. Session 07 adds:
 
 ## What remains (state it plainly)
 
-- **7.4**, only if the 29 Aug gate passes: WF-01 Route type append,
-  callback `f7:`, `reply_markup` on the shared send, voice intercept
-  while awaiting. Prove `/ask` `/digest` `/flag` still send after
-  the PUT.
+- **7.4**, only if the 29 Aug gate passes: apply
+  `docs/plans/phase-07-4-wf01-wire.md`. Route type append, callback
+  `f7:`, `reply_markup` on **Send followup reply only** (do not
+  edit the ask/digest/flag/command send nodes), `reply_text_2` if
+  set. Voice intercept is **not** in that file. Prove `/ask`
+  `/digest` `/flag` still send after the PUT against executions
+  named in that file §6.
+- **Phase 6** is planned, not built. `docs/plans/phase-06-plan.md`.
+  No 026. No WF-08 PUT until its own post-event packet.
 - **43 captures at `processing`.** Replay or exclude from digest.
-  Still open.
+  Still open. They are not on the 7 AM stuck line today (§H).
 - **2 pending `entity_candidates`.** Owner.
 - **WF-03 requeue has no backoff.**
 - **Supabase hardening.** Disable public signup, delete
@@ -268,7 +284,10 @@ Session 06 1–16 still hold. Session 07 adds:
 
 ## What you build next
 
-Nothing until the architect issues a packet. If that packet is 7.4,
-the 29 Aug gate has passed and the Switch-index assertion above is
-binding. If it is capture hardening, do not touch WF-10 or WF-01.
-Phase 6 and Phase 5 are September.
+Nothing until the architect issues a packet **and** the 29 Aug gate
+result is in. Do not PUT WF-01. Do not activate WF-10. Do not apply
+026.
+
+If that packet is 7.4, the gate has passed: apply
+`docs/plans/phase-07-4-wf01-wire.md` as written. If it is capture
+hardening, do not touch WF-10 or WF-01. Phase 6 and Phase 5 wait.

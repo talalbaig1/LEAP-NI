@@ -5,9 +5,11 @@
 WF-10 inactive, attachments on real objects, then session close.
 **Outcome:** Packets 7.1–7.3c **closed**. WF-10 is built and **INACTIVE**.
 Command + callback + Gmail + attachments proven on real objects. 7.4
-(WF-01 wire, voice) is **not** built. Last merge on `main` is PR **#38**
-squash `952ab05` (`Phase 7: 024/025 + WF-10 follow-up drafting (inactive)`).
-PR **#36** closed as superseded; the plan lives on main via #38.
+(WF-01 wire) is **authored, not applied**. Voice intercept is **not**
+in that apply. Phase 6 is a plan only. Last merge on `main` is PR
+**#38** squash `952ab05` (`Phase 7: 024/025 + WF-10 follow-up drafting
+(inactive)`). PR **#36** closed as superseded; the plan lives on main
+via #38.
 
 No n8n workflow JSON is committed. Live secrets live in gitignored
 `docs/environment.local.md`.
@@ -30,6 +32,7 @@ proof is `execute_workflow`, not the bot.
 | 7.3b | #38 | Attachment repair on real objects. Migration `025_follow_ups_cancelled_state`. Placeholder guard. Plain text. Cancel state. |
 | 7.3c | #38 | Throwaway capture #71 / asset deleted. Three `LNI-TEST-` workflows archived. Squash-merge. Branches deleted. |
 | 7.5 | this file | Session log + handover. Docs only. |
+| 7.4-PREP + 6.0 | docs on this close | `docs/plans/phase-07-4-wf01-wire.md` (mechanical WF-01 change, not applied). `docs/plans/phase-06-plan.md`. Zero n8n writes. Zero DB writes. |
 
 **WF-10, live.** id `D9PRjbZMQxe9ESVW`, name `LNI WF-10 - Follow-up
 drafting`. `active=false`, `activeVersionId=null`, versionId
@@ -163,24 +166,30 @@ the 7 AM briefing does not count a phantom `failed` capture.
 
 ## 6. What is NOT built
 
-- **7.4 WF-01 wire.** Route type is not appended. Callback is still
-  the existing terminal. Shared send does not pass `reply_markup`.
-  `/followup` is not a live Telegram command.
-- **Voice path.** `source=voice` is a **non-functional stub** pending
-  7.4. Declared in `workflows.md`. Do not build it in a close packet.
+- **7.4 WF-01 wire is not live.** The exact PUT lives in
+  `docs/plans/phase-07-4-wf01-wire.md`. Route type is not appended.
+  Callback is still the existing terminal. `/followup` is not a live
+  Telegram command. Do not apply that file until a packet after the
+  29 Aug gate says so.
+- **Voice path.** `source=voice` is a **non-functional stub**. The
+  7.4-PREP apply **does not** intercept voice. Capture voice stays
+  Route type `[2]`. Declared in `workflows.md` and in the 7.4 file
+  §8. Do not build it in a close packet.
 - **Per-file attachment picker.** Telegram `callback_data` is 64
   bytes. v1 is Send / Send without attachments / Cancel.
-- **Phase 6 and Phase 5.** September. Order stays 7, then 6, then 5.
-  Phase 8 PWA stays refused pre-event.
+- **Phase 6 and Phase 5.** Plan for 6 is `docs/plans/phase-06-plan.md`.
+  No 026. No WF-08 PUT. Order stays 7, then 6, then 5. Phase 8 PWA
+  stays refused pre-event.
 
 **7.4 is conditional on the 29 August gate.** If the gate fails,
 stop feature work and harden capture. Do not wire WF-01 "just to
 finish Phase 7."
 
-Switch-index assertion for when 7.4 is issued: named output
-**followup** is **appended** after `flag`. Do not renumber 0–10.
-After the PUT, **`connection[11]` is followup**, **`connection[12]`
-is the re-wired fallback** (Unknown type). Re-GET every
+Switch-index assertion for when 7.4 is applied (from the authored
+file): named output **followup** is **appended** after `flag`. Do
+**not** renumber 0–10. After the PUT, **`connection[11]` is Followup
+payload**, **`connection[12]` is the re-wired fallback** (Unknown
+type). `[5]` becomes `Callback is f7?`. Re-GET every
 `connection[i]`. Session 06 4.9 shipped a named rule whose wire
 still pointed at the old fallback.
 
@@ -226,8 +235,12 @@ Carry with session 06's list. New or re-proven:
 
 Unchanged from session 06, plus:
 
-- **Do not add `/followup` in BotFather** until 7.4.
+- **Do not add `/followup` in BotFather** until 7.4 is applied.
 - 7.4 waits on the **29 Aug gate**. Capture reliability wins.
 - Two pending person `entity_candidates` still owner.
 - Signup / Confirm email / delete `7bf179a8` still owner.
-- 43 captures at `processing` still an open Phase 3 decision.
+- 43 captures at `processing`: still an open Phase 3 decision.
+  Factual (WF-07 live SQL, 28 Aug): they are **not** on the 7 AM
+  `stuck (event to date)` line today, because `opened_at` is before
+  `events.starts_at` (`2026-08-30 21:00:00+00`). Detail in
+  `docs/plans/phase-06-plan.md` §H. Not a fix.
