@@ -2572,9 +2572,11 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     **Compose many** (inline buttons `f7:p:<person uuid>`,
     `<name> (no email)` when email is null) → Return. NEVER guess.
 11. **Has email?** — `email_normalized` notEmpty. False →
-    **Compose no email**
-    (`<name> has no email. Capture a card with an address first.`)
-    → Return.
+    **Load no-email person** (row `follow_ups.person_id` first,
+    else incoming `$json.id`) → **Compose no email**
+    (`<full name> has no email address. Send /followup with an email to draft one.`).
+    RETURN: `ok` true, non-empty `reply_text`. Do not claim.
+    Do not cancel. Await survives. → Return.
 12. **Need voice wait?** — `brief` empty AND `source` equals
     `command`. True → **Insert awaiting voice** (`draft_state='awaiting_voice'`,
     `status='open'`, `title='Follow-up'`, `person_id` set when
@@ -2658,6 +2660,8 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     disambiguate?** (`hit_count > 1` OR `step = 3`) true →
     **Compose many** / `f7:p:` (F3, never auto-pick fuzzy).
     False (unique exact) → **Has email?** → voice extract.
+    Unique exact with no email → Load no-email person →
+    Compose no email (7.9). Not a throw. Await survives.
 27. **Reload brief** then **Resolve brief** sit immediately
     before Extract (7.8-FIX A4). Reload SELECT the
     `bot_state.awaiting_followup_id` row (`brief`, flags,
