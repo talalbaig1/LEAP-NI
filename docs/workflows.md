@@ -601,6 +601,25 @@ LNI bot only and must not disturb any ElderWise webhook.
    Telegram owner alert text: 4 real newlines, 0 literal `\n`.
    Logic otherwise unchanged.
 
+   **Packet 4.11 measured (28 Aug 2026, after the cast).** Messages
+   1–2 stay 265540 / 265544. Re-prove 3–5 only, webhook, 05:39Z:
+   3. **265724** success last **Flag sent terminal**. `hit_count`
+      arrived as integer `2`. Reply (verbatim, including the
+      trailing space after the first name):
+      `LNI LI Guard Probe \nLNI No-Match Probe lni-nomatch-probe@lni-probe-8f3a2c.example`
+      `LNI LI Guard Probe` email is NULL. Render is name + space +
+      empty — dangling separator, not a bare `null`. Defect on
+      render. Type-cast itself: pass.
+   4. **265725** error last **Flag enqueue**. `hit_count` integer
+      `1`. `null value in column "capture_id" of relation
+      "processing_jobs" violates not-null constraint`. No reply.
+      Fail. Live column `processing_jobs.capture_id` is NOT NULL
+      (architecture.md § processing_jobs). Spec INSERT uses NULL.
+   5. **265729** same as 4. Fail.
+   New enrichment jobs: none. queued 0. Apollo 2599, ledger 6,
+   records 12 — still no force cycle. Do not treat 05:30 **265649**
+   or the 05:45 Empty-queue drain as force evidence.
+
    Send `reply_text` (and `state_echo` only when `reply_text` is empty and
    `state_echo` is not). Gate: do not send if the callee `ok` is false or
    `reply_text` / `state_echo` is empty. Do not re-test a second field.
