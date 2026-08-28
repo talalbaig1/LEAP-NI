@@ -243,7 +243,7 @@ to `normal` / nothing open.
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-06 | Enrichment | 4 | Schedule: drain `job_type='enrichment'` queue. WF-05 enqueues; `/flag` force-enqueues |
+| WF-06 | Enrichment | 4 | Manual + Schedule (built **INACTIVE**; this packet does not publish). Drains `job_type='enrichment'`. WF-05 enqueue and `/flag` are later packets. |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
 | WF-09 | Watchdog | 3 | Schedule, every 15 min |
@@ -1466,111 +1466,95 @@ in WF-05.
 
 ## WF-06 — Enrichment
 
-**Phase 4** · **Trigger:** Schedule (drain the enrichment queue). Not called
-per capture.
+**Phase 4** · **Triggers:** Manual + Schedule `*/15 * * * *`.
+**Live:** built **INACTIVE**. Packet 4.2 does not publish. Timezone is
+`settings.timezone: Asia/Riyadh` only. `availableInMCP: true`,
+`errorWorkflow` = LNI WF-00, `executionTimeout: 300`,
+`callerPolicy: workflowsFromSameOwner`. MCP create does not persist
+settings or credentials — REST PUT after create, then re-GET. Postgres
+**Leap-NI**. HTTP **Apollo Leap-NI** (`httpHeaderAuth`). First
+httpHeaderAuth on this instance is Storage; MCP will bind the wrong
+one. Proof of bind is re-GET, then a self-identifying execution
+(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`).
 
-Packet 4.0 specifies this contract. Do **not** create, modify, publish, or
-bind the workflow in this packet.
+WF-05 enqueue and `/flag` are **not** in this packet. The live WF-05
+NoOp `WF-06 dispatch (not yet)` is untouched. This workflow drains
+`job_type='enrichment'` jobs that were inserted by hand for prove, or
+that a later packet will enqueue.
 
-### Inputs
+Queued job `output.person_id` is the person uuid (no new column).
+`people.linkedin_url` is **not** written in this packet (architecture
+§7 sequencing: 018 is live; WF-05 LinkedIn-source guard is not).
 
-WF-06 claims `processing_jobs` rows:
+### Node graph (as built)
 
-| Field | Role |
-|---|---|
-| `job_type` | `'enrichment'` |
-| `status` | `'queued'` |
-| `owner_id` | from the job row (Postgres), never `$env` |
-| `capture_id` | nullable; person-scoped jobs may still carry it |
-| `asset_id` | NULL (capture/person/company scoped) |
-| `output` | adapter envelope written on completion (same shape as WF-03) |
+1. **Manual Trigger** and **Schedule drain** (`*/15`) both feed
+   **Self identify**.
+2. **Self identify** — Postgres `SELECT name, timezone, owner_id FROM
+   public.events WHERE name = 'LEAP 2026' LIMIT 1`.
+   `alwaysOutputData: true`, `executeOnce: true`, `retryOnFail: true`,
+   `replaceEmptyStrings: false`.
+3. **Row returned?** — `name` equals `LEAP 2026`, `typeValidation:
+   strict`. False → **Wrong database terminal** (`stopAndError`, no
+   comma/quote/apostrophe).
+4. **Claim enrichment job** — one row, oldest first:
+   `UPDATE … WHERE id = (SELECT … job_type='enrichment' AND
+   status='queued' … ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP
+   LOCKED) RETURNING`. `alwaysOutputData: true`. `queryReplacement` is
+   one array: owner_id from **Self identify**.
+5. **Job returned?** — claimed `id` notEmpty, strict. False →
+   **Empty queue** NoOp (not an error).
+6. **Load person** — `people` by `output.person_id`, plus current
+   `company_id` and `split_part(email_normalized, '@', 2)` as
+   `email_domain`. Named-node sourcing after this I/O.
+7. **Person has email?** — `email_normalized` notEmpty. False →
+   **No email terminal** (`stopAndError`).
+8. **Load ceilings** — `lni_config` keys `apollo_daily_ceiling` and
+   `apollo_lifetime_ceiling`; counts of `credit_ledger` rows with
+   `provider='apollo'` and `status IN ('attempted','confirmed')` for
+   today Riyadh and lifetime.
+9. **Ceiling ok?** — `daily_used < daily_ceiling` AND
+   `lifetime_used < lifetime_ceiling`. False → **Mark ceiling
+   reached** (job `needs_review`, `error_code='ceiling_reached'`,
+   envelope error class `ceiling_reached`) → **Ceiling stop** NoOp.
+   **No HTTP. No ledger row.**
+10. **Insert ledger** — `credit_ledger` `provider='apollo'`,
+    `credits_spent=1`, `operation='people_match'`,
+    `status='attempted'`, `entity_id` = person. **Before the HTTP
+    call.** `alwaysOutputData: true`. `retryOnFail: true`.
+11. **Apollo people match** — POST
+    `https://api.apollo.io/api/v1/people/match` JSON `{email}` from
+    **Load person**. `httpHeaderAuth` **Apollo Leap-NI**.
+    `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
+    `onError: continueRegularOutput`. Do not reveal personal emails
+    or phones (`reveal_*` absent / false).
+12. **HTTP ok?** — `statusCode` >= 200 AND < 300. False →
+    **Write HTTP failed** (ledger `'failed'`, job `'failed'`,
+    envelope error class `http`) → **HTTP failed** NoOp.
+13. **Person matched?** — `body.person.id` notEmpty. False →
+    **Write no match** (ledger `'no_match'`, job `'succeeded'`,
+    envelope `result` null) → **No match** NoOp.
+14. **Write match** — ledger `'confirmed'`;
+    `enrichment_records` `entity_type='person'` `provider='apollo'`
+    payload = person object; **second** row `entity_type='company'`
+    only when `person.organization` is present AND `email_domain`
+    is **not** in `lni_free_email_domains`. Job `'succeeded'`.
+    Envelope `result` = person. **Do not write
+    `people.linkedin_url`.**
+15. **Match done** NoOp.
 
-Enqueue is **not** this workflow's job:
+Adapter envelope on `processing_jobs.output` (Phase 2 shape):
+`provider`, `model` (`people/match`), `job_type` (`enrichment`),
+`result`, `raw`, `error`, `completed_at`.
 
-- **WF-05 auto-enqueue:** any person with non-null `email_normalized`
-  whose capture is not `needs_review`.
-- **`/flag`:** force-enqueues a person the guard skipped.
-- **Company fallback:** `organizations/enrich` only when a company has
-  no enriched person.
-
-Ceilings for both providers are read from **`lni_config`**
-(`apollo_daily_ceiling`, `apollo_lifetime_ceiling`,
-`tavily_lifetime_ceiling`), never `$env`.
-
-### Adapter envelope
-
-Same Phase 2 envelope (`architecture.md` §6). Provider wrappers stay
-inside `raw`. Downstream reads `result` only.
-
-```json
-{
-  "provider":     "apollo | tavily",
-  "model":        "<endpoint or engine id>",
-  "job_type":     "enrichment",
-  "result":       {},
-  "raw":          {},
-  "error":        null,
-  "completed_at": "<timestamptz>"
-}
-```
-
-Successful payload is also stored on `enrichment_records` (`provider`,
-`payload`, `fetched_at`). That table is the enrichment record.
-`processing_jobs.output` is the adapter audit of the call.
-
-### Credit guard and ledger ordering
-
-1. Read the provider ceiling from `lni_config`.
-2. Sum today's `credit_ledger` spend for that provider (`status` in
-   `'attempted'` and `'confirmed'` — an attempted row is already a
-   reserved spend).
-3. **If at or above the ceiling, stop.** Log and alert. Do not call the
-   provider.
-4. **Write the `credit_ledger` row BEFORE the provider call, never
-   after.** `status = 'attempted'` on insert; update to `'confirmed'` /
-   `'no_match'` / `'failed'` after the response. A crash after a 200
-   must not lose a spend. Reconcile against the delta in Apollo
-   `num_credits_remaining`, never `num_lead_credits_used`.
-
-### Person path (automatic, and `/flag`)
-
-5. Apollo People Enrichment by exact normalized email.
-6. Organization block in that **same** response is company context.
-   Do not spend a second people-credit to learn the company.
-7. Skip if a fresh `enrichment_records` row already exists for that
-   person and provider.
-
-### Company path (fallback only)
-
-8. `organizations/enrich` only for a company with no enriched person.
-9. Derive / normalise domain with the **Postgres public-suffix
-   function**, not a Code node (`jccs.com.sa` stays intact;
-   `sa.qatarairways.com` → `qatarairways.com`).
-
-### Tavily path (company website only)
-
-10. On Apollo no-match for a **company website**: Tavily search.
-    `provider = 'tavily'`. Never a source of people data. Never merged
-    into an Apollo `enrichment_records` row.
-
-### Writes
-
-11. `enrichment_records` only, plus the ledger row already written.
-    **Never** overwrite `people.email`, `people.full_name`,
-    `people.title`, `people.phone`.
-12. **Single exception:** `people.linkedin_url` may be set when it is
-    NULL and Apollo matched on exact normalized email;
-    `people.linkedin_source = 'apollo'`. Card-supplied URLs stay
-    `'card'` and are never replaced.
-13. Mark the enrichment job `succeeded` | `failed` | `needs_review`.
-
-**Must not:** treat enrichment as user-provided fact; auto-merge on an
-Apollo LinkedIn URL; bind HTTP credentials via MCP create (the first
-`httpHeaderAuth` on this instance is Storage, not Apollo — REST PUT
-then read-back in a later packet); use `$env` or
-`$getWorkflowStaticData`; log emails, phones, or payloads.
+**Must not:** publish/activate this workflow in packet 4.2; touch
+WF-01 / WF-05 / the dispatch NoOp; write `people.linkedin_url`;
+overwrite captured email / full_name / title / phone; `$env`;
+`$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
+phones, or payloads; treat enrichment as card evidence.
 
 ---
+
 
 ## WF-07 — Digests
 
