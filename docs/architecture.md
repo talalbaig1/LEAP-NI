@@ -901,6 +901,18 @@ GETs both returned `num_credits_remaining` = 2603. Do not call
 are summed as `sum(credits_spent)`, not `count(*)`, so a future
 multi-credit operation counts correctly. `'no_match'` stays off the IN
 list: a no-match costs nothing (packet 4.3 OPEN QUESTION: **closed**).
+`skipped_cached` rows use `status='no_match'` and `credits_spent=0`, so
+they do not consume ceiling.
+
+**Re-enrichment cache.** A person is not re-enriched while a
+person/apollo `enrichment_records` row younger than 30 days exists.
+The job completes as succeeded with a `credit_ledger` row
+`operation='skipped_cached'`, `status='no_match'`, `credits_spent=0`,
+and NO new `enrichment_records` row. Hollow results are cached on
+the same terms. Only a job carrying `force=true` bypasses the
+cache; `/flag` is the only producer of `force=true`.
+Measured 28 Aug 2026: two runs on the same person spent two
+credits and wrote duplicate enrichment rows. That is why.
 
 **Known discrepancy (evidence, not edited).** Ledger row
 `73fc2831-2231-40f4-9013-8a67d5dc4074` is `confirmed` / 1 for a call
@@ -935,8 +947,10 @@ table, not a Code node. It must leave `jccs.com.sa` intact and reduce
 `sa.qatarairways.com` to `qatarairways.com`. Packet 4.5 backfilled
 `companies.domain` via `lni_normalize_domain` of the primary person's
 email domain where domain was NULL and the email domain was not in
-`lni_free_email_domains`. Left untouched:
-`www.future-projects.net` (would become `future-projects.net`).
+`lni_free_email_domains`. Packet 4.6: `companies.domain` for FUTURE
+PROJECT normalised from `'www.future-projects.net'` to
+`'future-projects.net'`. A website is not a domain and Apollo will
+not match one.
 
 **Personal email domain.** A free-mail domain is never treated as a
 company domain. Blocklist lives in `lni_free_email_domains` (a table,
