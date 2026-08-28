@@ -244,3 +244,48 @@ Unchanged from session 06, plus:
   `stuck (event to date)` line today, because `opened_at` is before
   `events.starts_at` (`2026-08-30 21:00:00+00`). Detail in
   `docs/plans/phase-06-plan.md` §H. Not a fix.
+
+---
+
+## 10. Close — gate-fix, 7.4 apply, 7.4-B/C (28 Aug evening)
+
+Appended. Do not treat §1–§9 as current live state for 7.4 or
+WF-10; those sections are the 7.3c close.
+
+**Gate found two real capture-path defects, both fixed.** The
+`/done` enqueue raced the last upload (capture #77, 16ms). The
+sweep keyed on global `bot_state.last_activity_at` instead of
+per-capture. Fixes: migration `026_captures_last_activity`, WF-09
+orphan reconciler, WF-02 predicate. PR #42 on main.
+
+**Side effect, recorded honestly.** The reconciler replayed the
+Phase 1 backlog. `captures.ready` 9 → 39, people 8 → 22,
+companies 6 → 16, interactions 14 → 49, 17 Apollo credits against
+a 60/day ceiling. That closed a Phase 2 open item as a **side
+effect of a fix**, not as a decision.
+
+**7.4 applied, failed, rolled back, proven off-router, applied
+once more and passed.** First PUT failed read-back 10.20: confirm
+card `message_id` 349 had no `reply_markup` (n8n v1.2 whole-array
+`inlineKeyboard.rows`). Rolled back to 97 nodes. Proven off-router
+on disposable `LNI-TEST-WF10-buttons` (`C92yyOvwvyWq1Wg0`): fixed
+collection + scalar expressions. Second PUT (the one remaining)
+passed: confirm card **369** had `f7:s:` / `f7:n:` / `f7:x:`.
+WF-01 was PUT **three times in one evening**; that is the ceiling,
+not the norm. Live frozen baseline
+`4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3` (118 nodes). Lesson is
+`rules.md` rule 20. PR #43 closed as superseded, not merged.
+
+**Callback branch proven live.** WF-01 **271831** (`f7:x:` →
+Callback is f7? true → Answer callback → Callback payload → Call
+WF-10). WF-10 **271832** (`Cancel draft`). `follow_ups`
+`68d7cc6d-00f6-449e-b9da-048f867fe79e` `draft_state` and `status`
+both `cancelled`. Gmail did not run.
+
+**Still open, not fixed:** the `/done` receipt counts captures
+rather than enqueued jobs.
+
+WF-10 stays ACTIVE `8bd44005-8d91-422b-80f3-b0820b9e1e20`. BotFather
+`/setcommands` updated by owner: 8 commands including `followup`.
+7.6 is PR **#41** (plan only, rebased, not implemented).
+
