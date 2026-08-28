@@ -71,7 +71,8 @@ can never lose or mis-attribute data.
 
 1. **`/new` implicitly closes the previous capture.** The most common mistake
    becomes a no-op.
-2. **Inactivity auto-close** after 10 minutes idle (`bot_state.last_activity_at`),
+2. **Inactivity auto-close** after 10 minutes idle (`captures.last_activity_at`,
+   per capture — not `bot_state.last_activity_at`),
    stamped `close_reason = auto` so it is visible in review. Window is a
    documented constant in the WF-02 sweep query, not `$env`. The sweep is
    WF-02's Schedule Trigger (every 5 minutes, `Asia/Riyadh`). **Closing is

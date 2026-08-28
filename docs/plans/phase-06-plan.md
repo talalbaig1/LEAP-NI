@@ -26,7 +26,9 @@ memory: whether the 43 `processing` captures with no
   touch ElderWise.
 - Never `$env`. Never `$getWorkflowStaticData`.
 - Additive schema only. Forward-only migrations. Catalog **name**
-  starts `026_`.
+  starts `027_`. **026 is taken:** GATE-FIX
+  `026_captures_last_activity` (`captures.last_activity_at`).
+  Embeddings is **027**, not 026.
 - WF-08 is **ACTIVE**. Changing it is blast radius. That step is
   its own packet, after the event, unless the architect says
   otherwise.
@@ -48,23 +50,23 @@ Verified 28 August 2026, read-only, no CREATE.
 | Comment on `vector` | `vector data type and ivfflat and hnsw access methods` |
 
 **Available, not installed.** Same class as `pg_trgm` before
-migration `001_extensions`. Migration 026 must
+migration `001_extensions`. Migration 027 must
 `create extension if not exists vector;` (additive). This packet
 does not run that.
 
 Project: Postgres 17.6 on this Supabase project. Extension exists
-on the image. It is not in `pg_extension` until 026.
+on the image. It is not in `pg_extension` until 027.
 
 ---
 
-## B. Schema — migration 026, additive
+## B. Schema — migration 027, additive
 
-**File:** `supabase/migrations/026_embeddings.sql`
-**Catalog name:** `026_embeddings` (must start `026_`; 023 is still
-the unnamed `processing_jobs_enrichment_person_uniq`; 012 never
-applied).
+**File:** `supabase/migrations/027_embeddings.sql`
+**Catalog name:** `027_embeddings` (must start `027_`; 026 is
+`026_captures_last_activity`; 023 is still the unnamed
+`processing_jobs_enrichment_person_uniq`; 012 never applied).
 
-026 does four things and nothing else:
+027 does four things and nothing else:
 
 1. `create extension if not exists vector;`
 2. `create table public.embeddings (…);`
@@ -113,7 +115,7 @@ non-empty table before it is useful; an untrained IVFFlat is a seq
 scan with extra ceremony. HNSW works on first insert. pgvector
 0.8.2 ships both (verified from the extension comment). Corpus at
 plan time is tens of rows, not millions. Rebuild later if the table
-crosses tens of thousands — that is a later packet, not 026.
+crosses tens of thousands — that is a later packet, not 027.
 
 Also btree `(owner_id, source_table, source_id)` for the owner
 filter that every retrieve must keep.
@@ -122,10 +124,10 @@ filter that every retrieve must keep.
 
 - New table. New extension. New indexes. New RLS policy on the new
   table only.
-- Dropping 026 is `drop table embeddings; drop extension vector;`
+- Dropping 027 is `drop table embeddings; drop extension vector;`
   if nothing else depends on it. Do not plan to drop it.
-- WF-08 is unchanged by 026. Retrieve still works on trigram if
-  026 lands and the WF-08 packet never does.
+- WF-08 is unchanged by 027. Retrieve still works on trigram if
+  027 lands and the WF-08 packet never does.
 
 ---
 
@@ -220,7 +222,7 @@ Why not WF-03:
 - `processing_jobs_job_type_check` is a closed list
   (`card_vision`, `transcription`, `photo_description`,
   `extraction`, `entity_resolution`, `enrichment`). Adding
-  `embed` is an ALTER CHECK on a live table. That is not "026 is
+  `embed` is an ALTER CHECK on a live table. That is not "027 is
   additive" in spirit, and it is a capture-adjacent schema change.
 - Embeddings are not a per-asset capture job. They are a corpus
   maintenance job. Wrong queue.
@@ -269,7 +271,7 @@ Phase 6 step that can break `/ask` for the owner during or after
 the event. It must be its own packet. After the event, unless the
 architect says otherwise.**
 
-026 can land without touching WF-08. Backfill can land without
+027 can land without touching WF-08. Backfill can land without
 touching WF-08. `/ask` stays the trigram path until the WF-08
 packet.
 
@@ -288,7 +290,7 @@ That later packet (sketch, not this PR):
    `timeSavedMode`. Rollback = restore version
    `b699e7d6-ecd4-431d-86ff-d61bd1472390`. Do not deactivate.
 
-Do not combine 026, WF-11, and the WF-08 PUT in one packet.
+Do not combine 027, WF-11, and the WF-08 PUT in one packet.
 
 ---
 
@@ -304,7 +306,7 @@ Vector retrieval changes that because cosine distance is a real
 score, not a boolean. `embedding <=> query_embedding` is in `[0, 2]`
 for cosine ops; similarity `1 - distance` is the number to floor.
 
-**Recommended floor for the later WF-08 packet (not 026):** keep a
+**Recommended floor for the later WF-08 packet (not 027):** keep a
 row if **either**
 
 - trigram_hit is true (name / company / summary `%` question), or
@@ -396,7 +398,7 @@ query does.
 | Packet | Artefact | When | Architect read-back |
 |---|---|---|---|
 | **6.0 Plan** | this file | now | Docs only. No `vector` in `pg_extension`. WF-08 GET unchanged. |
-| **6.1 Schema** | migration `026_embeddings` applied | after the event, or when the architect says | `pg_extension` has `vector` 0.8.2. `embeddings` exists, 0 rows, HNSW present. Catalog name starts `026_`. No ALTER of `processing_jobs_job_type_check`. WF-08 GET unchanged. |
+| **6.1 Schema** | migration `027_embeddings` applied | after the event, or when the architect says | `pg_extension` has `vector` 0.8.2. `embeddings` exists, 0 rows, HNSW present. Catalog name starts `027_`. No ALTER of `processing_jobs_job_type_check`. WF-08 GET unchanged. |
 | **6.2 Backfill** | WF-11 created **INACTIVE**, then one manual/execute run | after 6.1, not 31 Aug–3 Sep | GET name `LNI WF-11 - Embeddings backfill`. `active: false`. Self-id `LEAP 2026`. `embeddings` row count equals the nonempty sources above (hash skip). Cost in the OpenAI dashboard is cents. |
 | **6.3 WF-08 retrieve** | **Own packet.** PUT WF-08 hybrid retrieve + floor | after 6.2, after the event unless architect says otherwise | GET versionId moved. `Retrieve` uses `embeddings` and still JOINs capture_no. Off-topic `/ask` can yield `row_count = 0` and the sentinel. On-topic matches 255773-class citations. Rollback version `b699e7d6-…`. PUT without `active`. |
 
@@ -416,7 +418,7 @@ If 7.4 is in flight, Phase 6 waits. Capture wins.
 | `embeddings` | Additive | Empty table cannot break `/ask`. A bad HNSW op class is caught at CREATE INDEX, not at retrieve. |
 | `vector` extension | Additive | `CREATE EXTENSION` is cluster-safe on this image (list_extensions showed 0.8.2 available). |
 
-**During 31 Aug – 3 Sep:** no 026, no WF-11 schedule, no WF-08 PUT.
+**During 31 Aug – 3 Sep:** no 027, no WF-11 schedule, no WF-08 PUT.
 
 ---
 
@@ -424,17 +426,17 @@ If 7.4 is in flight, Phase 6 waits. Capture wins.
 
 | Trap | How avoided |
 |---|---|
-| `installed_version` null mistaken for "pgvector missing" | It is available, not installed. 026 CREATE EXTENSION. |
+| `installed_version` null mistaken for "pgvector missing" | It is available, not installed. 027 CREATE EXTENSION. |
 | IVFFlat untrained | HNSW. |
 | Embedding people as a substitute for what was said | Not in v1. JOIN at retrieve. |
 | WF-03 job type | Cut. New workflow. |
-| WF-08 PUT in the same packet as 026 | Forbidden. §F. |
+| WF-08 PUT in the same packet as 027 | Forbidden. §F. |
 | Floor on trigram-only retrieve | Still cut. Floor only when a vector score exists. |
 | Postgres COUNT string | `count(*)::int` / `OVER()::int` if WF-11 reports counts. |
 | PUT `active=true` is 400 | WF-11 activate via `POST /activate` when the time comes. WF-08 PUT without `active`. Strip `binaryMode` / `timeSavedMode`. |
 | MCP create binds ElderWise | REST PUT credentials + self-id. |
 | Logging PII | No email/body/transcript in `audit_log`. |
-| 023 unnamed catalog | File **and** catalog `026_…`. |
+| 023 unnamed catalog | File **and** catalog `027_…`. 026 is last_activity. |
 
 ---
 
@@ -449,7 +451,7 @@ If 7.4 is in flight, Phase 6 waits. Capture wins.
 2. **Backfill as a WF-03 job type** — refused. Capture queue during
    the event is the reason Phase 6 exists after LEAP, not inside
    WF-03.
-3. **Relevance floor as part of 026** — refused. A table cannot
+3. **Relevance floor as part of 027** — refused. A table cannot
    fire the sentinel. Only a WF-08 SQL change can, and that is
    packet 6.3.
 
