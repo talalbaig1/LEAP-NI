@@ -1,10 +1,8 @@
 # Packet 7.10 — picker email-first ordering
 
 **Date:** 28 August 2026
-**Status:** IN FLIGHT.
-**WF-10 ONLY.** One PUT. One node: **Lookup people voice**.
-Rollback `8722d214-…`.
-**WF-01 / WF-06 / WF-09 are not touched.**
+**Status:** APPLIED. WF-10 `5b3d2913-…` (109 nodes). Rollback
+`8722d214-…`. **WF-01 / WF-06 / WF-09 are not touched.**
 
 ## Reason
 
