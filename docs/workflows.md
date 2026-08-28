@@ -1316,6 +1316,12 @@ without touching `wf04-v3`.
    Skip any extracted person with a null/empty `full_name` (defence in
    depth; WF-04 already dropped them).
 
+   **Packet 4.5 measured.** Capture 70 probe (same LinkedIn URL as
+   Ahmad's apollo-sourced row, no email): WF-05 exec **263511**, last
+   node **WF-06 dispatch (not yet)**. **Upsert people**
+   `li_linked=0`, `inserted=1`. Ahmad stayed `linkedin_source=apollo`.
+   Two people now share that URL and were not merged.
+
    **Vision OCR is not reproducible on this card stock at
    `temperature: 0` (packet 3.9, architect).** Same physical cards,
    two runs: capture 65 vs 67 disagreed on Latin spelling and on the
