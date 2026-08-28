@@ -932,7 +932,11 @@ exists.
 
 **Domain normalisation** is a Postgres function over a public-suffix
 table, not a Code node. It must leave `jccs.com.sa` intact and reduce
-`sa.qatarairways.com` to `qatarairways.com`.
+`sa.qatarairways.com` to `qatarairways.com`. Packet 4.5 backfilled
+`companies.domain` via `lni_normalize_domain` of the primary person's
+email domain where domain was NULL and the email domain was not in
+`lni_free_email_domains`. Left untouched:
+`www.future-projects.net` (would become `future-projects.net`).
 
 **Personal email domain.** A free-mail domain is never treated as a
 company domain. Blocklist lives in `lni_free_email_domains` (a table,
@@ -943,12 +947,19 @@ table. Seeded: `gmail.com`, `googlemail.com`, `hotmail.com`,
 `mail.ru`, `yandex.ru`. A person on a free-mail domain is **still
 person-enriched by email**. Only the company-derivation step is skipped.
 
-**SEQUENCING:** migration `018` (`people.linkedin_source`) and the WF-05
-auto-link guard must **both** be live before WF-06 is permitted to write
-`people.linkedin_url`. Until then WF-06 writes LinkedIn only into
-`enrichment_records.payload`. Packet 4.1 numbered this column 017;
-live catalog already had `017_events_target_sectors`, so the column
-is `018`.
+**SEQUENCING:** Satisfied in packet 4.5. Migration `018`
+(`people.linkedin_source`) is live (packet 4.1). The WF-05 auto-link
+guard (`linkedin_source = 'card'` on LinkedIn match) is live in this
+packet. WF-06 **Write match** may now fill `people.linkedin_url` when
+the column is NULL, setting `linkedin_source = 'apollo'`. It never
+overwrites a non-null URL. Packet 4.1 numbered this column 017; live
+catalog already had `017_events_target_sectors`, so the column is
+`018`.
+
+**Apollo reveal rate measured 28 Aug 2026 on 4 real contacts:
+2 revealed, 2 hollow. Of the 2 revealed, 1 carried a
+linkedin_url. Enrichment is a bonus layer over roughly half
+the contact set, not a completion layer.**
 
 ---
 
