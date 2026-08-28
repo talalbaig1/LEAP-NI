@@ -40,23 +40,39 @@ Do not widen (b) to recent-by-clock.
 **D3.** Extract user message includes `Owner name: Talal`. Guard
 unchanged.
 
-## Prove
+## Prove (TEST `ygHqk6TGlXq7wJvd`, then deactivated)
 
-1. `/followup`, photo in the window, voice "attach this photo".
-   Confirm card shows THAT filename. Asset id + capture_no.
-2. Same flow naming something never photographed. Callback path.
-   Card shows `Could not match:` AND still offers the draft.
-3. No photo in the window, brief names nothing. `Attachments: (none)`,
-   no `Could not match:`, no throw.
-4. A person-linked asset is still in the candidate list
-   (`source=linked`).
-5. GET WF-01: `864bcb8b-…`, 128 nodes, unchanged.
+Owner `bot_state` was unset at start; restored unset. Prove drafts
+cancelled. Temp interaction `0f3e6395` (prove 4) deleted.
+`ae2b9d7a` cancelled (empty attachments, not sent).
 
-Then cancel draft `ae2b9d7a`. Evidence; do not send.
+1. **Callback + await-window photo.** Row `54764c7c` backdated
+   `created_at` 19:44:53Z, brief "attach this photo". Exec
+   **273170** `source=callback` `f7:p:9489be75`. Load 20: asset
+   `8cfa042b` capture **#85** `source=this_session`. Extract
+   `selected_asset_ids: ["8cfa042b-…"]`, signed Talal. Card
+   `Attachments: 8cfa042b-…-AQADqxFrG_nwkVB-.jpg`. LIMIT-3 node
+   did not run.
+2. **Callback unmatched.** Row `c2ad40bc`, brief names "whiteboard
+   video we never took", await armed after every stored photo.
+   Exec **273179**. Card: `Attachments: (none)` and
+   `Could not match: the whiteboard video we never took`. Send
+   buttons present. `ok` true.
+3. **No photo named.** Row `ce4af397`. Exec **273184**. Card:
+   `Attachments: (none)`, no `Could not match:`, no throw,
+   signed Talal.
+4. **Linked still a candidate.** Temp interaction on prove person
+   `ec5dc966` → capture **#68** photo `60574f89`. Exec **273190**.
+   Load 20: `source=linked`. Card attached that filename. To =
+   owner `talalbaig@gmail.com`. Interaction deleted after.
+5. GET WF-01 `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`, 128 nodes,
+   unchanged. WF-10 `f1013395-…`, 109, active. Transcribe
+   `language` still absent.
 
-TEST `LNI-TEST-WF10-voice-exec` `ygHqk6TGlXq7wJvd`: activate, curl,
-deactivate. Snapshot/restore owner `bot_state`. Do not steal
-`becb0e07-…`.
+Owner phone (`/followup` → photo → voice on the bot) is the
+store-first capture of the same path. TEST used the real #85
+photo and the callback extract that 7.12-R failed. Await is
+clear so the owner can run it.
 
 ## Rollback
 
