@@ -253,6 +253,13 @@ is observed.
 ### Scope
 - WF-06 drains an enrichment job queue on a **schedule**. WF-05
   **enqueues**; it does not dispatch per capture.
+- **First activation is BOUNDED** (packet 4.8): schedule `*/15`
+  Asia/Riyadh, claim **LIMIT 1** per run, `apollo_daily_ceiling`
+  temporarily **5**. The bound exists because the SCHEDULED drain
+  path has never executed. Manual execution is not evidence that a
+  cron-triggered run claims, gates, and completes correctly.
+- Raising `apollo_daily_ceiling` to 60 is a **separate deliberate
+  act** with its own read-back. It is not part of activation.
 - Auto-enrich any person with a non-null `email_normalized` whose
   capture is not `needs_review`.
 - `/flag` force-enriches a person the guard skipped.

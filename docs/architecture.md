@@ -379,6 +379,9 @@ mechanism, not a second. UNIQUE `(owner_id, key)`.
 
 Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
+Packet 4.8 first activation lowers `apollo_daily_ceiling` to **5**
+until three unattended schedule cycles are observed. Raising it back
+to 60 is a later, separate act.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
 Not owner-scoped. RLS enabled; `SELECT` for `authenticated`; writes are
@@ -956,8 +959,10 @@ Do not edit or delete that row or the three existing
 
 **WF-06 drains a queue on a schedule.** WF-05 **enqueues**
 `job_type = 'enrichment'`; it does not dispatch WF-06 per capture.
-WF-06 remains **INACTIVE** in packet 4.7, so enqueued jobs simply
-wait. That is intended and safe.
+Packet 4.8 is the **bounded first activation**: `*/15` Asia/Riyadh,
+claim LIMIT 1, `apollo_daily_ceiling` temporarily 5. The scheduled
+drain path had never executed; manual runs are not that proof.
+Raising the ceiling to 60 is a later, separate act.
 
 ### Enrichment data boundary
 

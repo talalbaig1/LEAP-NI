@@ -243,7 +243,7 @@ to `normal` / nothing open.
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-06 | Enrichment | 4 | Manual + Schedule (built **INACTIVE**; packet 4.7 does not publish). Drains `job_type='enrichment'`. WF-05 **enqueues** only; it does not dispatch. Enqueued jobs wait. That is intended. |
+| WF-06 | Enrichment | 4 | Manual + Schedule `*/15` Asia/Riyadh. Packet 4.8 **bounded first activation**: claim LIMIT 1, `apollo_daily_ceiling` temporarily 5. WF-05 **enqueues** only; it does not dispatch. Raising the ceiling to 60 is a later, separate act. |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
 | WF-09 | Watchdog | 3 | Schedule, every 15 min |
@@ -811,6 +811,14 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
    (`architecture.md` §4). That object is a **partial unique index**,
    not a table constraint — do not write
    `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq`.
+   Sibling: unique index **`processing_jobs_enrichment_person_uniq`**
+   (migration `023`, file
+   `023_processing_jobs_enrichment_person_uniq.sql`) on
+   `((output->>'person_id'), job_type) WHERE job_type='enrichment' AND
+   (output->>'person_id') IS NOT NULL AND status='queued'`. Same reason:
+   it is an index, not a table constraint, so `ON CONFLICT` must infer
+   it from the columns plus the WHERE predicate — `ON CONFLICT ON
+   CONSTRAINT processing_jobs_enrichment_person_uniq` will not run.
    Audio → `transcription`; everything else → `card_vision`. A re-run
    enqueues nothing twice.
 3. **Explicit gate on rows returned.** Zero rows enqueued (all conflicts,
@@ -1463,12 +1471,14 @@ without touching `wf04-v3`.
     `ON CONFLICT ((output->>'person_id'), job_type) WHERE job_type =
     'enrichment' AND (output->>'person_id') IS NOT NULL AND status =
     'queued' DO NOTHING`.
+    Inference requires the partial unique index
+    **`processing_jobs_enrichment_person_uniq`** (migration `023`).
     `force` is absent, so the cache guard applies. **Do not call WF-06.
     Do not dispatch.** Enqueue is the durable act. `alwaysOutputData:
     true`. Explicit row-returned gate (`id` notEmpty) — a zero-row
     write returns `{success:true}`. False → **No enrichment to enqueue**
-    NoOp. True → **Enrichment queued** NoOp. WF-06 stays INACTIVE;
-    queued jobs wait.
+    NoOp. True → **Enrichment queued** NoOp. Packet 4.8 publishes WF-06
+    under the bound below; enqueue still does not dispatch.
 
     **Packet 4.7 measured.** Capture 64 re-run of entity resolution:
     WF-05 exec **263857**, last node **Enrichment queued**. Job
@@ -1490,22 +1500,27 @@ in WF-05.
 ## WF-06 — Enrichment
 
 **Phase 4** · **Triggers:** Manual + Schedule `*/15 * * * *`.
-**Live:** built **INACTIVE**. Packet 4.7 does not publish. Timezone is
-`settings.timezone: Asia/Riyadh` only. `availableInMCP: true`,
-`errorWorkflow` = LNI WF-00, `executionTimeout: 300`,
-`callerPolicy: workflowsFromSameOwner`. MCP create does not persist
-settings or credentials — REST PUT after create, then re-GET. Postgres
-**Leap-NI**. HTTP **Apollo Leap-NI** and **Tavily Leap-NI**
-(`httpHeaderAuth`). First httpHeaderAuth on this instance is Storage;
-MCP will bind the wrong one. Bind by REST PUT; prove by re-GET, then a
-self-identifying execution (`SELECT name FROM public.events WHERE
-name = 'LEAP 2026'`).
+**Live (packet 4.8):** **bounded first activation**. Schedule `*/15`
+Asia/Riyadh, claim **LIMIT 1** per run, `apollo_daily_ceiling`
+temporarily **5**. Timezone is `settings.timezone: Asia/Riyadh` only.
+`availableInMCP: true`, `errorWorkflow` = LNI WF-00,
+`executionTimeout: 300`, `callerPolicy: workflowsFromSameOwner`. MCP
+create does not persist settings or credentials — REST PUT after
+create, then re-GET. Postgres **Leap-NI**. HTTP **Apollo Leap-NI** and
+**Tavily Leap-NI** (`httpHeaderAuth`). First httpHeaderAuth on this
+instance is Storage; MCP will bind the wrong one. Bind by REST PUT;
+prove by re-GET, then a self-identifying execution (`SELECT name FROM
+public.events WHERE name = 'LEAP 2026'`).
 
-WF-05 **enqueues** `job_type='enrichment'` in this packet. It does
-**not** dispatch. `/flag` is still later. WF-06 remains INACTIVE, so
-enqueued jobs wait. That is intended and safe. This workflow drains
-the queue on schedule once published; until then, prove runs are
-manual.
+The bound exists because the **SCHEDULED drain path has never
+executed**. Manual execution is not evidence that a cron-triggered run
+claims, gates, and completes correctly. Packet 4.7 left WF-06
+INACTIVE; packet 4.8 publishes it under this bound. Raising
+`apollo_daily_ceiling` to 60 is a **separate deliberate act** with its
+own read-back. It is not part of activation.
+
+WF-05 **enqueues** `job_type='enrichment'`. It does **not** dispatch.
+`/flag` is still later. This workflow drains the queue on schedule.
 
 Queued job `output.person_id` is the person uuid (no new column).
 `force` absent means false. Packet 4.5: **Write match** may fill
@@ -1753,17 +1768,26 @@ Apollo calls which cost 0; no reveal).
    `status='queued'` `force` absent. WF-06 executions after that
    timestamp: none. WF-06 `activeVersionId` null.
 
+**Packet 4.8 bound (28 Aug 2026).** First activation is bounded
+because the scheduled drain path has never executed. Manual runs
+are not that proof. `apollo_daily_ceiling` set to 5 **before**
+publish. Claim stays LIMIT 1. Three unattended `*/15` cycles
+observed after publish; raising the ceiling to 60 is not part of
+this packet.
+
 **Tavily credits_spent is 1 by contract**, not measured. Tavily has
 no profile-equivalent remaining-credit read. Pay-as-you-go is ENABLED
 with an $8 / 1000-credit cap.
 
-**Must not:** publish/activate this workflow in packet 4.7; touch
-WF-01; overwrite captured email / full_name / title / phone; `$env`;
-`$getWorkflowStaticData`; retry-loop the HTTP node; log emails,
-phones, or payloads; treat enrichment as card evidence; call
-`organizations/enrich`; edit ledger `73fc2831`. WF-05 enqueues
-only — it does not dispatch WF-06. LinkedIn write-back is NULL-fill
-only. Cache skip must not reach the provider.
+**Must not:** raise `apollo_daily_ceiling` from 5 as part of this
+activation (that is a later architect instruction with its own
+read-back); execute WF-06 manually during the three-cycle watch;
+touch WF-01; overwrite captured email / full_name / title / phone;
+`$env`; `$getWorkflowStaticData`; retry-loop the HTTP node; log
+emails, phones, or payloads; treat enrichment as card evidence; call
+`organizations/enrich`; edit ledger `73fc2831`. WF-05 enqueues only
+— it does not dispatch WF-06. LinkedIn write-back is NULL-fill only.
+Cache skip must not reach the provider.
 
 ---
 
