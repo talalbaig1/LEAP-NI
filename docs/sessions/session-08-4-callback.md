@@ -97,29 +97,39 @@ or asset ids from the inbound payload rather than from the row:
 TEST driver `iqAx0KwCsTbb32BY` activated for proofs, then deactivated.
 Window: after 07:10 Riyadh (WF-07 briefing).
 
+Payload used for 1–3 (exact WF-01 Callback payload; key absent, not empty):
+
+```
+{ owner_id, correlation_id, source: 'callback', callback_data, text: '' }
+```
+
+Normalize on every callback exec: `capture_id === ''`. No uuid throw on any exec.
+
 | # | Result | Evidence |
 |---|---|---|
-| 1 `f7:p:` with row `capture_id` set | pending | confirm card + buttons |
-| 2 `f7:p:` with row `capture_id` NULL | pending | no throw; person-linked only |
-| 3 `f7:s:` / `f7:n:` / `f7:x:` | pending | same payload shape |
-| 4 sweep-path card | pending | unchanged |
-| 5 GET WF-01 | `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` | re-GET before PUT and after |
+| 1 `f7:p:` row `capture_id` set | PASS | **277538** success. Bind `capture_id=2df75fa0` from row `1b8b5df4`. Load candidate assets 20: 1 item, source `in_block`. Confirm card, buttons `f7:s:` / `f7:n:` / `f7:x:` on that id. |
+| 2 `f7:p:` row `capture_id` NULL | PASS | **277542** success. Bind `capture_id=''`. Assets 20: 1 item, source `linked` only. No throw. Confirm card + three buttons on `61c3206f`. |
+| 3 `f7:x:` / `f7:s:` / `f7:n:` | PASS | **277546** `Cancelled.` Cancel draft. **277550** `This draft expired. /followup again.` Claim send → Compose already (expired; no Gmail). **277552** same for `n`. Load callback follow_up ran on all three. Sweep send nodes empty. |
+| 4 sweep-path card | PASS | **277555** `source=sweep`. Normalize kept `capture_id`. Callback nodes did **not** run. Compose many picker, Telegram **message_id 460**, five `f7:p:` rows, `Send sweep kb5`. |
+| 5 GET WF-01 | PASS | `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` before PUT, after PUT, after proofs. |
+
+TEST driver deactivated after proofs.
 
 ---
 
 ## Cleanup
 
-Packet artefacts only. Locked R3 rows untouched. `5df341f8` untouched.
-Counts after cleanup must match the 8.2 baseline:
+Deleted throwaways: capture **#118** `2df75fa0`, 2 copied assets, 1 interaction, 4 follow_ups (`1b8b5df4`, `61c3206f`, `d75ae261`, sweep draft `83a9955c`). Cleared `bot_state.open_capture_id`. Locked R3 rows untouched. `5df341f8` still present.
 
 | metric | before 8.4 | after cleanup |
 |---|---|---|
-| captures | 72 | pending |
-| processing (captures.status) | 17 | pending |
-| max capture_no | 87 | pending |
-| people | 29 | pending |
-| jobs | 236 | pending |
-| follow_ups | 27 | pending |
-| assets | 78 | pending |
-| interactions | 55 | pending |
-| fu with capture_id | 0 | pending |
+| captures | 72 | 72 |
+| processing (captures.status) | 17 | 17 |
+| max capture_no | 87 | 87 |
+| people | 29 | 29 |
+| jobs | 236 | 236 |
+| follow_ups | 27 | 27 |
+| assets | 78 | 78 |
+| interactions | 55 | 55 |
+| fu with capture_id | 0 | 0 |
+| leftover ≥ #113 | 0 | 0 |
