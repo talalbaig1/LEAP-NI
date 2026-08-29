@@ -208,14 +208,13 @@ Live CHECKs:
 - Phase 6: post-event. Next build is migration 030
   (pgvector embeddings). Not started.
 - Phase 7: live. Followup-as-capture. Deferred completion.
-  WF-10 sends Telegram on sweep and deferred.
+  WF-10 sends Telegram on sweep and deferred. 9.8 TEST:
+  WF-05 **279835** / WF-10 **279850**, 64 s to card.
 - Phase 8: unmatched + confirm live on that model.
-- Phase 9: built except one WF-01 PUT. WF-02
-  `ingest_contact`, enqueue guards, WF-05 `sourceMap`,
-  029, WF-09 orphan exclusions — live. WF-01
-  `1d53c03d` still declines contact and `.vcf`.
-  Paused until the owner phone test. Do not PUT WF-01
-  from a docs packet.
+- Phase 9: Packet 9.6 PUT is live (`4836ffd8`). Owner
+  phone 11:12–11:19: #134 / #135 / send `bb3689d8`.
+  9.6-B: #136 photos on WF-09 **279752**, audio not.
+  Do not PUT WF-01 again.
 - Phase 10+: not started.
 
 ## Standing constraints that survived the session
@@ -229,7 +228,7 @@ Live CHECKs:
 - Do not touch follow_ups `5df341f8`.
 - LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` stays inactive
   unless a packet activates it.
-- Do not PUT WF-01 for Phase 9 until the owner says so.
+- Do not PUT WF-01 again (9.6 already applied).
 
 ## Closed, not merged (documentation reconciliation)
 
@@ -242,3 +241,23 @@ SQL are the source. This file and
 `masterplan.md` / `rules.md` are the replacement.
 
 Main at reconciliation start: `d0f4eb0` (#48 only).
+
+## Packet 9.8 (29 Aug 2026)
+
+Squash-merged #64 (docs reconcile; 029 catalog name
+`people_source_type_contact`, no `029_` prefix, same class
+as 023) and #65 (9.6 parse_mode + contact ingest + owner
+regression). Main `97ce010`.
+
+Then TEST-driver deferred prove, no phone, no WF-01 PUT:
+
+- Immediate miss: WF-10 **279830**. Draft without recipient.
+- WF-05 **279835** created Zayd `2446d3fa`, kicked deferred.
+- WF-10 **279850** `source=deferred` sent confirm
+  `message_id` 518. Elapsed `/done` → card: **64 seconds**.
+  Phone wait is the next WF-09 15-min tick + vision + ER.
+- #136 9.6-B: WF-09 cron **279752** enqueued 2 images, not
+  the audio. Live is 2 photos + 1 audio, not three photos.
+
+Driver unpublished after (`d69aa9d0`, `active=false`).
+Draft `c884eb5d` cancelled, not sent.
