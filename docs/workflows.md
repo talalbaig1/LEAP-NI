@@ -267,10 +267,11 @@ to `normal` / nothing open.
 | 10 | `D9PRjbZMQxe9ESVW` | true | 146 | `97fd7181-f609-445c-a099-429525178d6c` | `7f021c99-1beb-4fd5-8b53-f769a10a2b0c` |
 
 Packet 9.6 applied (GET-verified). WF-01 rollback `1d53c03d`.
-`5df341f8` is a locked follow_up — never touch. Capture #130
-and draft `f210d77d` are evidence — do not delete, do not
-re-send. LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive
-unless a packet activates it.
+Do not PUT WF-01 again. `5df341f8` is a locked follow_up —
+never touch. Capture #130 and draft `f210d77d` are evidence —
+do not delete, do not re-send. LNI-TEST-7.16-driver
+`iqAx0KwCsTbb32BY` inactive unless a packet activates it
+(GET after 9.8: `active=false`, version `d69aa9d0`).
 
 **Owner regression 29 Aug 11:12–11:19 Riyadh (08:12–08:19Z).**
 
@@ -281,7 +282,32 @@ unless a packet activates it.
 | HTML confirm card | WF-01 **279662** `Send followup kb3` `message_id` **512**. Draft `bb3689d8`. Underscore/`I’ve` did not 400. |
 | Real send | WF-01 **279665** / WF-10 **279667**. `bb3689d8` `draft_state=sent` `gmail_message_id=1a04c9a684523738` `sent_at=08:19:42Z`. To `m.khaled@future-projects.sa`. |
 
-#136 (`1fecfadf`, followup / processing): 2 photos + 1 audio stored, 0 jobs after `/done`. Next WF-09 tick must enqueue the photos, not the audio.
+**9.6-B live — capture #136** (`1fecfadf`, followup). Owner phone.
+Live store is **2 images + 1 audio**, not three photos.
+`closed_at` **08:19:06Z**. Next WF-09 cron **279752**
+(`startedAt` 08:30:00Z) enqueued both images as `card_vision`
+(jobs `00ebbb85` / `4821ac59`, `created_at` 08:30:00.469Z).
+Audio `195bf10d` has **no** `processing_jobs` row. Elapsed
+`/done` → enqueue ≈ **11 minutes** (next `*/15` tick).
+
+**9.8 deferred prove — TEST driver, no phone, no WF-01 PUT.**
+Capture #138 (`f3b93cba`). Person did not exist at `/done`.
+
+| Step | Proof |
+|---|---|
+| Immediate miss | WF-10 **279830** `source=done`. Reply: `No spoken note. Photos in this block are kept. Draft saved without a recipient.` Draft `c884eb5d` `person_id` NULL. |
+| WF-05 create + kick | **279835** `08:34:33Z`. Created Zayd `2446d3fa` `source_type=card`. `Kick WF-10 deferred` `{source:deferred, capture_id:f3b93cba}`. First auto-deferred **279836** still empty-brief → `Compose no person`. |
+| Confirm card | WF-10 **279850** `source=deferred`, `Send sweep kb3` `message_id` **518**, 08:35:33Z. To `zayd.deferred98@example.invalid`. |
+| Photo not audio | WF-09 manual **279853** enqueued photo `a8be1365` only. Audio `b38e2a49` has no job. |
+| Elapsed `/done` → card | **64 seconds** (`closed_at` 08:34:29Z → send 08:35:33Z). |
+
+This TEST planted the extraction_run so it did not wait on
+vision. On the phone, wait **up to the next WF-09 15-minute
+tick + vision + ER** before assuming deferred failed.
+#136's 11 minutes is that wait for enqueue. Draft `c884eb5d`
+is `cancelled`, `sent_at` null — do not Send. Do not email
+Zayd. Attempt #137 copied Ahmed audio before `/done` and
+opened a real-person picker; cancelled, ignore.
 
 ---
 
@@ -2372,6 +2398,9 @@ paths stay untouched):
    inside a followup block — #130 is that evidence (4 assets,
    0 jobs). Do not write a second variant.
 
+   **9.6-B first live tick:** #136, WF-09 **279752**. Two
+   images enqueued, audio not. See live-versions table.
+
    Owner-scoped. `alwaysOutputData: true`. Zero rows is a normal
    silent terminal — not an error, not an alert.
 2. **Gate** on `RETURNING id` notEmpty (same shape as WF-02
@@ -2577,6 +2606,13 @@ Deferred loads that `draft` row (`Load incomplete draft`). Zero-row →
 8.2 sweep send cluster fires: `Sweep source?` is true for `sweep` **or**
 `deferred`. WF-10 sends Telegram itself on those two sources. That is
 the recorded exception.
+
+**9.8 TEST proof (no phone).** WF-05 **279835** created the
+person and kicked deferred. WF-10 **279850** sent the confirm
+card itself (`message_id` 518). Elapsed `/done` → card:
+**64 seconds** with a planted extraction_run. Phone wait is
+the next WF-09 tick (up to 15 min, #136 was 11) plus vision
+and ER.
 
 Do not make `/done` wait. The owner is standing in front of someone.
 

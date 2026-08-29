@@ -329,6 +329,9 @@ immediately. If the person is not in `people` yet, the draft stays
 `draft` and WF-05 dispatches WF-10 `source='deferred'` when
 entity_resolution succeeds. WF-10 sends the confirm card on
 `sweep` and `deferred` (recorded exception to “WF-01 sends”).
+Packet 9.8 TEST: WF-05 **279835** / WF-10 **279850**,
+**64 s** `/done` → card (planted ER). Phone: wait the next
+WF-09 15-min tick + extraction.
 
 The 15-minute `awaiting_voice` window is leftover, not the design.
 A follow-up is a capture.
@@ -341,8 +344,9 @@ the draft card are post-event extras.
 
 **State:** Packet 9.6 applied and phone-proven 29 Aug 11:12–11:19
 Riyadh. Contact #134, `.vcf` #135, HTML confirm `message_id` 512,
-real send `bb3689d8`. WF-01 `4836ffd8`. Enqueue is asset-level:
-skip followup audio only.
+real send `bb3689d8`. WF-01 `4836ffd8` — do not PUT again.
+Enqueue is asset-level: skip followup audio only. 9.6-B live:
+#136 WF-09 **279752** enqueued 2 images, not the audio.
 
 **Draft-only, enforced.** A mis-extracted address plus auto-send puts a warm,
 specific message about a private conversation into the wrong inbox at the right
