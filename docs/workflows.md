@@ -879,7 +879,7 @@ written anywhere**:
 {
   "owner_id":         "uuid",
   "telegram_user_id": 0,
-  "action":           "new | done | batch | status | resolve_target | sweep",
+  "action":           "new | done | batch | status | resolve_target | sweep | followup | ingest_contact",
   "asset_count_hint": 0,
   "correlation_id":   "uuid"
 }
@@ -969,8 +969,13 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
                ELSE 'card_vision' END,
           'queued'
    FROM assets a
+   JOIN captures c ON c.id = a.capture_id
    WHERE a.capture_id = ANY($1::uuid[])
      AND a.upload_status = 'stored'
+     AND c.capture_mode IS DISTINCT FROM 'followup'
+     AND a.kind IS DISTINCT FROM 'vcard'
+     AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
+     AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
    ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL
      DO NOTHING
    RETURNING id, capture_id, asset_id, job_type, status;
@@ -981,8 +986,10 @@ is **`<WF-03_WORKFLOW_ID>`**. Never commit the literal.
    (`architecture.md` §4). That object is a **partial unique index**,
    not a table constraint — do not write
    `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq`.
-   Audio → `transcription`; everything else → `card_vision`. A re-run
-   enqueues nothing twice.
+   Audio → `transcription`; everything else → `card_vision`. Follow-up
+   captures, `kind=vcard`, mime `text/vcard` / `text/x-vcard`, and
+   `storage_path` ending `.vcf` are excluded (packet 9.1 — vision-on-text
+   is the 3.13 failure). A re-run enqueues nothing twice.
 3. **Explicit gate on rows returned.** Zero rows enqueued (all conflicts,
    or a capture with no stored assets) is a **normal, silent, terminal**
    path — not an error, and not a send. `reply_text` from Compose is
@@ -1054,6 +1061,22 @@ mode. If nothing is open, `reply_text` = `nothing open`.
   (each photo is independent; `/done` finds them by `capture_mode='batch'`
   and `status='open'`). Still bump `last_activity_at`. Empty
   `reply_text` (WF-01 stays silent).
+
+### `ingest_contact` (packet 9.1)
+
+TEST / future WF-01 path. **No WF-01 PUT in 9.1.** Payload extras
+(`source`, `raw_contact`, `vcard_text`, `mime_type`, `file_name`) pass
+through Validate. Parse runs in WF-02 (skip WF-04). Writes
+`extraction_runs.raw_vision_output` = raw contact JSON,
+`raw_transcript` = verbatim vCard text, `structured_output` in the
+WF-04 person shape with `people[].source` = `shared_contact` | `vcard`.
+
+Reuses the open capture when not batch (including `capture_mode=followup`).
+Inside a followup block the contact stays on that capture; `/done` still
+drafts; entity_resolution is **not** kicked. Standalone (nothing open):
+new capture, enqueue `entity_resolution`, kick WF-05. Receipt:
+`Contact saved · #N` or `Contact file saved · #N`. No asset row until
+WF-01 stores a `.vcf` (replay lives on the extraction run).
 
 ### Sweep (Schedule Trigger)
 - Every 5 minutes. Timezone **explicitly `Asia/Riyadh`** (workflow setting;

@@ -644,12 +644,12 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `captures.close_reason` | `explicit` \| `superseded` \| `auto` |
 | `captures.capture_mode` | `standard` \| `batch` |
 | `captures.card_only` | boolean, default `false` |
-| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` |
+| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` \| `vcard` |
 | `assets.upload_status` | `pending` \| `stored` \| `failed` |
 | `processing_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `needs_review` |
 | `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
 | `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
-| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
+| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` \| `shared_contact` \| `vcard` |
 | `people.linkedin_source` | `card` \| `apollo` (default `card`) |
 | `credit_ledger.status` | `attempted` \| `confirmed` \| `no_match` \| `failed` (default `attempted`) |
 | `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
@@ -667,9 +667,9 @@ Phase 1 does **not** classify image content. Composition is unpredictable, and
 the owner has one hand free — no caption convention, no inline prompt.
 
 At capture time (WF-01) `assets.kind` is the Telegram media type.
-Live `assets_kind_check` (read 26 Aug 2026) permits
-`business_card | audio | photo | selfie | document` only — there is no
-`video` value. Map onto what exists; never invent a sixth kind:
+Live `assets_kind_check` (packet 9.1) permits
+`business_card | audio | photo | selfie | document | vcard`.
+There is still no `video` value. Map onto what exists; never invent video:
 
 - Telegram photo (largest size in the `photo[]` array) → `photo` (**unclassified** — contents not yet determined)
 - Telegram voice or audio → `audio`
