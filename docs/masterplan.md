@@ -109,8 +109,10 @@ reason and a document update first.**
   The architect's Phase 7 cut of voice follow-up was reversed by the
   owner on 28 Aug 2026. Voice is the owner's primary intended use at
   LEAP. Recorded as a deliberate reversal of the cut, not of Decision
-  12. 7.6 applied 28 Aug (WF-10 `40c0d5d9-…`, WF-01 `864bcb8b-…`).
-  Phone checklist items 13–20 still on the owner.
+  12. Live 29 Aug: follow-up is a capture (028). WF-10
+  `7f021c99-1beb-4fd5-8b53-f769a10a2b0c`. WF-01 stays
+  `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` (Phase 9 PUT
+  paused). Phone checklist items 13–20 still on the owner.
 
 ---
 
@@ -175,9 +177,10 @@ Full detail in `phases.md`.
 | 2 | Extraction | COMPLETE |
 | 3 | Digests, `/ask`, watchdog | COMPLETE |
 | 4 | Enrichment | COMPLETE |
-| 7 | Follow-up drafting | COMPLETE (typed + 7.6 voice apply). Phone items 13–20 of the 7.6 checklist still on the owner. |
-| 6 | pgvector RAG | Planned, post-event |
-| 5 | Web dashboard | Planned, post-event, needs RLS re-proof |
+| 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. WF-10 `7f021c99`. Immediate `/done` + WF-05 `source=deferred` fallback. |
+| 9 | Contact / vCard ingest | BUILT, awaiting one WF-01 PUT. Phase 9 paused. WF-02/05/09 live. |
+| 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
+| 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |
 
 **The 29 August gate.** If Phases 0–3 are not passing on the owner's actual
@@ -209,7 +212,7 @@ fallback.
 | # | Item | Owner | Status | Blocks |
 |---|---|---|---|---|
 | 1 | Create Telegram bot via BotFather, supply token | Talal | **CLOSED 28 Aug 2026** — credential `Leap-NI` in n8n. Proven on the owner's real chat. `/setcommands` includes `followup`. | — |
-| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **CLOSED 26 Aug 2026** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations applied through `026`. | — |
+| 2 | Create new Supabase project, paid tier (~2 GB) | Talal | **CLOSED 26 Aug 2026** — project `LEAP-NI`, `eu-central-1`, Pro, Postgres 17.6. Migrations applied through `029`. | — |
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | **CLOSED 26 Aug 2026** — held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeded `bot_state`. Live allowlist proven. | — |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | **CLOSED 28 Aug 2026** — Apollo Basic 2,500 credits/month. Phase 4 ran on that budget. | — |

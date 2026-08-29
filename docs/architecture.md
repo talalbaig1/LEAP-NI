@@ -56,7 +56,10 @@ These are invariants. Violating one is a defect regardless of test results.
 7. **All cron schedules explicitly pinned to `Asia/Riyadh`.** Never inherit the
    container default.
 8. **Telegram send paths are enumerated, not implied.** Inbound chat replies
-   are WF-01 only. WF-00 alerts on repeated errors. Scheduled WF-07 / WF-09
+   are WF-01 only — **except the recorded WF-10 exception:** when
+   `source` is `sweep` or `deferred`, WF-10 sends the confirm card
+   itself (8.2 sweep cluster). `/done` still returns `reply_text` to
+   WF-01. WF-00 alerts on repeated errors. Scheduled WF-07 / WF-09
    send operational messages because a cron tick has no parent WF-01
    execution. WF-02 never sends. On-demand `/digest` and `/ask` return
    `reply_text`; WF-01 sends. `chat_id` always from `bot_state`, never
@@ -132,7 +135,9 @@ UNIQUE `(owner_id, telegram_user_id)`.
 | `awaiting_followup_id` | uuid → `follow_ups` | — | YES |
 | `awaiting_followup_until` | timestamptz | — | YES |
 
-**`captures`** — one `/new`…`/done` unit. UNIQUE `capture_no`.
+**`captures`** — one `/new`…`/done` unit, or one `/followup` block.
+UNIQUE `capture_no`. `capture_mode='followup'` is a capture, not a
+15-minute await window (migration `028_captures_followup_mode`).
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -346,6 +351,16 @@ write this table.
 | `sent_at` | timestamptz | — | YES |
 | `confirm_expires_at` | timestamptz | `now() + interval '12 hours'` | YES |
 | `prompt_version` | text | — | YES |
+| `brief` | text | — | YES |
+| `has_arabic` | boolean | — | YES |
+| `has_latin` | boolean | — | YES |
+| `capture_id` | uuid → `captures` | — | YES |
+
+**`follow_ups.brief` / `has_arabic` / `has_latin` / `capture_id`**
+(migrations `027_follow_ups_brief`, `028_captures_followup_mode`).
+The brief that must survive picker / callback / deferred completion
+lives on the row. `capture_id` binds a draft to a followup capture.
+Read the row. Do not re-derive from which nodes ran.
 
 **`follow_ups.draft_state`** (packet 7.1). Email lifecycle, separate
 from `status`. `status` stays `open` \| `done` \| `cancelled` —
@@ -642,14 +657,14 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 |---|---|
 | `captures.status` | `open` \| `processing` \| `ready` \| `needs_review` \| `failed` |
 | `captures.close_reason` | `explicit` \| `superseded` \| `auto` |
-| `captures.capture_mode` | `standard` \| `batch` |
+| `captures.capture_mode` | `standard` \| `batch` \| `followup` |
 | `captures.card_only` | boolean, default `false` |
-| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` |
+| `assets.kind` | `business_card` \| `audio` \| `photo` \| `selfie` \| `document` \| `vcard` |
 | `assets.upload_status` | `pending` \| `stored` \| `failed` |
 | `processing_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `needs_review` |
 | `processing_jobs.job_type` | `card_vision` \| `transcription` \| `photo_description` \| `extraction` \| `entity_resolution` \| `enrichment` |
 | `people.review_status` | `unreviewed` \| `approved` \| `needs_review` |
-| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` |
+| `people.source_type` | `card` \| `voice_note` \| `typed_note` \| `photo` \| `enrichment` \| `shared_contact` \| `vcard` |
 | `people.linkedin_source` | `card` \| `apollo` (default `card`) |
 | `credit_ledger.status` | `attempted` \| `confirmed` \| `no_match` \| `failed` (default `attempted`) |
 | `companies.enrichment_status` | `none` \| `pending` \| `enriched` \| `no_match` \| `failed` |
@@ -667,13 +682,14 @@ Phase 1 does **not** classify image content. Composition is unpredictable, and
 the owner has one hand free — no caption convention, no inline prompt.
 
 At capture time (WF-01) `assets.kind` is the Telegram media type.
-Live `assets_kind_check` (read 26 Aug 2026) permits
-`business_card | audio | photo | selfie | document` only — there is no
-`video` value. Map onto what exists; never invent a sixth kind:
+Live `assets_kind_check` (read 29 Aug 2026) permits
+`business_card | audio | photo | selfie | document | vcard`. There is
+no `video` value. Map onto what exists; never invent a seventh kind:
 
 - Telegram photo (largest size in the `photo[]` array) → `photo` (**unclassified** — contents not yet determined)
 - Telegram voice or audio → `audio`
-- Telegram document, video, or video_note → `document`
+- Telegram document, video, or video_note → `document` (a `.vcf` /
+  `text/vcard` document is stored as `kind='vcard'`)
 
 Live `assets_upload_status_check` permits `pending | stored | failed`.
 WF-01 writes `stored` only after the Storage PUT succeeds.
@@ -1141,7 +1157,7 @@ proven against an empty project before production application.
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
 | Data API | **Enabled** | Not used by LNI (n8n uses Postgres directly). Retained for the Phase 5 dashboard. Grants nothing while auto-expose is off. |
-| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`026`) create the 16 original tables plus `lni_config` / `lni_public_suffixes` / `lni_free_email_domains`, indexes, policies, bucket, seed, the processing-job staleness column, catalog repair of `bot_state`, the `captures.flags` object CHECK, the `/done` enqueue natural key, `events.target_sectors`, `people.linkedin_source`, domain normalisation, credit ceilings, `credit_ledger.status`, the free-mail blocklist, the enrichment-person enqueue key, follow-up email-draft columns, and `captures.last_activity_at`. Auto-expose plus one missed policy equals publicly readable contact data. |
+| Auto-expose new tables | **Disabled** | Numbered migrations (`001`–`029`) as listed below. Auto-expose plus one missed policy equals publicly readable contact data. |
 | Automatic RLS | **Enabled** | Event trigger enables RLS on every new table in `public`. Structural safety net beneath the explicit policies. |
 
 Phase 0 applies **numbered forward-only migrations**, not a single dump:
@@ -1173,7 +1189,11 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 023 | `023_processing_jobs_enrichment_person_uniq` | Partial unique index `processing_jobs_enrichment_person_uniq` on `((output->>'person_id'), job_type)` where `job_type = 'enrichment'` and person_id is present and `status = 'queued'`. Natural key for WF-05 enrichment enqueue. Live catalog name is **`processing_jobs_enrichment_person_uniq`** (no `023_` prefix). Do not re-apply. |
 | 024 | `024_follow_ups_email_draft` | Additive `follow_ups` email-draft columns + `bot_state` awaiting-followup columns. Catalog name **must** be `024_follow_ups_email_draft`. Does not alter `follow_ups_status_check`. Does not GRANT SELECT. |
 | 025 | `025_follow_ups_cancelled_state` | Adds `cancelled` to `follow_ups_draft_state_check`. Does not remove values. Does not alter `follow_ups_status_check`. |
-| 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. Phase 6 embeddings is **027**, not 026. |
+| 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. |
+| 027 | `027_follow_ups_brief` | `follow_ups.brief`, `has_arabic`, `has_latin`. The brief lives on the row. |
+| 028 | `028_captures_followup_mode` | `captures.capture_mode` gains `followup`. `follow_ups.capture_id`. Follow-up is a capture, not a window. |
+| 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`**. |
+| 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029 for this. |
 
 ### Connection policy — verified 25 Aug 2026
 
