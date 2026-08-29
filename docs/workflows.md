@@ -2501,6 +2501,13 @@ Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
 **Return contract:** `{ ok, reply_text, reply_text_2?, reply_markup? }`.
 Empty `reply_text` is a defect.
 
+**Packet 8.5 — confirm card order.** Compose confirm is
+To / CC / Subject, blank, body, blank, Attachments, then
+`Could not match:` only when unmatched is non-empty. Rollback
+`b9a5a890`. Live `2b6580b8`. The unmatched `photo` line on the
+owner card (exec **276473**) is Parse extract, not the model;
+that cause is reported, not fixed in this PUT.
+
 **Does not Call WF-03.** Whisper (language **absent**) lives on
 WF-10 so a follow-up brief never claims a capture transcription
 job. Does not rewrite `interactions.summary`. Does not alter
@@ -2606,9 +2613,12 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     cannot be bound as timestamptz). `RETURNING id`.
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
-20. **Compose confirm** — plain text. Full `to_email`, CC,
-    subject, full body, attachment filenames or `(none)`, omitted
-    list if any. `reply_markup` buttons: `f7:s:<id>` Send,
+20. **Compose confirm** — plain text, owner-read order (packet 8.5):
+    To / CC / Subject, blank line, body, blank line,
+    `Attachments: <filenames or (none)>`, then
+    `Could not match:` only when unmatched is non-empty, then
+    `Omitted (too large):` only if a size drop happened.
+    `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
     → **Return to caller**.
     `parse_mode` is absent on WF-01 sends; WF-10 returns **plain
