@@ -1192,7 +1192,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 026 | `026_captures_last_activity` | `captures.last_activity_at timestamptz NOT NULL DEFAULT now()`, backfill from `opened_at` / `max(assets.created_at)`, triggers `captures_last_activity_from_asset` and `captures_last_activity_from_note`. |
 | 027 | `027_follow_ups_brief` | `follow_ups.brief`, `has_arabic`, `has_latin`. The brief lives on the row. |
 | 028 | `028_captures_followup_mode` | `captures.capture_mode` gains `followup`. `follow_ups.capture_id`. Follow-up is a capture, not a window. |
-| 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`**. |
+| 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`** (no `029_` prefix). Same class as 023. Do not re-apply. |
 | 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029 for this. |
 
 ### Connection policy — verified 25 Aug 2026
