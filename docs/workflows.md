@@ -28,7 +28,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
-| Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). |
+| Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). **Packet 8.2 exception:** WF-10 sends Telegram itself when the call is a forgotten-`/done` sweep (`source='sweep'`, or live WF-02 `source='done'` with `close_reason='auto'`). WF-02 Call WF-10 sweep is `wait:false`, so WF-01 is not in that loop. A silent success on a forgotten `/done` is worse than an error. `source` `command` / `callback` / `voice` still return to WF-01 only. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -414,6 +414,14 @@ A capture that never happened cannot be recovered.
 On-demand `/digest` and `/ask` return `reply_text`; WF-01 sends.
 If storage failed, WF-01 sends nothing — that inbound invariant lives in
 one place.
+
+**Packet 8.2 deliberate exception — WF-10 sweep send.** WF-01 is no
+longer the only Telegram sender. WF-10 sends directly when the call is
+a sweep (forgotten `/done`). Reason: WF-02 cannot send, and
+`Call WF-10 sweep` is `wait:false`, so WF-01 is not in the loop. A
+silent success on a forgotten `/done` is worse than an error. The
+send node is gated on `source`; `command` / `callback` / `voice` cannot
+reach it. Scheduled WF-07 / WF-09 were already their own senders.
 
 **Scheduled operational messages (packet 3.1):** WF-07 (10 PM / 7 AM) and
 WF-09 (watchdog) send Telegram themselves. A cron tick has no parent
@@ -2496,10 +2504,22 @@ Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
 `SELECT name FROM public.events WHERE name = 'LEAP 2026'`.
 
 **Input** (Execute Workflow Trigger): `owner_id`, `correlation_id`,
-`source` (`command` \| `voice` \| `callback`), `text` (command),
-`callback_data` (callback, `f7:` prefix), `file_id` (voice).
+`source` (`command` \| `voice` \| `callback` \| `done` \| `sweep`),
+`text` (command), `callback_data` (callback, `f7:` prefix),
+`file_id` (voice), `capture_id` (`done` / `sweep`).
 **Return contract:** `{ ok, reply_text, reply_text_2?, reply_markup? }`.
 Empty `reply_text` is a defect.
+
+**Packet 8.2 — sweep notification (architect exception).** WF-10
+sends Telegram itself on the sweep path only. `chat_id` from
+`bot_state.telegram_user_id` (same as WF-00 / WF-07 / WF-09).
+Keyboard is rules.md 20: fixed collection rows, scalar `text` /
+`callback_data`. Credential `hHCehaaqdJIzsuUu` (Leap-NI) by REST PUT,
+verified by re-GET. `Draft insert miss` is not `stopAndError` on this
+path: cancelled row → tell the owner, do not resurrect; any other
+zero-row Update → keep the brief, tell the owner. `ok` true, non-empty
+`reply_text`, always a send when sweep-notify is true. WF-02
+`Call WF-10 sweep` stays `wait:false`.
 
 **Does not Call WF-03.** Whisper (language **absent**) lives on
 WF-10 so a follow-up brief never claims a capture transcription
