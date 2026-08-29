@@ -2521,6 +2521,20 @@ zero-row Update → keep the brief, tell the owner. `ok` true, non-empty
 `reply_text`, always a send when sweep-notify is true. WF-02
 `Call WF-10 sweep` stays `wait:false`.
 
+**Packet 8.4 — callback `capture_id` from the row.** WF-01's
+callback payload is `{ owner_id, correlation_id, source:'callback',
+callback_data, text:'' }`. It does not carry `capture_id`. On
+`source='callback'`, **Normalize input** blanks `capture_id` and
+the asset fields. **Load callback follow_up** reads the
+`follow_ups` row (exact id for `s`/`n`/`x`; latest
+`draft`/`awaiting_voice` for `p`). **Bind callback row** is the
+only source of `capture_id` on that path. **Load candidate assets
+20** and **Reload brief** cast through `NULLIF($n::text,'')::uuid`.
+A NULL `capture_id` on the row skips the in-block clause and uses
+person-linked candidates only. It must not throw. Sweep / `/done`
+still pass `capture_id` on the command route. Rollback
+`84bcbfdf`. Live `b9a5a890`. WF-01 stays `1d53c03d`.
+
 **Does not Call WF-03.** Whisper (language **absent**) lives on
 WF-10 so a follow-up brief never claims a capture transcription
 job. Does not rewrite `interactions.summary`. Does not alter
@@ -2553,7 +2567,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 4. **Normalize input** — Code. Named-node source. Copies
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
    `correlation_id` from **When called** when executed, else from
-   the manual item. No backslash regex.
+   the manual item. On `source='callback'` it forces `capture_id`,
+   `asset_id`, `storage_path`, `file_id`, `kind`, and
+   `awaiting_followup_id` to `''` (packet 8.4). No backslash regex.
 5. **Route source** Switch: `command` \| `voice` \| `callback`.
    Fallback → **Unknown source terminal** (`stopAndError`:
    `Unknown followup source`). After any append, re-GET every
