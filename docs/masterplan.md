@@ -178,7 +178,7 @@ Full detail in `phases.md`.
 | 3 | Digests, `/ask`, watchdog | COMPLETE |
 | 4 | Enrichment | COMPLETE |
 | 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. WF-10 `7f021c99`. Immediate `/done` + WF-05 `source=deferred` fallback. |
-| 9 | Contact / vCard ingest | BUILT, awaiting one WF-01 PUT. Phase 9 paused. WF-02/05/09 live. |
+| 9 | Contact / vCard ingest | Packet 9.6: one WF-01 PUT (contact / `.vcf` + followup HTML). WF-02/05/09 live. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |
