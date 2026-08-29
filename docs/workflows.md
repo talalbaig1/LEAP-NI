@@ -266,9 +266,11 @@ to `normal` / nothing open.
 | 09 | `m0lvc9dzpyxLj2hI` | true | 43 | `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | `78c1e260-7ada-46aa-8d42-968ead2595ac` |
 | 10 | `D9PRjbZMQxe9ESVW` | true | 146 | `7f021c99-1beb-4fd5-8b53-f769a10a2b0c` | `ab21c10c-6d04-44eb-a97b-c4409ec38c90` |
 
-WF-01 PUT is paused (Phase 9). Do not change `1d53c03d` until the
-owner phone test passes. `5df341f8` is a locked follow_up — never
-touch. LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive unless a
+Packet 9.6: one WF-01 PUT (parse_mode HTML on followup senders
++ Phase 9 contact/vcard). Rollback `1d53c03d`. `5df341f8` is a
+locked follow_up — never touch. Capture #130 and draft
+`f210d77d` are evidence — do not delete, do not re-send.
+LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive unless a
 packet activates it.
 
 ---
@@ -475,25 +477,16 @@ LNI bot only and must not disturb any ElderWise webhook.
    Do not renumber existing outputs. Unknown commands still fall through
    to `Unknown type terminal` (silent NoOp).
 
-   **Telegram `contact` — live WF-01 still declines.**
-   GET `1d53c03d`: `Classify update` sets `branch = 'contact'`,
-   routes to `Contact unsupported reply`. No asset, no WF-02
-   call. Exact text:
-   `Contact cards are not supported yet. Send a photo of the card or
-   a voice note instead.`
-   WF-02 `ingest_contact` and migration 029 are already live.
-   Phase 9 is **one WF-01 PUT**. Do not PUT from a docs packet.
+   **Telegram `contact` — Phase 9.** `Classify update` sets
+   `branch = 'contact'` and copies `raw_contact`. WF-01 calls
+   WF-02 `action=ingest_contact` `source=shared_contact`.
+   WF-01 sends `reply_text`. No vision job.
 
-   **Telegram `.vcf` / vCard — live WF-01 still declines.**
-   GET `1d53c03d`: detect before `branch = 'document'`. Match
-   `mime_type` `text/vcard` or `text/x-vcard`, or `file_name`
-   ending `.vcf`. `branch = 'vcard'` → `Vcard unsupported reply`.
-   No asset, no WF-02 call. Exact text:
-   `Contact files are not supported. Send a photo of the card or a
-   voice note instead.`
-   WF-02 enqueue already excludes vCard. The PUT that stores a
-   `.vcf` as `kind='vcard'` and calls `ingest_contact` is the
-   same paused Phase 9 WF-01 PUT.
+   **Telegram `.vcf` / vCard — Phase 9.** Detect before
+   `branch = 'document'`. Download via Telegram getFile
+   (`download: true`), extract text, call WF-02
+   `action=ingest_contact` `source=vcard`. Enqueue still
+   skips vCard (no `card_vision` on a text file).
    Explicit notEmpty gate before the send. PDFs, videos, and other
    documents keep the existing document branch.
    **Proved packet 3.14, exec 256753** (not 256611 / 256687). Route
@@ -891,27 +884,36 @@ WF-01. Live `e491a9f0`, 89 nodes. Actions:
 `/followup` opens `captures.capture_mode='followup'`. It is not a
 15-minute await on `bot_state`. Nested followup is refused. An open
 standard capture is closed (`superseded`) then the followup row
-opens. `/done` on a followup capture does **not** enqueue
-vision/transcription (same exclusions as below). WF-02 then calls
-WF-10 `source=done` with `capture_id`. Idle sweep closes a stale
-followup and calls WF-10 `source=done` per closed followup id.
+opens. `/done` on a followup capture enqueues **photos / cards /
+selfies** so a new person can be extracted and the 9.2 deferred
+kick can fire. It does **not** enqueue `kind='audio'` — that
+transcript is the brief; WF-10 owns it. A capture-level
+`followup` skip (9.3) blocked extraction and broke deferred
+for a person who did not already exist. Idle sweep closes a
+stale followup and calls WF-10 `source=done` per closed
+followup id.
 
 `ingest_contact` writes an extraction_run + `entity_resolution` job
-and skips WF-04. Contact ingest is live on WF-02; WF-01 PUT that
-routes a shared contact / `.vcf` is **paused**.
+and skips WF-04. Packet 9.6 wires WF-01: shared contact and
+`.vcf` call this action. `.vcf` bytes are extracted to text in
+WF-01; the person record is the extraction_run, not a Storage
+object. Enqueue still skips `kind='vcard'`.
 
-### Enqueue exclusions (live, copied onto WF-09)
+### Enqueue exclusions (live, one statement, WF-02 and WF-09)
 
-`Enqueue asset jobs` / `Enqueue sweep jobs` (GET 29 Aug):
+`Enqueue asset jobs` / `Enqueue sweep jobs` / WF-09
+`Enqueue orphan jobs`. Same four lines. Do not write a second
+variant.
 
 ```
-AND c.capture_mode IS DISTINCT FROM 'followup'
+AND NOT (c.capture_mode = 'followup' AND a.kind = 'audio')
 AND a.kind IS DISTINCT FROM 'vcard'
 AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
 AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
 ```
 
-Do not rewrite these lines. Copy them.
+Inside `capture_mode='followup'`: audio → no job (brief, not a
+person). Everything else → enqueue. vCard exclusions unchanged.
 
 ### Call contract (WF-01 → WF-02)
 
@@ -2347,17 +2349,18 @@ paths stay untouched):
    ```
    assets.upload_status = 'stored'
    AND captures.status IS DISTINCT FROM 'open'
-   AND c.capture_mode IS DISTINCT FROM 'followup'
+   AND NOT (c.capture_mode = 'followup' AND a.kind = 'audio')
    AND a.kind IS DISTINCT FROM 'vcard'
    AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
    AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
    AND NOT EXISTS (processing_jobs row for that asset_id)
    ```
 
-   The four exclusion lines are copied from live WF-02
-   `Enqueue asset jobs` (GET 29 Aug, `e491a9f0`). Architect error:
-   GATE-FIX predated followup/vCard; WF-02 gained the guards and
-   WF-09 did not until `f3885d5a`. Do not rewrite them.
+   The four exclusion lines are the **same statement** as WF-02
+   `Enqueue asset jobs` / `Enqueue sweep jobs` (packet 9.6).
+   Capture-level `followup` skip (9.3) blocked card extraction
+   inside a followup block — #130 is that evidence (4 assets,
+   0 jobs). Do not write a second variant.
 
    Owner-scoped. `alwaysOutputData: true`. Zero rows is a normal
    silent terminal — not an error, not an alert.
@@ -2572,6 +2575,15 @@ Do not make `/done` wait. The owner is standing in front of someone.
 (`step=3`) or `hit_count>1` → picker, never a silent pick (phantom
 merge lesson).
 
+**Send parse_mode (9.6).** WF-10 sweep senders are `parse_mode:
+HTML`. WF-01 followup senders were **absent** (this build
+defaults to Markdown). Exec 278965 died on `_` in an attachment
+filename at byte 521. Compose does **not** escape on any path.
+After 9.6: WF-01 followup senders are HTML (same as sweep).
+`Sweep notify flag` HTML-escapes `reply_text` / `reply_text_2`
+so every confirm card is safe on both senders. Do not re-send
+draft `f210d77d`.
+
 The 15-minute `awaiting_voice` path still exists in the graph. It is
 not how `/followup` works now.
 
@@ -2580,7 +2592,7 @@ not how `/followup` works now.
 Packets 7.1–7.3 built the command/callback/Gmail path while WF-10
 was still inactive. Those nodes remain. The INACTIVE / “do not
 activate” lines below are **stale** — live is active. WF-01 is
-paused for Phase 9 only; it already calls WF-10.
+live and calls WF-10. Packet 9.6 is the Phase 9 WF-01 PUT.
 
 Settings (REST PUT after MCP create — create is not evidence):
 `availableInMCP: true`, `errorWorkflow` = LNI WF-00
@@ -2710,8 +2722,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     list if any. `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
     → **Return to caller**.
-    `parse_mode` is absent on WF-01 sends; WF-10 returns **plain
-    text** (no HTML entity escaping). Real newlines.
+    After 9.6: `Sweep notify flag` HTML-escapes `reply_text` /
+    `reply_text_2`. WF-01 followup senders and WF-10 sweep
+    senders are `parse_mode: HTML`. Real newlines.
 
 **Voice path** (`source=voice` is a non-functional stub pending 7.4)
 

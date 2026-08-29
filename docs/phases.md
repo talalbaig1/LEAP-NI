@@ -339,12 +339,10 @@ the draft card are post-event extras.
 
 ## Phase 9 — Contact ingest
 
-**State:** built except one WF-01 PUT. WF-02 `ingest_contact`,
-enqueue guards (followup + vcard), WF-05 `sourceMap` for
-`shared_contact` / `vcard`, migration 029 — live. WF-09 orphan
-reconciler now copies the same exclusions. Phase 9 stays **paused**
-until the owner phone test passes and one WF-01 PUT lands. Do not
-PUT WF-01 in a docs packet.
+**State:** WF-02 `ingest_contact`, WF-05 `sourceMap`, 029,
+WF-09 exclusions — live. Packet 9.6 wires WF-01 contact / `.vcf`
+in the same PUT as the followup `parse_mode` HTML fix.
+Enqueue inside a followup block is asset-level: skip audio only.
 
 **Draft-only, enforced.** A mis-extracted address plus auto-send puts a warm,
 specific message about a private conversation into the wrong inbox at the right
