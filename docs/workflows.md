@@ -256,7 +256,7 @@ to `normal` / nothing open.
 | 00 | `<WF00_ID>` | true | 15 | `<WF00_PUBLISHED>` | — |
 | 00b | `<WF00B_ID>` | false | 6 | `<WF00B_SAVED>` | — |
 | 01 | `<WF01_ID>` | true | 137 | `<WF01_PUBLISHED>` | `<WF01_ROLLBACK>` |
-| 02 | `<WF02_ID>` | true | 89 | `<WF02_ROLLBACK>` | `e491a9f0-d213-434c-9da1-5c9372c0ab15` |
+| 02 | `<WF02_ID>` | true | 91 | `<WF02_PUBLISHED>` | `<WF02_ROLLBACK>` |
 | 03 | `<WF03_ID>` | true | 38 | `<WF03_PUBLISHED>` | — |
 | 04 | `<WF04_ID>` | true | 28 | `<WF04_PUBLISHED>` | — |
 | 05 | `<WF05_ID>` | true | 29 | `<WF05_PUBLISHED>` | `<WF05_ROLLBACK>` |
@@ -308,6 +308,27 @@ tick + vision + ER** before assuming deferred failed.
 is `cancelled`, `sent_at` null — do not Send. Do not email
 Zayd. Attempt #137 copied Ahmed audio before `/done` and
 opened a real-person picker; cancelled, ignore.
+
+**9.9 cause / 9.10 fix (WF-02 only).** Followup `/done` used
+to take `Followup close?` TRUE → `Followup done terminal` and
+**never enter** `Enqueue asset jobs`. The 9.6-B SQL sat in a
+node the followup branch skipped. #136 waited for WF-09
+**279752**. Packet 9.10 (one PUT, rollback `<WF02_ROLLBACK>`): both
+outputs of `Followup close?` go to the **same** enqueue node.
+`Call WF-03` stays `wait:false` / `onError continueRegularOutput`.
+Restore still runs (Call WF-03 output is not the done reply).
+Then `Followup after jobs?` / `Followup after no jobs?` send
+followup to `Followup done terminal` and standard to the old
+terminals. WF-09 remains the backstop. WF-01 still `<WF01_PUBLISHED>`.
+
+| Prove | Exec | Result |
+|---|---|---|
+| 1 unknown card | WF-02 **280253** enqueue RETURNING `57baf811` `card_vision`. WF-03 dispatched. Immediate miss. WF-05 **280264** created Sami `ca7efa38`. WF-10 **280271** `source=deferred` `message_id` **531**. **`/done` → card 21 s.** Draft cancelled, not sent. |
+| 2 audio only | WF-02 **280116**. Enqueue reached, RETURNING no `id` (`success:true`). No `Call WF-03`. Terminal. WF-10 **280118** called. Jobs on the audio: none. |
+| 3 known person | #144. Immediate pick → confirm to Mohammed. WF-05 **280225** `No deferred draft`. No second card. Draft cancelled. |
+| 4 standard | #142 WF-02 **280157**. `kick_wf10=false`. Enqueue + `Call WF-03` + `WF-03 dispatched`. |
+| 5 batch | `Batch mode on`. `/done` `0 cards received · processing`. |
+| 7 WF-01 | GET `<WF01_PUBLISHED>`. Unchanged. |
 
 ---
 
@@ -912,7 +933,7 @@ ingest exists. Do not activate anything else.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
 **WF-02 never sends a Telegram message.** Every inbound send happens in
-WF-01. Live `<WF02_ROLLBACK>`, 89 nodes. Actions:
+WF-01. Live `<WF02_PUBLISHED>`, 91 nodes (9.10). Rollback `<WF02_ROLLBACK>`. Actions:
 `new | done | batch | status | resolve_target | sweep | followup | ingest_contact`.
 
 ### Follow-up is a capture (live)
@@ -2610,9 +2631,12 @@ the recorded exception.
 **9.8 TEST proof (no phone).** WF-05 **279835** created the
 person and kicked deferred. WF-10 **279850** sent the confirm
 card itself (`message_id` 518). Elapsed `/done` → card:
-**64 seconds** with a planted extraction_run. Phone wait is
-the next WF-09 tick (up to 15 min, #136 was 11) plus vision
-and ER.
+**64 seconds** with a planted extraction_run (enqueue still
+waited on WF-09).
+
+**9.10:** followup `/done` enqueues. TEST `/done` → card
+**21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 is the
+backstop, not the primary enqueuer.
 
 Do not make `/done` wait. The owner is standing in front of someone.
 
