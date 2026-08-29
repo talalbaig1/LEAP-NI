@@ -272,6 +272,17 @@ and draft `f210d77d` are evidence — do not delete, do not
 re-send. LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive
 unless a packet activates it.
 
+**Owner regression 29 Aug 11:12–11:19 Riyadh (08:12–08:19Z).**
+
+| What | Proof |
+|---|---|
+| Shared contact | WF-01 **279617** → #134 `Contact saved · #134 · Aadil Abbasi USA`. Person `4151e101` `source_type=shared_contact`. |
+| `.vcf` | WF-01 **279624** → #135 `Contact file saved · #135 · LNI Test Contact`. Person `c52a10e9` `source_type=vcard`. |
+| HTML confirm card | WF-01 **279662** `Send followup kb3` `message_id` **512**. Draft `bb3689d8`. Underscore/`I’ve` did not 400. |
+| Real send | WF-01 **279665** / WF-10 **279667**. `bb3689d8` `draft_state=sent` `gmail_message_id=1a04c9a684523738` `sent_at=08:19:42Z`. To `m.khaled@future-projects.sa`. |
+
+#136 (`1fecfadf`, followup / processing): 2 photos + 1 audio stored, 0 jobs after `/done`. Next WF-09 tick must enqueue the photos, not the audio.
+
 ---
 
 ## WF-00 — Central error handler
@@ -2580,8 +2591,9 @@ defaults to Markdown). Exec 278965 died on `_` in an attachment
 filename at byte 521. Compose does **not** escape on any path.
 After 9.6: WF-01 followup senders are HTML (same as sweep).
 `Sweep notify flag` HTML-escapes `reply_text` / `reply_text_2`
-so every confirm card is safe on both senders. Do not re-send
-draft `f210d77d`.
+so every confirm card is safe on both senders. Proven exec
+**279662** (`message_id` 512) and send `bb3689d8`. Do not
+re-send draft `f210d77d`.
 
 The 15-minute `awaiting_voice` path still exists in the graph. It is
 not how `/followup` works now.

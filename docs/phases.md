@@ -339,9 +339,10 @@ the draft card are post-event extras.
 
 ## Phase 9 — Contact ingest
 
-**State:** Packet 9.6 applied. WF-01 `4836ffd8` (contact / `.vcf`
-+ followup HTML). WF-02 / WF-09 enqueue is asset-level: skip
-followup audio only. Phone regression is on the owner.
+**State:** Packet 9.6 applied and phone-proven 29 Aug 11:12–11:19
+Riyadh. Contact #134, `.vcf` #135, HTML confirm `message_id` 512,
+real send `bb3689d8`. WF-01 `4836ffd8`. Enqueue is asset-level:
+skip followup audio only.
 
 **Draft-only, enforced.** A mis-extracted address plus auto-send puts a warm,
 specific message about a private conversation into the wrong inbox at the right
