@@ -177,7 +177,7 @@ Full detail in `phases.md`.
 | 2 | Extraction | COMPLETE |
 | 3 | Digests, `/ask`, watchdog | COMPLETE |
 | 4 | Enrichment | COMPLETE |
-| 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.8 TEST: WF-05 **279835** / WF-10 **279850**, 64 s `/done` → card. Phone wait ≤15 min + extraction. |
+| 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.10: followup `/done` enqueues. TEST `/done` → card **21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 backstop. |
 | 9 | Contact / vCard ingest | Packet 9.6 live (WF-01 `4836ffd8`). 9.6-B: #136 photos enqueued on WF-09 **279752**, audio not. Do not PUT WF-01 again. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
