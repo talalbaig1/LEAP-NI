@@ -2294,8 +2294,15 @@ paths stay untouched):
    ```
    assets.upload_status = 'stored'
    AND captures.status IS DISTINCT FROM 'open'
+   AND c.capture_mode IS DISTINCT FROM 'followup'
+   AND a.kind IS DISTINCT FROM 'vcard'
+   AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
+   AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
    AND NOT EXISTS (processing_jobs row for that asset_id)
    ```
+
+   The four exclusion lines are copied from live WF-02
+   `Enqueue asset jobs` (packet 9.3). Do not rewrite them.
 
    Owner-scoped. `alwaysOutputData: true`. Zero rows is a normal
    silent terminal — not an error, not an alert.
