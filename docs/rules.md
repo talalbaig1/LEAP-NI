@@ -181,6 +181,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 20 | **n8n Telegram v1.2: `inlineKeyboard.rows` must be FIXED collection entries with scalar expressions.** A whole-array expression saves successfully and sends no keyboard. Node config saving is not proof; read the `sendMessage` API result. | 7.4 10.20 `message_id` 349; 7.4-B exec 271606/271732/271738 |
 | 21 | **`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node. | 7.4-B LNI-TEST-WF10-buttons |
 | 22 | **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads. | GATE-FIX capture #77; WF-09 orphan reconciler |
+| 23 | **State that must survive a follow-up belongs in a Postgres row, never in an expression that depends on which nodes ran.** Read the row. | Session 28–29 Aug: six losses from `$('Node').isExecuted` / missing payload fields. See below. |
 
 ### Traps already proven
 
@@ -220,6 +221,22 @@ from any public PUT the same way as `binaryMode`.
 **`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node.
 
 **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads.
+
+**State that must survive a follow-up belongs in a Postgres row.**
+Never in `$('SomeNode').isExecuted`, never in a payload field that
+WF-01 might omit, never in “the person will exist by the time we
+look.” Six times in one session (28–29 Aug 2026):
+
+1. The brief vanished across the picker execution.
+2. `unmatched_requests` dropped on callback.
+3. `Reload brief` came back empty after `Claim await`.
+4. `this_session` scoped photos to the wrong await row.
+5. Callback `capture_id` was absent from the WF-01 payload.
+6. WF-10 resolved a person 103 seconds before that person existed
+   (capture #120).
+
+Write it on `follow_ups` (or `people`, or `captures`) and read that
+row on the next execution.
 
 ---
 

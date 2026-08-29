@@ -293,7 +293,7 @@ Do not let this phase compete with ingest.
 
 ## Phase 5 — Web dashboard
 
-**Timing:** post-LEAP
+**Timing:** post-event. Not started.
 
 Next.js on Vercel. Tables, filters, bulk review, merge tooling with visible
 scores and reasons, per-contact delete, export.
@@ -305,7 +305,9 @@ beats designing them against imagined ones.
 
 ## Phase 6 — RAG
 
-**Timing:** post-LEAP
+**Timing:** post-event. Migration number **030**. Not applied.
+Do not reuse 027–029 — those are follow-up brief, followup capture
+mode, and contact `source_type`.
 
 pgvector, hybrid keyword + vector retrieval, citations back to source
 interactions, owner-scoped filters.
@@ -321,11 +323,28 @@ corpus outgrows the context window.
 
 ## Phase 7 — Follow-up and prioritisation
 
-**Timing:** post-LEAP
+**State:** built on the live instance. `/followup` opens a
+`capture_mode='followup'` capture (028). `/done` tries WF-10
+immediately. If the person is not in `people` yet, the draft stays
+`draft` and WF-05 dispatches WF-10 `source='deferred'` when
+entity_resolution succeeds. WF-10 sends the confirm card on
+`sweep` and `deferred` (recorded exception to “WF-01 sends”).
 
-Prioritisation scoring with **visible factors** — no opaque AI scores. Gmail
-draft generation referencing what was actually discussed. Reminders and due
-dates.
+The 15-minute `awaiting_voice` window is leftover, not the design.
+A follow-up is a capture.
+
+Prioritisation scoring with **visible factors** — no opaque AI scores.
+Gmail send is still confirm-then-send. Reminders and due dates beyond
+the draft card are post-event extras.
+
+## Phase 9 — Contact ingest
+
+**State:** built except one WF-01 PUT. WF-02 `ingest_contact`,
+enqueue guards (followup + vcard), WF-05 `sourceMap` for
+`shared_contact` / `vcard`, migration 029 — live. WF-09 orphan
+reconciler now copies the same exclusions. Phase 9 stays **paused**
+until the owner phone test passes and one WF-01 PUT lands. Do not
+PUT WF-01 in a docs packet.
 
 **Draft-only, enforced.** A mis-extracted address plus auto-send puts a warm,
 specific message about a private conversation into the wrong inbox at the right

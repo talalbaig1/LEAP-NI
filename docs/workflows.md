@@ -28,7 +28,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
-| Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Do not add a second field that must stay in agreement with `reply_text`. Scheduled WF-07 / WF-09 send on their own execution (`chat_id` from `bot_state`, same as WF-00) because a cron tick has no parent WF-01. WF-02 never sends. Verified 26 Aug 2026 (exec 245471). |
+| Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -243,10 +243,33 @@ to `normal` / nothing open.
 | WF-03 | Asset processors | 2 | Manual + Execute Workflow Trigger. Called **once** per kick by WF-02 `/done` **and** the inactivity sweep (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-04 | Structured extraction | 2 | Manual + Execute Workflow Trigger. Claims `job_type='extraction'` from Postgres. Called **once** per kick by WF-03 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
 | WF-05 | Entity resolution | 2 | Manual + Execute Workflow Trigger. Claims `job_type='entity_resolution'` from Postgres. Called **once** per kick by WF-04 (`waitForSubWorkflow: false`, `onError: continueRegularOutput`) |
-| WF-06 | Enrichment | 4 | Manual + Schedule (built **INACTIVE**; packet 4.7 does not publish). Drains `job_type='enrichment'`. WF-05 **enqueues** only; it does not dispatch. Enqueued jobs wait. That is intended. |
+| WF-06 | Enrichment | 4 | Manual + Schedule. **ACTIVE.** Drains `job_type='enrichment'`. WF-05 enqueues only. |
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
-| WF-09 | Watchdog | 3 | Schedule, every 15 min |
+| WF-09 | Watchdog | 3 | Schedule `*/15`, Asia/Riyadh + executeWorkflow prove |
+| WF-10 | Follow-up drafting | 7 | Execute Workflow. **ACTIVE.** Called by WF-01 `/followup` / `/done`, WF-02 sweep, WF-05 deferred. |
+
+### Live versions (GET 29 Aug 2026, name-checked)
+
+| WF | id | active | nodes | versionId | rollback |
+|---|---|---|---|---|---|
+| 00 | `X7zKL3wTFPIhwyaN` | true | 15 | `5ec180fd-3270-433d-9e03-d0f2ff9ecd44` | — |
+| 00b | `Q1eMhUF67VAt3T8a` | false | 6 | `46330598-9abb-422e-817e-ec6ea620321a` | — |
+| 01 | `ZMYx19qEr72mJoCX` | true | 131 | `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` | `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` |
+| 02 | `BV0nukrQdOpDCPe4` | true | 89 | `e491a9f0-d213-434c-9da1-5c9372c0ab15` | `071a4794-4d2f-4c05-ac2b-9f482efde605` |
+| 03 | `k0bPD3GJBNN2EHDB` | true | 38 | `852f300b-069e-4763-b97b-3068fbf06a9b` | — |
+| 04 | `cxyvgBJC1DD8LEbU` | true | 28 | `28510930-2a65-470d-9a29-f8359b0f46f2` | — |
+| 05 | `Iv0loGijYVH77OGh` | true | 29 | `68f47505-36b6-4843-98e1-16892a098aa2` | `74b08d0f-9f9d-44ca-aee2-1324f6e24a7f` |
+| 06 | `eNlgt1wk9Z8Nefwy` | true | 53 | `356a2d1f-daf1-4560-a68f-4df82ff64ceb` | `f6b39538-28ae-4946-ac81-504c9f004c36` |
+| 07 | `AyPtkP8PMFeEdYU9` | true | 25 | `fb9ee1c4-6b40-4064-af22-950b78a45544` | — |
+| 08 | `QIioJBxuZYJh5R4W` | true | 19 | `b699e7d6-ecd4-431d-86ff-d61bd1472390` | — |
+| 09 | `m0lvc9dzpyxLj2hI` | true | 43 | `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | `78c1e260-7ada-46aa-8d42-968ead2595ac` |
+| 10 | `D9PRjbZMQxe9ESVW` | true | 146 | `7f021c99-1beb-4fd5-8b53-f769a10a2b0c` | `ab21c10c-6d04-44eb-a97b-c4409ec38c90` |
+
+WF-01 PUT is paused (Phase 9). Do not change `1d53c03d` until the
+owner phone test passes. `5df341f8` is a locked follow_up — never
+touch. LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive unless a
+packet activates it.
 
 ---
 
@@ -410,8 +433,10 @@ The entry point. Its single most important property: **the raw asset reaches
 storage before anything else happens.** The **order below is the invariant.**
 A capture that never happened cannot be recovered.
 
-**Inbound chat replies: WF-01 is the only sender.** WF-02 never sends.
-On-demand `/digest` and `/ask` return `reply_text`; WF-01 sends.
+**Inbound chat replies: WF-01 is the only sender** except the
+recorded WF-10 exception (`source` `sweep` or `deferred`).
+WF-02 never sends. On-demand `/digest` and `/ask` return
+`reply_text`; WF-01 sends.
 If storage failed, WF-01 sends nothing — that inbound invariant lives in
 one place.
 
@@ -450,34 +475,25 @@ LNI bot only and must not disturb any ElderWise webhook.
    Do not renumber existing outputs. Unknown commands still fall through
    to `Unknown type terminal` (silent NoOp).
 
-   **Telegram `contact` (packet 3.9) — reply only, no ingest.**
-   Live `Classify update` previously had no `msg.contact` branch;
-   those updates died at `Unknown type terminal` with no reply.
-   Now: detect `msg.contact`, set `branch = 'contact'`, read nothing
-   else from the payload. Do **not** store, do **not** create an
-   asset, do **not** call WF-02. Route to a WF-01 Telegram send
-   (the only inbound sender) with exact text:
+   **Telegram `contact` — live WF-01 still declines.**
+   GET `1d53c03d`: `Classify update` sets `branch = 'contact'`,
+   routes to `Contact unsupported reply`. No asset, no WF-02
+   call. Exact text:
    `Contact cards are not supported yet. Send a photo of the card or
    a voice note instead.`
-   Explicit notEmpty gate before the send. Full contact ingestion is
-   **deferred post-event**: it needs a new `people.source_type`,
-   touches two **ACTIVE** workflows (WF-01 and WF-02), and the event
-   is four days away.
+   WF-02 `ingest_contact` and migration 029 are already live.
+   Phase 9 is **one WF-01 PUT**. Do not PUT from a docs packet.
 
-   **Telegram `.vcf` / vCard document (packet 3.13) — reply only, no
-   ingest. Do not change WF-02.**
-   WF-02 enqueue is still
-   `CASE WHEN a.kind = 'audio' THEN 'transcription' ELSE 'card_vision' END`
-   with no mime filter. A stored `.vcf` would get a vision call on a
-   text file, fail three times, and leave the capture at `processing`.
-   Decline at WF-01 instead, same pattern as contact: detect **before**
-   `branch = 'document'`. Match `mime_type` `text/vcard` or
-   `text/x-vcard`, **or** `file_name` ending `.vcf` (case-insensitive).
-   Set `branch = 'vcard'`. Read nothing else from the file. No asset,
-   no capture, no WF-02 call. Route to a WF-01 Telegram send with
-   exact text:
+   **Telegram `.vcf` / vCard — live WF-01 still declines.**
+   GET `1d53c03d`: detect before `branch = 'document'`. Match
+   `mime_type` `text/vcard` or `text/x-vcard`, or `file_name`
+   ending `.vcf`. `branch = 'vcard'` → `Vcard unsupported reply`.
+   No asset, no WF-02 call. Exact text:
    `Contact files are not supported. Send a photo of the card or a
    voice note instead.`
+   WF-02 enqueue already excludes vCard. The PUT that stores a
+   `.vcf` as `kind='vcard'` and calls `ingest_contact` is the
+   same paused Phase 9 WF-01 PUT.
    Explicit notEmpty gate before the send. PDFs, videos, and other
    documents keep the existing document branch.
    **Proved packet 3.14, exec 256753** (not 256611 / 256687). Route
@@ -497,6 +513,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    | `action` | Callee | Payload |
    |---|---|---|
    | `new` `done` `batch` `status` (`start` → `status`) | WF-02 | existing contract (`owner_id`, `telegram_user_id`, `action`, `correlation_id`) |
+   | `followup` | WF-02 | opens `capture_mode='followup'`. Not a 15-minute await. |
    | `digest` | WF-07 | `owner_id`, `correlation_id`, `source='call'` |
    | `ask` | WF-08 | `owner_id`, `correlation_id`, `question` = remainder of the text after `/ask` |
    | `flag` | **none — WF-01 owns the branch** | See **/flag** below. Enqueue only. Do not call WF-06. Do not call Apollo. |
@@ -865,9 +882,36 @@ fires every 5 minutes (`minutesInterval: 5`, `Asia/Riyadh`) — correct once
 ingest exists. Do not activate anything else.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
-**WF-02 never sends a Telegram message.** Every send happens in WF-01, so the
-rule "if storage fails, no receipt is sent" is enforced in one place. A
-second send point is how that invariant rots.
+**WF-02 never sends a Telegram message.** Every inbound send happens in
+WF-01. Live `e491a9f0`, 89 nodes. Actions:
+`new | done | batch | status | resolve_target | sweep | followup | ingest_contact`.
+
+### Follow-up is a capture (live)
+
+`/followup` opens `captures.capture_mode='followup'`. It is not a
+15-minute await on `bot_state`. Nested followup is refused. An open
+standard capture is closed (`superseded`) then the followup row
+opens. `/done` on a followup capture does **not** enqueue
+vision/transcription (same exclusions as below). WF-02 then calls
+WF-10 `source=done` with `capture_id`. Idle sweep closes a stale
+followup and calls WF-10 `source=done` per closed followup id.
+
+`ingest_contact` writes an extraction_run + `entity_resolution` job
+and skips WF-04. Contact ingest is live on WF-02; WF-01 PUT that
+routes a shared contact / `.vcf` is **paused**.
+
+### Enqueue exclusions (live, copied onto WF-09)
+
+`Enqueue asset jobs` / `Enqueue sweep jobs` (GET 29 Aug):
+
+```
+AND c.capture_mode IS DISTINCT FROM 'followup'
+AND a.kind IS DISTINCT FROM 'vcard'
+AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
+AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
+```
+
+Do not rewrite these lines. Copy them.
 
 ### Call contract (WF-01 → WF-02)
 
@@ -879,7 +923,7 @@ written anywhere**:
 {
   "owner_id":         "uuid",
   "telegram_user_id": 0,
-  "action":           "new | done | batch | status | resolve_target | sweep",
+  "action":           "new | done | batch | status | resolve_target | sweep | followup | ingest_contact",
   "asset_count_hint": 0,
   "correlation_id":   "uuid"
 }
@@ -1653,8 +1697,17 @@ without touching `wf04-v3`.
     Do not dispatch.** Enqueue is the durable act. `alwaysOutputData:
     true`. Explicit row-returned gate (`id` notEmpty) — a zero-row
     write returns `{success:true}`. False → **No enrichment to enqueue**
-    NoOp. True → **Enrichment queued** NoOp. WF-06 stays INACTIVE;
-    queued jobs wait.
+    NoOp. True → **Enrichment queued** NoOp. WF-06 is **ACTIVE** and
+    drains the queue.
+
+11. **Deferred follow-up (live).** After `Mark resolution succeeded`,
+    parallel with enqueue: **Load followup draft** — followup capture
+    + `follow_ups.draft_state='draft'` (exclude `5df341f8`).
+    **Should complete followup draft?** true → **Kick WF-10 deferred**
+    `{source:'deferred', owner_id, capture_id, correlation_id}` →
+    **Call WF-10 deferred** `wait:false`. `awaiting_confirm` is never
+    redrafted. `Prepare resolution` `sourceMap` includes
+    `shared_contact` and `vcard`.
 
     **Packet 4.7 measured.** Capture 64 re-run of entity resolution:
     WF-05 exec **263857**, last node **Enrichment queued**. Job
@@ -1676,7 +1729,7 @@ in WF-05.
 ## WF-06 — Enrichment
 
 **Phase 4** · **Triggers:** Manual + Schedule `*/15 * * * *`.
-**Live:** built **INACTIVE**. Packet 4.7 does not publish. Timezone is
+**Live:** **ACTIVE** `356a2d1f`. Timezone is
 `settings.timezone: Asia/Riyadh` only. `availableInMCP: true`,
 `errorWorkflow` = LNI WF-00, `executionTimeout: 300`,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
@@ -1687,11 +1740,11 @@ MCP will bind the wrong one. Bind by REST PUT; prove by re-GET, then a
 self-identifying execution (`SELECT name FROM public.events WHERE
 name = 'LEAP 2026'`).
 
-WF-05 **enqueues** `job_type='enrichment'` in this packet. It does
-**not** dispatch. `/flag` is still later. WF-06 remains INACTIVE, so
-enqueued jobs wait. That is intended and safe. This workflow drains
-the queue on schedule once published; until then, prove runs are
-manual.
+WF-05 **enqueues** `job_type='enrichment'`. It does **not**
+dispatch. `/flag` force-enqueues. WF-06 is **ACTIVE** and
+drains the queue on `*/15`. Historical packet notes below
+that say "still inactive" are measurements from 27–28 Aug,
+not live state.
 
 Queued job `output.person_id` is the person uuid (no new column).
 `force` absent means false. Packet 4.5: **Write match** may fill
@@ -2294,8 +2347,17 @@ paths stay untouched):
    ```
    assets.upload_status = 'stored'
    AND captures.status IS DISTINCT FROM 'open'
+   AND c.capture_mode IS DISTINCT FROM 'followup'
+   AND a.kind IS DISTINCT FROM 'vcard'
+   AND lower(coalesce(a.mime_type, '')) NOT IN ('text/vcard', 'text/x-vcard')
+   AND right(lower(coalesce(a.storage_path, '')), 4) IS DISTINCT FROM '.vcf'
    AND NOT EXISTS (processing_jobs row for that asset_id)
    ```
+
+   The four exclusion lines are copied from live WF-02
+   `Enqueue asset jobs` (GET 29 Aug, `e491a9f0`). Architect error:
+   GATE-FIX predated followup/vCard; WF-02 gained the guards and
+   WF-09 did not until `f3885d5a`. Do not rewrite them.
 
    Owner-scoped. `alwaysOutputData: true`. Zero rows is a normal
    silent terminal — not an error, not an alert.
@@ -2478,10 +2540,47 @@ delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
 
 ## WF-10 — Follow-up drafting
 
-**Phase 7** · **Triggers:** Manual + Execute Workflow Trigger **only**.
-No Telegram trigger. No Schedule. **INACTIVE** for packets 7.1–7.3.
-Do not `POST /activate`. Do not send `active` on a PUT. WF-01 is
-**not** called and **not** edited in this packet.
+**Phase 7** · **Triggers:** Manual + Execute Workflow Trigger.
+**ACTIVE** `7f021c99`, 146 nodes. No Telegram trigger. No Schedule.
+Called by WF-01 (command / callback / `/done`), WF-02 sweep
+(`source=done` per closed followup capture), and WF-05
+(`source=deferred`).
+
+### Live contract (29 Aug 2026)
+
+Follow-up is a **capture**. `/followup` opens `capture_mode='followup'`.
+Voice and photos land as assets on that capture. `/done` calls WF-10
+`source=done` + `capture_id`. WF-10 transcribes in-block audio,
+`INSERT` a `draft` row with the brief, looks up the person. If the
+person exists (earlier capture, exact email) it completes to
+`awaiting_confirm` and returns the card to WF-01. If not, the row
+stays `draft` (`person_id` NULL). That is the fallback, not a failure.
+
+When WF-05 later creates the person, it dispatches `source=deferred`.
+Deferred loads that `draft` row (`Load incomplete draft`). Zero-row →
+`Deferred already complete` (no send, no second INSERT). `Reload brief`
+`$3` is that row id. `Update draft` is
+`WHERE draft_state IN ('draft','awaiting_voice')`. Then the **same**
+8.2 sweep send cluster fires: `Sweep source?` is true for `sweep` **or**
+`deferred`. WF-10 sends Telegram itself on those two sources. That is
+the recorded exception.
+
+Do not make `/done` wait. The owner is standing in front of someone.
+
+`Normalize input` routes `done` / `sweep` / `command` / `deferred` as
+`command`. Lookup floor on the voice ladder is **0.25**. Trigram
+(`step=3`) or `hit_count>1` → picker, never a silent pick (phantom
+merge lesson).
+
+The 15-minute `awaiting_voice` path still exists in the graph. It is
+not how `/followup` works now.
+
+### Historical build notes (7.1–7.3b)
+
+Packets 7.1–7.3 built the command/callback/Gmail path while WF-10
+was still inactive. Those nodes remain. The INACTIVE / “do not
+activate” lines below are **stale** — live is active. WF-01 is
+paused for Phase 9 only; it already calls WF-10.
 
 Settings (REST PUT after MCP create — create is not evidence):
 `availableInMCP: true`, `errorWorkflow` = LNI WF-00
