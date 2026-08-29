@@ -2566,7 +2566,11 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
    `Unknown followup source`). After any append, re-GET every
    connection index.
    `Sweep source?` is true for `sweep` **or** `deferred` (same 8.2
-   send cluster). No second sender.
+   send cluster). No second sender. Deferred loads the existing
+   `draft` row (`Load incomplete draft`); zero-row →
+   `Deferred already complete`. `Reload brief` `$3` is that row id
+   when the incomplete-draft node ran, so the same row is completed
+   (`Update draft`) and never inserted again.
 
 **Command path**
 

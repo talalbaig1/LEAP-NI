@@ -79,5 +79,18 @@ this packet.
   `Call WF-10 deferred` (`wait:false`, `onError: continueRegularOutput`).
 - WF-10: `source='deferred'` routes as command, skips a second brief
   insert, completes the existing draft, sends via the 8.2 sweep cluster.
+- `Reload brief` `$3` prefers `Load incomplete draft.id` so deferred
+  cannot pick a different open row. Deferred does **not** re-run
+  `Transcribe block` / `Assemble brief` (those sit on the `/done` path).
 
-WF-01 unchanged. `5df341f8` excluded from both SELECTs.
+WF-01 unchanged (`1d53c03d`). `5df341f8` excluded from both SELECTs.
+
+## Proof (TEST driver)
+
+| Step | Expect | Result |
+|---|---|---|
+| Immediate `/done` (photo + nameless voice) | `draft_state=draft`, no Send buttons | *pending* |
+| WF-05 after planted extract | person created, `Call WF-10 deferred` | *pending* |
+| Deferred complete | `awaiting_confirm`, To = prove email, photo on row | *pending* |
+| Second `source=deferred` | still `awaiting_confirm`, no redraft | *pending* |
+| Evidence `6f3c13b3` | still `draft` | *pending* |
