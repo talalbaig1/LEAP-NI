@@ -1,7 +1,7 @@
 # Packet 9.2 — complete follow-up draft when the person appears
 
 **Date:** 29 August 2026
-**Status:** APPLY. WF-01 not touched. Phase 9 contact ingest still paused.
+**Status:** PROVED. WF-01 not touched. Phase 9 contact ingest still paused.
 **Branch:** `cursor/phase-09-2-deferred-ce36`
 
 Draft `6f3c13b3-f11d-4c67-8016-73c91d8775f6` is evidence. Do not delete.
@@ -87,10 +87,24 @@ WF-01 unchanged (`1d53c03d`). `5df341f8` excluded from both SELECTs.
 
 ## Proof (TEST driver)
 
+Ahmed/Faisal fixture audio would resolve an existing person and take
+the immediate path. Voice used capture 55 `99eb3ac1` (“test number 17”,
+nobody named). Photo `8cfa042b` copied onto #126. Brief overwritten
+to a never-seen name+email, then a planted extract + WF-05 created
+that person — same race as #120, without spending Apollo.
+
 | Step | Expect | Result |
 |---|---|---|
-| Immediate `/done` (photo + nameless voice) | `draft_state=draft`, no Send buttons | *pending* |
-| WF-05 after planted extract | person created, `Call WF-10 deferred` | *pending* |
-| Deferred complete | `awaiting_confirm`, To = prove email, photo on row | *pending* |
-| Second `source=deferred` | still `awaiting_confirm`, no redraft | *pending* |
-| Evidence `6f3c13b3` | still `draft` | *pending* |
+| Immediate `/done` #126 | `draft`, no Send | **278553** Compose no person. FU `7bd1d3d1` `draft`, `person_id` NULL |
+| WF-05 planted extract | person + kick deferred | **278558** `Call WF-10 deferred` + `Deferred dispatched`. Person `61a1e544` |
+| Deferred complete | `awaiting_confirm`, prove To, photo | **278559** Update draft → Compose confirm → **Send sweep kb3** Telegram `message_id` **468**. To `lni-deferred-92@lni-probe-8f3a2c.example`. Attachment `c3292f68` (copied photo). Body “Dear LNI Deferred Prove Nine” |
+| Second `source=deferred` | no redraft, no send | **278565** `Deferred already complete` |
+| Evidence `6f3c13b3` | still `draft` | kept. `5df341f8` untouched. Faisal `d8b051cb` kept |
+
+Live versions after prove: WF-05 `68f47505`, WF-10 `7f021c99`
+(rollback `ab21c10c`). WF-01 still `1d53c03d`. TEST inactive
+`d69aa9d0`. Prove capture/person/jobs deleted after the card was
+observed. No Apollo row on the prove person.
+
+Telegram message 468 is a prove card to a fake address. The row is
+gone — Send on that card is a no-op.
