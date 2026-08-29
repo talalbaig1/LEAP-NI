@@ -29,7 +29,7 @@ confident wrong decisions.
 | [`docs/phases.md`](docs/phases.md) | Phase 0–8 scope, definitions of done, gates, verification |
 | [`docs/prd.md`](docs/prd.md) | User, jobs to be done, command surface, feedback model, acceptance criteria |
 | [`docs/workflows.md`](docs/workflows.md) | Every n8n workflow spec, WF-00 → WF-10, plus instance conventions |
-| [`docs/plans/`](docs/plans/) | Authored apply packets. Holds 7.4 (`phase-07-4-wf01-wire.md`) and 7.6 (voice, PR #41). Not live workflow JSON. |
+| [`docs/plans/`](docs/plans/) | Authored apply packets. Holds 7.4 (`phase-07-4-wf01-wire.md`) and 7.6 (`phase-07-6-voice.md`, applied). Not live workflow JSON. |
 | [`docs/rules.md`](docs/rules.md) | Operating protocol, roles, verification, troubleshooting, standing technical rules |
 
 **Which document to update for which change** — see `docs/rules.md` §1.
@@ -59,7 +59,7 @@ compete with capture reliability.
 | 2 | Extraction | COMPLETE |
 | 3 | Digests, `/ask`, watchdog | COMPLETE |
 | 4 | Enrichment | COMPLETE |
-| 7 | Follow-up drafting | COMPLETE (typed); voice = 7.6, in progress |
+| 7 | Follow-up drafting | COMPLETE (typed + 7.6 voice apply). Phone items 13–20 of the 7.6 checklist still on the owner. |
 | 6 | pgvector RAG | Planned, post-event |
 | 5 | Web dashboard | Planned, post-event, needs RLS re-proof |
 | 8 | PWA capture | Refused pre-event, post-event |

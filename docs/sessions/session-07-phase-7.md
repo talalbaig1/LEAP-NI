@@ -289,3 +289,29 @@ WF-10 stays ACTIVE `8bd44005-8d91-422b-80f3-b0820b9e1e20`. BotFather
 `/setcommands` updated by owner: 8 commands including `followup`.
 7.6 is PR **#41** (plan only, rebased, not implemented).
 
+---
+
+## 11. 7.6-APPLY (28 Aug, same evening)
+
+C1–C4 amended on `docs/phase-07-6-voice`, PR **#41** squash-merged
+(`e9b7d6bb`). Then apply:
+
+- GET WF-01 `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`, Route type
+  length 13, `[2]` Duplicate check. Saved as rollback.
+- WF-10 PUT `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes,
+  ACTIVE). `language` ABSENT on Transcribe.
+- Prove: TEST `LNI-TEST-WF10-voice-exec` `ygHqk6TGlXq7wJvd`
+  (activated, then deactivated) exec **272058** → WF-10 **272059**
+  on stored audio `131008b2-…` `.oga`. Arabic transcript 18s.
+  Claim before Update draft. Confirm Attachments `(none)`.
+  Empty `/followup` via same TEST: record-now 20 min line,
+  `awaiting_voice` row then cancelled.
+- ONE WF-01 PUT `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` (128
+  nodes, active). Fan-out `Asset row returned?` main[0] =
+  Send adoption? + Voice kind?. Voice kind? reads Insert asset
+  `kind`. Call WF-10 inbound: Followup payload, Callback payload,
+  Voice payload. Read-back passed. No sixth PUT.
+
+Section 10 items 1–12: GET + 272059. Items 13–20: phone, not
+run in this apply (no owner Telegram session here).
+

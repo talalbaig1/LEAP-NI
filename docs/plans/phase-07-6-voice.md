@@ -1,13 +1,17 @@
 # Packet 7.6 — Voice follow-up
 
 **Date:** 28 August 2026
-**Status:** ACCEPTED with architect corrections C1–C4 (PACKET
-7.6-APPLY). Plan first, then apply. Do not PUT WF-01 until WF-10
-voice is proven via `execute_workflow` on a real stored audio
-asset. Never send `active` on the WF-01 PUT. Strip `binaryMode`
-and `timeSavedMode`. Fifth WF-01 PUT today; there is no sixth.
-Any read-back failure: roll back immediately to the saved
-snapshot and stop.
+**Status:** APPLIED 28 Aug 2026 (PACKET 7.6-APPLY, C1–C4).
+WF-10 PUT `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` (100 nodes,
+ACTIVE). Voice path proven `execute_workflow` TEST
+`LNI-TEST-WF10-voice-exec` `ygHqk6TGlXq7wJvd` (now inactive)
+→ WF-10 exec **272059** on real stored `.oga` (Arabic, 18s).
+Confirm card Attachments `(none)` — audio filename not listed.
+Then **one** WF-01 PUT `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd`
+(128 nodes, active). Rollback snapshot remains
+`4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`. There is no sixth
+WF-01 PUT. Never send `active`. Strip `binaryMode` /
+`timeSavedMode`.
 **Depends on:** 7.4-B apply (`docs/plans/phase-07-4-wf01-wire.md`)
 for `/followup` Route type, Call WF-10, confirm send, and the
 fail send. 7.6 adds the voice path **after** the asset is stored.
@@ -17,8 +21,8 @@ Live baseline to confirm before apply (GET, then act):
 
 | Fact | Value |
 |---|---|
-| WF-01 | `ZMYx19qEr72mJoCX`, `active=true`, versionId **must be** `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3` (118 nodes, frozen). If it differs, **STOP**. |
-| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`, versionId `8bd44005-8d91-422b-80f3-b0820b9e1e20` |
+| WF-01 | `ZMYx19qEr72mJoCX`, `active=true`, **was** `4d4d6e6c-…` (118). After 7.6 PUT: `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` (128). Rollback target `4d4d6e6c-40e1-49ad-80f6-5e67203ce0b3`. |
+| WF-10 | `D9PRjbZMQxe9ESVW`, `active=true`, versionId `40c0d5d9-15b8-4ad9-8b60-ff93f88646d8` |
 | WF-03 | `k0bPD3GJBNN2EHDB`, Whisper node `OpenAI transcribe` |
 | Route type `[2]` | `Duplicate check` (voice). Length **13**. **Do not intercept.** |
 | `executionTimeout` | 300 on WF-01, WF-03, WF-10 |
