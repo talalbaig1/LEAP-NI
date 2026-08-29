@@ -2597,6 +2597,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     bracketed placeholders; the guard is enforcement.
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
+    `unmatched_requests` comes from the model only (packet 8.6).
+    No regex fallback on the brief. Drop any unmatched phrase that
+    corresponds to an asset actually selected.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
