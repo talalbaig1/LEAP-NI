@@ -1,7 +1,7 @@
 # Packet 9.3 — WF-09 reconciler guards
 
 **Date:** 29 August 2026
-**Status:** APPLY. WF-01 not touched. Phase 9 contact ingest still paused.
+**Status:** PROVED. WF-01 not touched. Phase 9 contact ingest still paused.
 **Branch:** `cursor/phase-09-3-reconciler-ce36`
 
 Architect error (recorded): GATE-FIX specified the orphan reconciler
@@ -60,14 +60,26 @@ Live version: `f3885d5a-4eb9-41d0-96ae-91115c69fcaf`. Active. 43 nodes.
 | # | Expect | Result |
 |---|---|---|
 | 1 | Live SQL pasted above | `f3885d5a` read-back |
-| 2 | Followup + photo + audio, closed, no jobs → tick enqueues 0 | *pending* |
-| 3 | Stored `.vcf` on closed standard → tick enqueues 0 `card_vision` | *pending* |
-| 4 | Genuine standard orphan still enqueued (#77 class) | *pending* |
-| 5 | Stuck / poison / alert SQL unchanged | Scan / ceiling / requeue byte-identical |
-| 6 | Zero *new* jobs on followup / vcard | *pending* — #120 historical jobs stay |
+| 2 | Followup + photo + audio, closed, no jobs → tick enqueues 0 | #127. **278686** RETURNING has no followup row |
+| 3 | Stored `.vcf` on closed standard → tick enqueues 0 `card_vision` | #128 `3c5a094e` `.vcf`. RETURNING has no vcard row |
+| 4 | Genuine standard orphan still enqueued (#77 class) | #129 photo `3bbfa428` → job `bc25cae5` `card_vision` queued. Kick WF-03 (reconcile) |
+| 5 | Stuck / poison / alert SQL unchanged | Scan / ceiling / requeue byte-identical. **278686** Scan findings `[]`, Silent clean. Clean tick **278655** same |
+| 6 | Zero *new* jobs on followup / vcard | #127/#128 jobs=0. All vcard assets jobs=0. #120 still has 6 historical jobs |
+
+Clean baseline tick **278655** (before plants): Reconcile clean, findings 0.
+
+Prove captures #127–#129 deleted after the tick. TEST inactive.
+`6f3c13b3` still `draft`. `5df341f8` untouched. WF-01 `1d53c03d`.
 
 ## #120 (report only)
 
 Capture #120 still has 6 succeeded jobs and Apollo credit
-`001dd474` (1, `people_match`, confirmed, `d8b051cb`). Do not reverse
-in this packet. Owner's call — see the turn report.
+`001dd474-e098-4ecc-b9cb-de37e3412681` (1, `people_match`, confirmed,
+entity `d8b051cb` Engr. Faisal Baksh).
+
+**Recommend leave as history.** The credit is already spent. The
+person is a real owner contact from a real card. Deleting the job
+rows or the ledger line does not un-spend Apollo and would erase
+the audit of how he entered the graph. Reversing is the owner's
+call if they want the books to match the “followup never enqueues”
+rule.
