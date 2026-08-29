@@ -2557,10 +2557,16 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
    `correlation_id` from **When called** when executed, else from
    the manual item. No backslash regex.
+   `done` / `sweep` / `command` / `deferred` all route as `command`
+   (packet 9.2). `deferred` is WF-05 completing a `draft_state='draft'`
+   row after entity_resolution; it must never redraft
+   `awaiting_confirm`.
 5. **Route source** Switch: `command` \| `voice` \| `callback`.
    Fallback → **Unknown source terminal** (`stopAndError`:
    `Unknown followup source`). After any append, re-GET every
    connection index.
+   `Sweep source?` is true for `sweep` **or** `deferred` (same 8.2
+   send cluster). No second sender.
 
 **Command path**
 
