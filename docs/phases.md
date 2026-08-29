@@ -329,9 +329,9 @@ immediately. If the person is not in `people` yet, the draft stays
 `draft` and WF-05 dispatches WF-10 `source='deferred'` when
 entity_resolution succeeds. WF-10 sends the confirm card on
 `sweep` and `deferred` (recorded exception to “WF-01 sends”).
-Packet 9.8 TEST: WF-05 **279835** / WF-10 **279850**,
-**64 s** `/done` → card (planted ER). Phone: wait the next
-WF-09 15-min tick + extraction.
+Packet 9.10: followup `/done` enqueues on the same node as
+standard (WF-02 `847cc3c7`). TEST: `/done` → card **21 s**
+(WF-02 **280253** / WF-10 **280271**). WF-09 is the backstop.
 
 The 15-minute `awaiting_voice` window is leftover, not the design.
 A follow-up is a capture.

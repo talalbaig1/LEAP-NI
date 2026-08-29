@@ -261,3 +261,17 @@ Then TEST-driver deferred prove, no phone, no WF-01 PUT:
 
 Driver unpublished after (`d69aa9d0`, `active=false`).
 Draft `c884eb5d` cancelled, not sent.
+
+## Packet 9.10 (29 Aug 2026)
+
+Cause (9.9): followup `/done` skipped `Enqueue asset jobs`.
+One WF-02 PUT `847cc3c7` (rollback `bc87f636`). Both
+`Followup close?` outputs enter the same enqueue node.
+Zero-row audio-only still reaches `Followup done terminal`
+and still kicks WF-10. WF-01 `4836ffd8`. WF-09 backstop.
+
+TEST: unknown card `/done` → card **21 s** (WF-02 **280253**,
+WF-10 **280271** `message_id` 531). Audio-only: enqueue no
+`id`, no throw, WF-10 **280118**. Known person: confirm then
+WF-05 **280225** `No deferred draft`. Standard #142 and
+`/batch` unchanged. Driver unpublished.
