@@ -255,23 +255,22 @@ to `normal` / nothing open.
 |---|---|---|---|---|---|
 | 00 | `X7zKL3wTFPIhwyaN` | true | 15 | `5ec180fd-3270-433d-9e03-d0f2ff9ecd44` | — |
 | 00b | `Q1eMhUF67VAt3T8a` | false | 6 | `46330598-9abb-422e-817e-ec6ea620321a` | — |
-| 01 | `ZMYx19qEr72mJoCX` | true | 131 | `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` | `864bcb8b-8ac1-4fb6-a577-8772ff5e22bd` |
-| 02 | `BV0nukrQdOpDCPe4` | true | 89 | `e491a9f0-d213-434c-9da1-5c9372c0ab15` | `071a4794-4d2f-4c05-ac2b-9f482efde605` |
+| 01 | `ZMYx19qEr72mJoCX` | true | 137 | `4836ffd8-10e3-4d8c-963d-42bf0ccb9372` | `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` |
+| 02 | `BV0nukrQdOpDCPe4` | true | 89 | `bc87f636-0e90-4937-92ee-2a71f2373f44` | `e491a9f0-d213-434c-9da1-5c9372c0ab15` |
 | 03 | `k0bPD3GJBNN2EHDB` | true | 38 | `852f300b-069e-4763-b97b-3068fbf06a9b` | — |
 | 04 | `cxyvgBJC1DD8LEbU` | true | 28 | `28510930-2a65-470d-9a29-f8359b0f46f2` | — |
 | 05 | `Iv0loGijYVH77OGh` | true | 29 | `68f47505-36b6-4843-98e1-16892a098aa2` | `74b08d0f-9f9d-44ca-aee2-1324f6e24a7f` |
 | 06 | `eNlgt1wk9Z8Nefwy` | true | 53 | `356a2d1f-daf1-4560-a68f-4df82ff64ceb` | `f6b39538-28ae-4946-ac81-504c9f004c36` |
 | 07 | `AyPtkP8PMFeEdYU9` | true | 25 | `fb9ee1c4-6b40-4064-af22-950b78a45544` | — |
 | 08 | `QIioJBxuZYJh5R4W` | true | 19 | `b699e7d6-ecd4-431d-86ff-d61bd1472390` | — |
-| 09 | `m0lvc9dzpyxLj2hI` | true | 43 | `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | `78c1e260-7ada-46aa-8d42-968ead2595ac` |
-| 10 | `D9PRjbZMQxe9ESVW` | true | 146 | `7f021c99-1beb-4fd5-8b53-f769a10a2b0c` | `ab21c10c-6d04-44eb-a97b-c4409ec38c90` |
+| 09 | `m0lvc9dzpyxLj2hI` | true | 43 | `fdd6fe67-9cc4-4b05-af20-3994f3e1e859` | `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` |
+| 10 | `D9PRjbZMQxe9ESVW` | true | 146 | `97fd7181-f609-445c-a099-429525178d6c` | `7f021c99-1beb-4fd5-8b53-f769a10a2b0c` |
 
-Packet 9.6: one WF-01 PUT (parse_mode HTML on followup senders
-+ Phase 9 contact/vcard). Rollback `1d53c03d`. `5df341f8` is a
-locked follow_up — never touch. Capture #130 and draft
-`f210d77d` are evidence — do not delete, do not re-send.
-LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive unless a
-packet activates it.
+Packet 9.6 applied (GET-verified). WF-01 rollback `1d53c03d`.
+`5df341f8` is a locked follow_up — never touch. Capture #130
+and draft `f210d77d` are evidence — do not delete, do not
+re-send. LNI-TEST-7.16-driver `iqAx0KwCsTbb32BY` inactive
+unless a packet activates it.
 
 ---
 
@@ -876,7 +875,7 @@ ingest exists. Do not activate anything else.
 
 Owns `bot_state` and `captures`. Implements the command surface in `prd.md` §4.
 **WF-02 never sends a Telegram message.** Every inbound send happens in
-WF-01. Live `e491a9f0`, 89 nodes. Actions:
+WF-01. Live `bc87f636`, 89 nodes. Actions:
 `new | done | batch | status | resolve_target | sweep | followup | ingest_contact`.
 
 ### Follow-up is a capture (live)
@@ -2544,7 +2543,7 @@ delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
 ## WF-10 — Follow-up drafting
 
 **Phase 7** · **Triggers:** Manual + Execute Workflow Trigger.
-**ACTIVE** `7f021c99`, 146 nodes. No Telegram trigger. No Schedule.
+**ACTIVE** `97fd7181`, 146 nodes. No Telegram trigger. No Schedule.
 Called by WF-01 (command / callback / `/done`), WF-02 sweep
 (`source=done` per closed followup capture), and WF-05
 (`source=deferred`).
