@@ -3,13 +3,12 @@
 Implementer window. First message was the session-09 handover,
 not a "capture is broken" packet. No PUT. No SQL write. No
 migration. Architect accepted the stop (PR #70 read-back).
-PR #69 merged. Stand down except the owner's phone prove.
+PR #69 merged. Phone prove landed. Incident closed.
 
 ## Verdict
 
-**Capture is not broken.** Last store is #136
-`2026-08-29 08:19:06Z`. Counts match 9.11. No open capture.
-WF-02 sweep and WF-09 watchdog ticking success.
+**Capture is not broken.** Retired by owner phone at 06:26Z:
+#146 stored and closed. Freeze from 00:00 Riyadh tonight.
 
 ## Draft vs published — 05:20 was not a PUT
 
@@ -56,5 +55,32 @@ follow_ups 30, open 0, queued 0, awaiting **2** (`5df341f8`,
 ## Standing
 
 No workflow PUT. Do not revert drafts. Do not PUT to make
-`versionId` match `activeVersionId`. Owner phone prove
-(`/new` + photo + `/done`) is the next signal.
+`versionId` match `activeVersionId`. Next contact is
+"capture is broken" from the owner, or 4 September.
+
+## Incident closed — WF-01 trigger proven live (30 Aug 06:26Z)
+
+Owner ran `/new` + photo + `/done` on his phone after the
+05:20Z canvas autosave. Architect verified from live SQL.
+
+- Capture **#146** `standard` / explicit / `ready`
+  opened `06:26:04Z`, closed `06:26:19Z`
+- 1 asset stored, 162,612 bytes, `storage_path` set
+- `card_vision` succeeded → extraction succeeded →
+  entity_resolution succeeded → enrichment queued
+- assets 92, not-stored 0, people 30 → 31
+- WF-01 / 02 / 03 / 04 / 05 ran on the **published**
+  versions. Drafts `e454df40` / `76840a2a` stayed
+  unpublished. Do not touch them.
+
+**Locked evidence — never edit or delete:**
+
+- capture **#146** and its asset
+- person Talal Mirza M. Baig (owner's own card,
+  deliberate test row)
+
+This is the proof that capture survived the 30 Aug canvas
+write. Not test pollution. Leave the queued enrichment
+job to drain; 1 Apollo credit against the 60/day ceiling.
+
+Freeze in force from 00:00 Riyadh tonight.
