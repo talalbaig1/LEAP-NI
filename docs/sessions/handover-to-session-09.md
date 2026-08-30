@@ -1,7 +1,17 @@
 # Handover prompt — Session 09 (post-event; freeze first)
 
+**SESSION 09 IS A LIVE-EVENT INCIDENT SESSION.** The owner is at
+LEAP on his phone. Freeze is in force. Only a broken capture path
+justifies a change. Triage before diagnosis, diagnosis before fix,
+smallest possible change, one workflow, named rollback, regression
+on the owner's phone.
+
 Paste this as the first message of the next chat. Assume **no memory** of
 session 08.
+
+Implementer craft (REST shapes, TEST driver, enqueue copy, cleanup):
+`docs/sessions/cursor-handover-to-session-09.md`.
+Secrets and live ids: gitignored `docs/environment.local.md`.
 
 ---
 
