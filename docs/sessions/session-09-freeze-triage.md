@@ -55,8 +55,9 @@ follow_ups 30, open 0, queued 0, awaiting **2** (`5df341f8`,
 ## Standing
 
 No workflow PUT. Do not revert drafts. Do not PUT to make
-`versionId` match `activeVersionId`. Next contact is
-"capture is broken" from the owner, or 4 September.
+`versionId` match `activeVersionId`. Freeze holds through
+3 Sep 23:59 Riyadh. Stand down until 4 September. Next
+contact is "capture is broken" from the owner, or 4 Sep.
 
 ## Incident closed — WF-01 trigger proven live (30 Aug 06:26Z)
 
@@ -84,3 +85,128 @@ write. Not test pollution. Leave the queued enrichment
 job to drain; 1 Apollo credit against the 60/day ceiling.
 
 Freeze in force from 00:00 Riyadh tonight.
+
+---
+
+# September — contact "0 items" (2 Sep 2026)
+
+Live-event diagnosis. Owner reported contact cards showing
+"0 items". Architect authorised cause-only, then accepted
+the diagnosis in full. No PUT. Freeze holds. Capture is
+not broken. No data lost.
+
+Architect error recorded: the contact-inside-an-open-block
+hypothesis was wrong. #155 was an empty `/new`…`/done`
+block (opened 15:46:22Z, closed 15:46:27Z, typed_note NULL,
+0 assets). The contact 53s later landed on followup #156.
+
+Verified independently: #160 person is Ahmad Alnasser
+`<ahmad.alnasser@fathom.io>` `source_type=shared_contact`.
+#161 typed_note `"He is from fathom.io"` retained.
+Published WF-10 `97fd7181` contains zero `UPDATE captures`.
+
+Stand down until 4 Sep.
+
+## S1 — `/done` item_count is assets only
+
+`Action done` `item_count = COUNT(assets)`. Contacts and
+typed notes are not assets, so a note-only or contact-only
+capture always reports "0 items" while holding real data.
+
+Extends known issue #4.
+
+Worked contacts #134 #135 #160 #172 never stored an asset.
+They reached `ready` via `ingest_contact` → ER job →
+WF-05 `Set capture status`. `close_reason` NULL.
+`closed_at` NULL. Receipt on that path is
+`Contact saved · #<n> · <name>`, not the `/done` line.
+
+## S2 — NEW ROOT CAUSE. Stale `open_capture_id` after contact ready
+
+`bot_state.open_capture_id` is not cleared when
+`Action ingest_contact` creates a capture that WF-05 then
+flips to `ready`. `Action resolve_target` `existing` CTE
+requires `c.status = 'open'`, so the next message opens
+and strands on a new empty capture.
+
+This produced #161. It is what the owner experienced as
+the contact "failing".
+
+Live:
+
+| t (Z) | exec | what |
+|---|---|---|
+| 13:26:19 | WF-01 **317924** Route type[6] contact → lastNode `Contact reply sent` | `Contact saved · #160 · Ahmad Alnasser` (msg 641) |
+| 13:26:19 | WF-02 **317925** `Action ingest_contact` | `reused=false` `adopted=true` `should_resolve=true` lastNode `Ingest terminal` |
+| 13:26:20 | WF-05 **317926** `Set capture status` | #160 `status=ready`. Does not clear `open_capture_id`. |
+| 13:26:38 | WF-01 **317928** Route type[4] text → lastNode `Note done terminal` | `Opened capture #161 (nothing was open — adopted)` (msg 643) |
+| 13:26:38 | WF-02 **317929** `Action resolve_target` | `adopted=true` — #160 was `ready`, not `open` |
+| 13:26:41 | WF-01 **317931** Route type[0] `/done` → lastNode `Command sent terminal` | `✓ Capture #161 saved · 0 items` (msg 645) |
+| 13:26:41 | WF-02 **317932** `Action done` | `item_count=0` `kick_wf10=false` lastNode `No jobs enqueued` |
+
+Contact person stayed on #160. Typed note stranded on #161.
+
+WF-01 contact/vcard path does not inspect an open capture.
+`Route type` [6] → `Contact payload`. [9] →
+`Telegram getFile vcard`. Open-capture reuse is only
+WF-02 `Action ingest_contact` (`status='open'`).
+
+## S3 — Typed-note-only captures never extract
+
+Typed-note-only captures closed by `Action done` enqueue
+0 jobs. WF-05 never runs. Note is retained on the row
+and never extracted.
+
+Affects **#161 #80 #11 #24 #44**. Predates the event.
+
+## S4 — Audio-only followup stuck at `processing`
+
+Audio in a followup block correctly gets no job:
+
+```
+AND NOT (c.capture_mode = 'followup' AND a.kind = 'audio')
+```
+
+Nothing then advances `captures.status`. WF-05 `Set capture
+status` only runs after an `entity_resolution` job.
+Published WF-10 `97fd7181` writes no capture status
+(zero `UPDATE public.captures`).
+
+#150 and #164: one stored audio, 0 jobs, `close_reason=
+explicit`, stuck at `processing`.
+
+#164 proven: WF-01 **320268** `/done` → `Kick WF-10?` TRUE
+→ WF-02 **320269** `Followup done terminal` (`item_count=1`,
+enqueue `{success:true}` empty) → WF-10 **320270**
+`source=done` transcribed, picker "Multiple matches…",
+lastNode `Return to caller`. WF-10 ran. It did not flip
+the capture. Picker is not a terminal capture state.
+
+Photos in a followup can still reach `ready` via ER
+(#120, #156). Audio-only cannot.
+
+## Execution store prune — standing constraint
+
+n8n execution store is pruning at roughly **24–36 hours**.
+The `2026-08-31T15:46Z` window is gone entirely.
+`search_executions` empty with and without `workflowId`.
+`get_execution` of audit ids 307806 / 307808 → not found
+on WF-01 and WF-02.
+
+`audit_log` was the only recovery path and it worked
+(#155 = `capture_new` 307806 then `capture_done` 307808).
+
+Execution forensics have a short window during the event.
+Do not treat a missing execution search as "it never ran".
+Read `audit_log.after.execution_id` first, then try
+`get_execution`. If both miss, the SQL row is the proof.
+
+The 30 Aug "MCP `search_executions(workflowId=WF-01)`
+returns empty" tool gap is a different, earlier defect.
+The 13:26Z window returned 317924 / 317928 / 317931 by
+`workflowId`. Prune is the September constraint.
+
+## Freeze
+
+31 Aug 00:00 – 3 Sep 23:59 Riyadh. Capture is not broken.
+No data lost. No fix. No PUT. Stand down until 4 Sep.
