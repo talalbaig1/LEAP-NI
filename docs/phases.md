@@ -452,6 +452,18 @@ packet. S6 is diagnosed in this packet **before** any fix.
   by hand. Fix only after the architect accepts the cause.
 - No PUT on WF-01 unless a later packet says so.
 
+### Packet 10.2c — S7a + S7b. STOP before PUT.
+
+Identity loss only. WF-02 + WF-04. Do not touch WF-05 /
+WF-09 / WF-10 / WF-01.
+
+**Authorised 5 Sep — kick-split.** WF-02 + WF-04 only.
+WF-05 not touched. S8 logged in `rules.md`; not fixed here.
+WF-04 `Gate: resolution enqueued` must Call WF-05 on
+**both** branches (insert and already-queued). A job
+queued by ingest_contact would otherwise skip Call WF-05
+and T3 would create nobody.
+
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
 Sweep the ~9 voice-note-only people. Measured reveal rate
