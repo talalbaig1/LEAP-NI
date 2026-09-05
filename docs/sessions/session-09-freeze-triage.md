@@ -248,3 +248,83 @@ mints everyone else.
 Shared live pattern: second (or later) person on a
 multi-person extraction, or a no-email name duplicate.
 Probes are test rows. Cause only.
+
+## 10.2c — STOP. No PUT.
+
+Authorised: S7a WF-02 + S7b WF-04. Do not touch WF-05 /
+WF-09 / WF-10 / WF-01. S3 completion and R4 clobber are
+10.2d.
+
+### New finding — `Set capture status` writes ready on `open`
+
+Live WF-05 `68f47505` node `Set capture status`:
+
+```
+UPDATE public.captures
+SET status = CASE
+  WHEN COALESCE((
+    SELECT count(*)
+    FROM jsonb_array_elements_text(COALESCE($2::jsonb, '[]'::jsonb)) AS f(val)
+    WHERE f.val IS DISTINCT FROM 'Non-Latin script present in the name field'
+  ), 0) = 0 THEN 'ready'
+  ELSE 'needs_review'
+END
+WHERE id = $1::uuid
+RETURNING id, capture_no, status;
+```
+
+No `AND status = 'processing'`. No `AND status IS DISTINCT
+FROM 'open'`. Packet said: if this can write ready on an
+open capture, report it and **stop before building**.
+
+This is how standalone contact already works (#134 #160:
+ingest creates `open` → ER → `ready`, `close_reason` NULL).
+It is fatal on a reused `/new` block: Call WF-05 mid-block
+flips the still-open capture to ready; S2 then clears
+`open_capture_id`; later photo / note / `/done` strand.
+
+No WF-02 PUT. No WF-04 PUT.
+
+### How I would prevent it (not built)
+
+Do not touch WF-05. Split enqueue from kick:
+
+- `should_resolve` = `(capture_mode IS DISTINCT FROM
+  'followup') AND NOT EXISTS (entity_resolution job)`
+  — drop `NOT reused`. This only **inserts** the ER job.
+- `Call WF-05 contact` only when `should_resolve AND NOT
+  reused` (T1 standalone). Open→ready stays the contact-only
+  close.
+- Reused (T2 / T3): enqueue, do not call. Capture stays
+  `open`. `/done` with assets → WF-03 → WF-04 `wf04-v6`
+  merge → existing `Call WF-05` claims the queued job
+  **after** the new run exists. `/done` with no assets /
+  no note → a WF-02 kick of WF-05 so contact-only reused
+  still resolves.
+
+T1 and T2 then do not double-create: one ER job, one
+WF-05 run. T3 WF-05 reads latest = `wf04-v6`.
+
+### Merge rule (owner-confirmed, not built)
+
+WF-05 `ORDER BY created_at DESC LIMIT 1` stays.
+WF-04 composes `wf04-v6` from asset jobs **plus** the
+same-capture `contact-v1` run. Existing rows immutable.
+
+| Field | Rule |
+|---|---|
+| email, phone | contact-v1 fills **NULL only**. Never overwrite. Never blank. |
+| full_name | **never** overwritten by contact-v1. Differing contact name → `entity_candidates` suggestion `same_capture`, `contact_name_differs: "<contact>" vs "<asset>"`. Not a person. |
+| title, company | fill NULL only. Same as email/phone. |
+| no asset run | contact-v1 is the whole composition. S7a ER → WF-05 reads that only run. |
+
+Telegram contact names are owner labels ("Fazal From
+Bahrain…"). They become `full_name` only when they are
+the only name. A cleaner asset-derived name is kept.
+
+#156 owner-confirmed same man: v6 keeps asset/note name
+`Rana Waleed`, fills `rana.waleed123@gmail.com` and
+`0538584129` from contact-v1, suggests the contact label.
+
+Replay of the 12 multi-run captures is a later authorised
+step. Not this packet.
