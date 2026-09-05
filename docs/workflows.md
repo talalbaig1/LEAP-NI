@@ -1730,6 +1730,14 @@ without touching `wf04-v3`.
    `flag_reasons` contains any flag **other than** `'Non-Latin script
    present in the name field'`. That flag **alone** no longer blocks
    `ready`. Every other flag still does. (`failed` is not set here.)
+
+   **Verified 5 Sep (10.2c STOP).** Live node `Set capture status`
+   (`68f47505`) is `UPDATE captures SET status = ready|needs_review
+   WHERE id = $1`. **No prior-status predicate.** It writes `ready`
+   on `status='open'`. Standalone contact (#134 #160) depends on
+   that. A reused open block must not Call WF-05 until the block
+   is closed, or the pointer dies mid-capture. Do not PUT WF-05
+   in 10.2c.
    Packet 3.6 / 3.7 owner ruling: a non-Latin `full_name` is accepted
    as identity. `'Non-Latin script present in the name field'` stays in
    `flag_reasons` as information only. An Arabic-only `full_name` is
