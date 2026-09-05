@@ -283,9 +283,11 @@ It is fatal on a reused `/new` block: Call WF-05 mid-block
 flips the still-open capture to ready; S2 then clears
 `open_capture_id`; later photo / note / `/done` strand.
 
-No WF-02 PUT. No WF-04 PUT.
+Logged as **S8**. Do not fix in this packet.
 
-### How I would prevent it (not built)
+### Authorised 5 Sep — kick-split + WF-04 both-branch Call
+
+### How the kick-split prevents it (built)
 
 Do not touch WF-05. Split enqueue from kick:
 
@@ -305,7 +307,28 @@ Do not touch WF-05. Split enqueue from kick:
 T1 and T2 then do not double-create: one ER job, one
 WF-05 run. T3 WF-05 reads latest = `wf04-v6`.
 
-### Merge rule (owner-confirmed, not built)
+Contact-only reused `/done` with no assets does **not**
+depend on 10.2d. `Gate: jobs enqueued` false →
+`Call WF-05 done-er`. After 10.2d a typed note takes the
+WF-04 path instead; that path now Calls WF-05 even when
+the ER row already exists.
+
+### WF-04 gate (proved before PUT, 28510930)
+
+`Call WF-05` is **not** unconditional.
+
+```
+Enqueue entity_resolution  NOT EXISTS … RETURNING id
+  → Gate: resolution enqueued
+      id notEmpty → Call WF-05
+      else        → Resolution already queued   (NoOp, no call)
+```
+
+A job already queued by ingest_contact makes NOT EXISTS
+skip. Without a correction T3 creates nobody. Fix: both
+gate branches → `Call WF-05`. WF-05 claims from Postgres.
+
+### Merge rule (owner-confirmed)
 
 WF-05 `ORDER BY created_at DESC LIMIT 1` stays.
 WF-04 composes `wf04-v6` from asset jobs **plus** the
@@ -328,3 +351,5 @@ the only name. A cleaner asset-derived name is kept.
 
 Replay of the 12 multi-run captures is a later authorised
 step. Not this packet.
+
+Rollback before PUT: WF-02 `201095c6`, WF-04 `28510930`.

@@ -252,6 +252,7 @@ Packet **10.2** is the fix window. Until then they stand.
 | **S4** | Audio-only followup captures stick at `processing`. Enqueue skip is correct. WF-05 only runs after `entity_resolution`. Published WF-10 writes no capture status. #150 #164. |
 | **S5** | Docs only. Duplicated/spliced `## Standing` block in `session-09-freeze-triage.md`. Clean up in 10.2. Not a second event-week PR. |
 | **S6** | Person minted with no interaction row. Ahmed Alkaf `32c8efee-c0a9-4ef9-bac8-f645536d93af`, 31 Aug 13:28Z, `source_type=card`, from capture **#153**. `structured_output` contains `blossommena`. Extraction succeeded. WF-05 created the person. **No `interactions` row.** #153 is `ready`. A person with an email and no conversation behind him. Same family as S1–S5. **Cause unknown — 10.2 diagnoses before fixing.** Do not write an interaction row by hand. |
+| **S8** | WF-05 `Set capture status` (`68f47505`) is `UPDATE captures SET status=ready\|needs_review WHERE id=$1` — no prior-status predicate. It can write `ready` onto `status='open'`. Standalone contact (#134 #160) depends on that. A reused open block must not Call WF-05 or the pointer dies mid-capture. 10.2c kick-split is a **discipline** guarantee, not a structural one — Rule 23 class. Structural fix is close-the-capture-before-WF-05. **Do not fix in 10.2c.** Separate packet after outreach. |
 
 **Standing constraint.** n8n execution store prunes at roughly
 24–36 hours. `audit_log.after.execution_id` is the recovery
@@ -273,8 +274,9 @@ no destructive migrations. Only a narrow, tested incident fix with a rollback
 point.
 
 **Freeze lifted 5 Sep 2026.** Event closed 2 Sep (owner skipped
-3 Sep — health, not a defect). Phase 10 is docs-first. S1–S6
-below are known defects; they are packet 10.2, not a side fix.
+3 Sep — health, not a defect). Phase 10 is docs-first. S1–S8
+are known defects; they are packet 10.2, not a side fix. S8
+is logged only — do not fix in 10.2c.
 
 **Deferring downstream work costs nothing.** Enrichment, RAG, dashboards, and
 CRM all replay against retained raw assets. Capture does not — data never

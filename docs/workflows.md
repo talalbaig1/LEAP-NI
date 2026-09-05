@@ -956,6 +956,14 @@ and skips WF-04. Packet 9.6 wires WF-01: shared contact and
 WF-01; the person record is the extraction_run, not a Storage
 object. Enqueue still skips `kind='vcard'`.
 
+**10.2c kick-split.** `should_resolve` =
+`(NOT in_followup) AND NOT EXISTS (entity_resolution job)`.
+`NOT reused` dropped. Enqueue always when that is true.
+`Call WF-05 contact` only when `NOT reused` (standalone).
+Reused stays `open`; `/done` with no jobs calls WF-05
+(`Call WF-05 done-er`). `/done` with assets goes WF-03 →
+WF-04 → Call WF-05 (both enqueue branches).
+
 ### Enqueue exclusions (live, one statement, WF-02 and WF-09)
 
 `Enqueue asset jobs` / `Enqueue sweep jobs` / WF-09
@@ -1515,6 +1523,20 @@ and optional — WF-04 **claims from Postgres itself**.
    extraction paths (a flagged capture still needs a person/interaction
    row and a terminal capture status). Do **not** enqueue or call WF-05
    on the extraction failed/requeue path.
+
+   **10.2c.** `prompt_version` **`wf04-v6`**. After parse, merge the
+   same-capture `contact-v1` run (`model='wf02-contact-parse'`) into
+   `people[]`: email / phone / title / `company_name` fill NULL only;
+   `full_name` never from contact-v1 when an asset or note name
+   exists; differing names write `entity_candidates`
+   (`same_capture`, `contact_name_differs: "…" vs "…"`). Zero named
+   asset people → contact-v1 is the whole `people[]`. Existing
+   `wf04-v5` / `contact-v1` rows are not rewritten.
+
+   **Call WF-05 is not gated on the insert.** Live `28510930` had
+   `Gate: resolution enqueued` → false → `Resolution already queued`
+   (NoOp). A job queued by `ingest_contact` skipped the call. Both
+   branches now `Call WF-05`. WF-05 claims from Postgres.
 
    **Publish order:** WF-05 must be active before WF-04 may reference it;
    WF-04 must be active before WF-03 may reference it. A parent cannot

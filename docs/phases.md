@@ -457,13 +457,12 @@ packet. S6 is diagnosed in this packet **before** any fix.
 Identity loss only. WF-02 + WF-04. Do not touch WF-05 /
 WF-09 / WF-10 / WF-01.
 
-**Stopped 5 Sep.** WF-05 `Set capture status` (`68f47505`)
-is `UPDATE captures SET status=ready|needs_review WHERE
-id=$1` — no prior-status predicate. It writes `ready` on
-`status='open'`. Packet required halt. No WF-02/WF-04 PUT
-until the architect authorises the kick-split (enqueue ER
-on reused, Call WF-05 only when not reused) or a later
-WF-05 WHERE clause.
+**Authorised 5 Sep — kick-split.** WF-02 + WF-04 only.
+WF-05 not touched. S8 logged in `rules.md`; not fixed here.
+WF-04 `Gate: resolution enqueued` must Call WF-05 on
+**both** branches (insert and already-queued). A job
+queued by ingest_contact would otherwise skip Call WF-05
+and T3 would create nobody.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
