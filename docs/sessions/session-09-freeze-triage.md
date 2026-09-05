@@ -353,3 +353,13 @@ Replay of the 12 multi-run captures is a later authorised
 step. Not this packet.
 
 Rollback before PUT: WF-02 `201095c6`, WF-04 `28510930`.
+
+### PUT 5 Sep (one each, from `activeVersion`)
+
+| WF | rollback | new `versionId` = `activeVersionId` | nodes |
+|---|---|---|---|
+| 02 | `201095c6` | **`ce51e6f4-860e-4bc1-a640-a00c41e5c358`** | 95 → 97 |
+| 04 | `28510930` | **`dafe9b02-4523-4936-9077-4bf975f998aa`** | 28 → 29 |
+
+Settings unchanged. WF-05 still `68f47505`. T1–T4: owner's
+phone. Not run from this VM. Do not replay the 12.
