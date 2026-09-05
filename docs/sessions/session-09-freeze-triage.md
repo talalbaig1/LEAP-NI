@@ -296,3 +296,20 @@ S4: WF-10 `Set followup capture ready` on every path that
 used to hit `Return to caller`. SQL only updates
 `capture_mode='followup'` and `status='processing'`. Gate on
 `RETURNING id`.
+
+### PUT 5 Sep (one each, from `activeVersion`)
+
+First REST GET: `sanitize_for_put` took
+`response["activeVersion"]` (WF-02 91 nodes / 15 creds;
+WF-10 146 / 53). Top-level draft not used.
+
+| WF | rollback | new `versionId` = `activeVersionId` | nodes |
+|---|---|---|---|
+| 02 | `847cc3c7` | **`201095c6-8aab-4503-8532-aedafb358d90`** | 91 → 95 |
+| 10 | `97fd7181` | **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`** | 146 → 150 |
+
+Settings unchanged: `Asia/Riyadh`, error WF-00, MCP true,
+timeout 300. WF-05 still `68f47505`. WF-01 published still
+`4836ffd8` (draft `e454df40` unpublished).
+
+R1–R5: owner's phone. Not run from this VM.
