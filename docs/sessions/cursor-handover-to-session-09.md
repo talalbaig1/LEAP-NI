@@ -43,15 +43,31 @@ Helper on this VM (not in git): `/tmp/lni716/n8n_util.py`.
 `get_wf` name-checks `LNI ` / `LNI-TEST-`. `sanitize_for_put`
 keeps only `name`, `nodes`, `connections`, `settings`.
 
+**GET top-level is the DRAFT.** Opening a canvas autosaves a
+draft and bumps top-level `versionId` with no API write
+(WF-01 / WF-06, 30 Aug 05:20Z — positions only; defaults
+stripped). Published graph is `activeVersion.nodes` /
+`activeVersion.connections`. Published id is
+`activeVersionId`. Top-level `versionId` ≠ live.
+
+`sanitize_for_put` on an active workflow **must** take nodes
+and connections from `activeVersion`. Top-level nodes on an
+active workflow raise. Do not PUT to make draft
+`versionId` match `activeVersionId`. Never publish the
+WF-01 draft `e454df40` or the WF-06 draft `76840a2a`. If
+either draft id changes, someone wrote again — STOP.
+
 ### GET
 
 ```
 GET /api/v1/workflows/{id}
 ```
 
-Read `name` first. Wrong prefix → STOP. Then read `versionId`,
-`active`, `nodes.length`, `settings`. Unexpected `versionId`
-means someone PUT without a packet. Do not "fix" it.
+Read `name` first. Wrong prefix → STOP. Then read
+`activeVersionId` (published), top-level `versionId`
+(draft), `active`, `settings`. Do not treat a new draft
+`versionId` as a PUT. Compare `activeVersionId` to the
+handover table.
 
 ```
 GET /api/v1/executions/{id}
@@ -68,6 +84,8 @@ PUT /api/v1/workflows/{id}
 ```
 
 Body: `{ name, nodes, connections, settings }` only.
+`nodes` / `connections` from `response["activeVersion"]`
+when the workflow is active. Never from top-level draft.
 
 **Must strip (public PUT is 400):**
 
@@ -113,10 +131,36 @@ deactivate to "test". Never restart n8n.
 | PUT a non-`LNI ` name | you listed-and-acted. STOP. |
 | Telegram production webhook without secret | **403**. You cannot POST a fake update at the live trigger. |
 
-Rollback of a live workflow is a PUT of the last known-good JSON
-(GET that version if you saved it; otherwise reconstruct from the
-named rollback `versionId` snapshot under `/tmp/lni716/`). Still
+Rollback of a live workflow is a PUT of the last known-good
+**published** graph (`activeVersion`, or a saved snapshot of
+that). GET → `sanitize_for_put` → PUT of top-level draft
+promotes the canvas autosave and looks like a restore. Still
 no `active`. Still strip junk.
+
+```
+def sanitize_for_put(wf):
+    settings = dict(wf.get('settings') or {})
+    settings.pop('binaryMode', None)
+    settings.pop('timeSavedMode', None)
+    published = wf.get('activeVersion') or {}
+    if wf.get('active') or wf.get('activeVersionId'):
+        nodes = published.get('nodes')
+        connections = published.get('connections')
+        if not nodes or connections is None:
+            raise RuntimeError(
+                'active workflow missing activeVersion graph; '
+                'refusing top-level draft PUT'
+            )
+    else:
+        nodes = wf.get('nodes')
+        connections = wf.get('connections')
+    return {
+        'name': wf['name'],
+        'nodes': nodes,
+        'connections': connections,
+        'settings': settings,
+    }
+```
 
 ---
 
@@ -350,22 +394,31 @@ the owner cannot `/done`. A nicer card is not broken capture.
 
 1. **Triage, no PUT.** Ask: last `/new` or photo — did the bot
    reply? Which execution id?
-2. **GET WF-01** name + `versionId`. Must be
+2. **GET WF-01** name + **`activeVersionId`**. Must be
    `LNI WF-01 - Telegram ingest router` /
-   `4836ffd8-10e3-4d8c-963d-42bf0ccb9372`. If the version moved,
-   STOP and report. Someone PUT.
-3. **Latest WF-01 execution.** `lastNodeExecuted`, error text
-   (redacted). Allowlist miss vs Storage mismatch vs Compose vs
-   Telegram 400 (`parse_mode`) are different diseases.
+   `4836ffd8-10e3-4d8c-963d-42bf0ccb9372`. Draft
+   `versionId` `e454df40` is the 05:20 canvas autosave —
+   not a PUT. If `activeVersionId` moved, STOP and report.
+   If the **draft** id moved off `e454df40`, someone wrote
+   again — STOP and report. Same for WF-06 draft `76840a2a`
+   / published `356a2d1f`.
+3. **Latest WF-01 execution.** MCP
+   `search_executions(workflowId=WF-01)` returns empty
+   despite known execs (279617). Tool gap. Liveness is the
+   phone, not that search. If you have an execution id:
+   `lastNodeExecuted`, error text (redacted). Allowlist
+   miss vs Storage mismatch vs Compose vs Telegram 400
+   (`parse_mode`) are different diseases.
 4. **SQL read** (no write): open capture for the owner, last
    `assets` row, last `storage_path` HEAD if you must. Storage
    first: no row is better than a lying row.
 5. **Diagnosis before fix.** One cause. Write it down.
-6. **Smallest change, one workflow, named rollback.** GET, save
-   JSON, PUT that one workflow, strip junk, no `active`. Re-GET
-   `versionId`. Prove on the **owner's phone** (driver cannot
-   reach WF-01 send). If the prove fails, PUT the rollback JSON
-   immediately.
+6. **Smallest change, one workflow, named rollback.** GET,
+   `sanitize_for_put` from **`activeVersion`**, PUT that one
+   workflow, strip junk, no `active`. Never PUT the draft.
+   Re-GET `activeVersionId`. Prove on the **owner's phone**
+   (driver cannot reach WF-01 send). If the prove fails,
+   PUT the rollback JSON immediately.
 7. Do not touch WF-10 / WF-05 / a prompt / a card while the
    owner cannot capture.
 
