@@ -211,12 +211,46 @@ from your target sectors. 3 people asked you to follow up today."*
 
 ---
 
+## 8b. Post-event outreach (Phase 10, not built)
+
+The event is over. Capture is closed. Job 5 (follow up before
+the memory fades) is now the work.
+
+**Who.** 13 people with email who have not already been
+emailed. Not a list blast (D-A). LinkedIn-only contacts are
+the owner's LinkedIn, out of scope. WhatsApp is the owner's
+hands, out of scope (D-D).
+
+**What the owner sees**
+
+1. He names a person (or the implementer kicks the 13 as
+   a controlled list — 10.4 specifies the trigger).
+2. The system writes **one Gmail Draft** in his Drafts
+   folder: tailored body from the stored conversation,
+   scene photo attached when we have one (D-B). No picker.
+3. Telegram: a receipt. Example shape:
+   `Draft ready in Gmail · Abdalla Elkhouli · <subject>`.
+   No Send button. No approve card.
+4. He opens Gmail, reads the draft, sends or edits or
+   deletes it himself.
+
+**What he does not see.** A Telegram approve-to-send flow.
+That stays on the live voice `/followup` path only.
+Decision 12 is stronger here: the system cannot send on
+this path even if someone taps.
+
+**Success.** Thirteen drafts exist. Zero messages left the
+building. The seven scene photos are on the right drafts.
+
+---
+
 ## 9. Non-goals
 
 Explicitly out of scope, to prevent scope creep under deadline pressure:
 
 - Multi-user or team collaboration (schema supports it; not built)
-- Automated outbound messaging of any kind
+- Automated outbound messaging of any kind. Phase 10 writes
+  Gmail Drafts; the owner sends. That is not a send.
 - LinkedIn connection or message automation
 - Face matching, badge scanning, or attendee-list scraping
 - A native mobile app

@@ -26,8 +26,10 @@ start, not by sliding the gate.
 | **29 Aug** | **GATE: 0–3 green on real phone with real cards — unchanged** |
 | 30 Aug | Phase 4 if green, otherwise hardening |
 | **31 Aug** | **LEAP day 1** |
-| 31 Aug – 3 Sep | Event operations |
-| Sep onward | Phases 5–8 |
+| 31 Aug – 2 Sep | Event operations (owner attended) |
+| 3 Sep | Official last day. Owner skipped — health. Zero-capture day closed. |
+| **5 Sep** | Phase 10 documented (not built). Freeze lifted. |
+| Sep onward | Phase 10 packets 10.1–10.4, then Phases 5–8 |
 
 **Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete. Phase
 2 complete. Phase 3 closed (WF-07/08/09 ACTIVE). Owner opened Phase 4
@@ -356,6 +358,137 @@ why.
 **LinkedIn:** store and resolve profile URLs only. Automating connection
 requests or messages violates LinkedIn's terms and the realistic outcome of bulk
 automation is a restricted account.
+
+---
+
+## Phase 10 — Post-event repair and history outreach
+
+**Timing:** 5 Sep 2026 onward. **State:** documented. **Not built.**
+Docs first (`rules.md` §1). No PUT, no migration, no SQL write
+until a packet authorises it.
+
+**Event close (architect, live SQL 5 Sep).** 39 event captures,
+78 new assets, 169 total, 0 not stored. 36 new people, 44
+companies, 0 queued, 0 orphans. 16 people have email; 3 already
+emailed (DES RAJ Chauhan, Rana Waleed, Shahzad Jameel) → **13
+to contact**. 7 of those 13 have a scene photo. 17 people have
+neither email nor phone; 7 of those are LinkedIn screenshots —
+**owner handles over LinkedIn, out of scope.** ~9 are
+voice-note-only and in scope for enrichment. 16 captures at
+`needs_review`. Anomaly: person "Ahmed Alkaf" has email and
+zero `interactions` rows.
+
+**Locked:** D-A, D-B, D-C, D-D (`masterplan.md` §4). Decision 12
+strengthened. WhatsApp is not designed.
+
+### Packet 10.1 — Data repair
+
+Adjudicate the 16 `needs_review` captures. Merge duplicates
+**by suggestion only** — never auto-merge on name
+(`rules.md` §7 rule 5):
+
+- Ali Abbas ×2
+- probable أشرف = Ashraf Abu Elayyan
+- probable Imad = Imad Afyouni
+
+Resolve leftover captures **#155 #161 #150 #164** (S2/S3/S4
+rows; do not invent missing assets). Explain Ahmed Alkaf's
+missing interaction.
+
+**Acceptance**
+
+- Each of the 16 `needs_review` captures has a written
+  decision: accept, flag, or merge-suggested.
+- Suggested merges are `entity_candidates` (or equivalent
+  review rows), never silent `people` UPDATEs on name.
+- #155 #161 #150 #164 have an explicit terminal note
+  (leave / extract-note / close-ready). No silent DELETE.
+- Ahmed Alkaf: cause of zero interactions written in the
+  session log. No invented interaction row.
+- Architect verifies from live SQL, not the implementer report.
+
+### Packet 10.2 — S1–S4 fixes + PR #71
+
+Fix the four September defects (`rules.md` known defects).
+Merge PR **#71** (`sanitize_for_put` uses `activeVersion`;
+still OPEN/draft on `cursor/session-09-sanitize-put-364d`).
+S5 (duplicated/spliced `## Standing` in
+`session-09-freeze-triage.md`) is docs-only cleanup in this
+packet.
+
+**Acceptance**
+
+- S1: `/done` `item_count` counts what the owner believes
+  is in the capture (assets **and** contact/note), or the
+  receipt text no longer says "0 items" when a person or
+  note exists. Architect names the chosen wording.
+- S2: after `ingest_contact` + WF-05 `ready`, the next
+  typed note lands on **that** capture. `open_capture_id`
+  is either cleared or `resolve_target` accepts `ready`
+  when it still points at the last ingest. Prove with a
+  contact then a note, 19-second class. No stranded empty
+  capture.
+- S3: a typed-note-only `/done` enqueues extraction (or
+  an equivalent path). Note is extracted. WF-05 runs.
+- S4: an audio-only followup `/done` leaves
+  `captures.status` a terminal value (`ready` or
+  `needs_review`), not `processing` forever. Enqueue skip
+  for followup audio **stays**. WF-10 or a named sibling
+  writes the status. Published WF-10 today has zero
+  `UPDATE captures` — that is the gap.
+- PR #71 squash-merged or closed with a reason. Rebase
+  expected: its copy of `session-09-freeze-triage.md`
+  predates #70/#72.
+- S5 Standing block is one clean paragraph.
+- No PUT on WF-01 unless a later packet says so.
+
+### Packet 10.3 — Apollo sweep, voice-note-only
+
+Sweep the ~9 voice-note-only people. Measured reveal rate
+on Saudi SME contacts is ~50%; expect 4–5 of 9. Budget
+~9 credits against ~2,570 remaining (5 Sep). Person-by-email
+unchanged (Decision 8). Do not invent emails.
+
+**Acceptance**
+
+- Named list of the ~9 before the sweep. Architect agrees
+  the list.
+- `credit_ledger` rows match calls. Ceiling holds.
+- Reveal rate reported (matches / no_match / failed).
+- Captured `people.email` / `full_name` / `title` / `phone`
+  never overwritten.
+- LinkedIn-screenshot people are **not** in this sweep.
+
+### Packet 10.4 — WF-10 `source='history'`
+
+New source. Load stored interaction summary, transcript,
+and card fields for a **named** person. Compose a tailored
+draft by **reusing `Extract draft`**, not a second LLM
+node. Auto-attach the scene photo when one exists (D-B).
+Create a **Gmail Draft**. Telegram gets a receipt only.
+No Send / approve button (D-C).
+
+**Acceptance**
+
+- `Normalize input` / `Route source` accept `history`.
+  After appending the Switch rule, re-GET every
+  `connection[i]` (standing trap).
+- `Extract draft` is the same node (prompt version may
+  gain a history preamble; no forked composer).
+- For each of the 13: one `follow_ups` row,
+  `draft_state` = the new Gmail-draft value (proposed
+  `gmail_draft`; migration is 10.4, not this docs packet).
+  `status` stays `open`. `gmail_message_id` holds the
+  Gmail draft id.
+- The 7 with a scene photo have that asset on
+  `attachment_asset_ids` with no picker.
+- Gmail Drafts folder contains the 13. Inbox does not.
+- Telegram receipt names person + subject + "draft in
+  Gmail". No inline keyboard.
+- Voice path (`awaiting_confirm` + Send) is unchanged.
+- WhatsApp is not referenced in the graph.
+- Architect GET of published WF-10. No send node on the
+  history branch.
 
 ---
 

@@ -30,7 +30,9 @@ Supabase Postgres  ── source of truth
         ├─► WF-06 Enrichment (Phase 4)    Apollo person-by-email · org from same response · Tavily website fallback
         ├─► WF-07 Digests                 10 PM close · 7 AM briefing · /digest
         ├─► WF-08 /ask                    natural-language query
-        └─► WF-09 Watchdog                stuck-job detector
+        ├─► WF-09 Watchdog                stuck-job detector
+        └─► WF-10 Follow-up               voice/deferred confirm-then-send
+                                          · Phase 10 `source=history` → Gmail Draft only
         │
         ▼
 WF-00 Central error handler ── redacted diagnostics, owner alert
@@ -82,6 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
+| History outreach | Compose from stored capture; Gmail Draft; owner sends | WF-10 `source=history` (Phase 10.4, not built) |
 
 ---
 
@@ -362,12 +365,37 @@ The brief that must survive picker / callback / deferred completion
 lives on the row. `capture_id` binds a draft to a followup capture.
 Read the row. Do not re-derive from which nodes ran.
 
+**Compose-from-history (Phase 10.4, not built).** The source of
+the brief is **stored rows**, not a live followup block.
+
+| Read | From |
+|---|---|
+| Person + card fields | `people` (name, title, email, phone, LinkedIn) |
+| Company | `person_companies` → `companies` |
+| Conversation | `interactions.summary`, `topics`, `opportunities` |
+| Transcript | `extraction_runs.raw_transcript` on that capture |
+| Scene photo | `assets` `kind IN ('photo','selfie')` on the person's linked capture — auto-attach, no picker (D-B) |
+
+WF-10 `Extract draft` writes `subject` / `body` from that
+brief. Terminal state is a **Gmail Draft** (`draft_state=
+gmail_draft`, planned). LNI does not send. Owner sends from
+Gmail. Telegram is a receipt. Voice-path picker and
+`awaiting_confirm` are untouched.
+
 **`follow_ups.draft_state`** (packet 7.1). Email lifecycle, separate
 from `status`. `status` stays `open` \| `done` \| `cancelled` —
 **do not alter `follow_ups_status_check`** (WF-07 counts
 `status='open'`). Mapping: awaiting confirm = `open`; sent = `done`;
 cancel = `cancelled` on both `status` and `draft_state` (025);
 Gmail or attachment fail stays `open` with `draft_state='failed'`.
+
+**Phase 10 planned value (not live).** `gmail_draft` = a Gmail
+Draft exists in the owner's Drafts folder and has **not** been
+sent by LNI. `status` stays `open`. `gmail_message_id` stores
+the Gmail draft id returned by `draft.create`. No
+`awaiting_confirm` buttons on this path (D-C). Voice path
+keeps `awaiting_confirm` → `sending` → `sent`. Do not write
+the CHECK migration in the docs packet.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -672,7 +700,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` · **planned (10.4, not live):** `gmail_draft` |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
