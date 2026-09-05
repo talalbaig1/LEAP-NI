@@ -251,6 +251,7 @@ Packet **10.2** is the fix window. Until then they stand.
 | **S3** | Typed-note-only captures closed by `Action done` enqueue 0 jobs. WF-05 never runs. Note retained, never extracted. #161 #80 #11 #24 #44. Predates the event. |
 | **S4** | Audio-only followup captures stick at `processing`. Enqueue skip is correct. WF-05 only runs after `entity_resolution`. Published WF-10 writes no capture status. #150 #164. |
 | **S5** | Docs only. Duplicated/spliced `## Standing` block in `session-09-freeze-triage.md`. Clean up in 10.2. Not a second event-week PR. |
+| **S6** | Person minted with no interaction row. Ahmed Alkaf `32c8efee-c0a9-4ef9-bac8-f645536d93af`, 31 Aug 13:28Z, `source_type=card`, from capture **#153**. `structured_output` contains `blossommena`. Extraction succeeded. WF-05 created the person. **No `interactions` row.** #153 is `ready`. A person with an email and no conversation behind him. Same family as S1–S5. **Cause unknown — 10.2 diagnoses before fixing.** Do not write an interaction row by hand. |
 
 **Standing constraint.** n8n execution store prunes at roughly
 24–36 hours. `audit_log.after.execution_id` is the recovery
@@ -272,7 +273,7 @@ no destructive migrations. Only a narrow, tested incident fix with a rollback
 point.
 
 **Freeze lifted 5 Sep 2026.** Event closed 2 Sep (owner skipped
-3 Sep — health, not a defect). Phase 10 is docs-first. S1–S4
+3 Sep — health, not a defect). Phase 10 is docs-first. S1–S6
 below are known defects; they are packet 10.2, not a side fix.
 
 **Deferring downstream work costs nothing.** Enrichment, RAG, dashboards, and

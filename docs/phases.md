@@ -29,7 +29,7 @@ start, not by sliding the gate.
 | 31 Aug – 2 Sep | Event operations (owner attended) |
 | 3 Sep | Official last day. Owner skipped — health. Zero-capture day closed. |
 | **5 Sep** | Phase 10 documented (not built). Freeze lifted. |
-| Sep onward | Phase 10 packets 10.1–10.4, then Phases 5–8 |
+| Sep onward | Phase 10 packets 10.1–10.4a–10.4, then Phases 5–8 |
 
 **Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete. Phase
 2 complete. Phase 3 closed (WF-07/08/09 ACTIVE). Owner opened Phase 4
@@ -375,46 +375,49 @@ to contact**. 7 of those 13 have a scene photo. 17 people have
 neither email nor phone; 7 of those are LinkedIn screenshots —
 **owner handles over LinkedIn, out of scope.** ~9 are
 voice-note-only and in scope for enrichment. 16 captures at
-`needs_review`. Anomaly: person "Ahmed Alkaf" has email and
-zero `interactions` rows.
+`needs_review` — correctly flagged, single cause, see 10.1.
+Person minted with no interaction is **S6** (Ahmed Alkaf),
+not an extra 10.1 task.
 
 **Locked:** D-A, D-B, D-C, D-D (`masterplan.md` §4). Decision 12
 strengthened. WhatsApp is not designed.
 
 ### Packet 10.1 — Data repair
 
-Adjudicate the 16 `needs_review` captures. Merge duplicates
-**by suggestion only** — never auto-merge on name
-(`rules.md` §7 rule 5):
+The 16 `needs_review` captures since 2026-08-30 21:00Z are
+**correctly flagged**. One cause. Live `extraction_runs`
+flags: `"No email and no phone"` ×16, `"No name extracted"`
+×2, `"Non-Latin script present in the name field"` ×1.
+These are the voice-note and LinkedIn people with no
+contact details. Nothing to adjudicate. Route to **10.3**
+(enrichment) or LinkedIn (owner, out of scope).
+
+Merge duplicates **by suggestion only** — never auto-merge
+on name (`rules.md` §7 rule 5):
 
 - Ali Abbas ×2
 - probable أشرف = Ashraf Abu Elayyan
 - probable Imad = Imad Afyouni
 
 Resolve leftover captures **#155 #161 #150 #164** (S2/S3/S4
-rows; do not invent missing assets). Explain Ahmed Alkaf's
-missing interaction.
+rows; do not invent missing assets).
 
 **Acceptance**
 
-- Each of the 16 `needs_review` captures has a written
-  decision: accept, flag, or merge-suggested.
 - Suggested merges are `entity_candidates` (or equivalent
   review rows), never silent `people` UPDATEs on name.
 - #155 #161 #150 #164 have an explicit terminal note
   (leave / extract-note / close-ready). No silent DELETE.
-- Ahmed Alkaf: cause of zero interactions written in the
-  session log. No invented interaction row.
 - Architect verifies from live SQL, not the implementer report.
 
-### Packet 10.2 — S1–S4 fixes + PR #71
+### Packet 10.2 — S1–S6 fixes + PR #71
 
-Fix the four September defects (`rules.md` known defects).
+Fix the September defects (`rules.md` known defects S1–S6).
 Merge PR **#71** (`sanitize_for_put` uses `activeVersion`;
 still OPEN/draft on `cursor/session-09-sanitize-put-364d`).
 S5 (duplicated/spliced `## Standing` in
 `session-09-freeze-triage.md`) is docs-only cleanup in this
-packet.
+packet. S6 is diagnosed in this packet **before** any fix.
 
 **Acceptance**
 
@@ -440,6 +443,13 @@ packet.
   expected: its copy of `session-09-freeze-triage.md`
   predates #70/#72.
 - S5 Standing block is one clean paragraph.
+- S6: cause of Ahmed Alkaf (`32c8efee`, capture **#153**,
+  `src=card`, 31 Aug 13:28Z) having no `interactions` row
+  is written in the session log **before** any code change.
+  #153 is `ready`; extraction succeeded (`blossommena` in
+  `structured_output`); WF-05 minted the person; no
+  interaction was written. Do **not** INSERT an interaction
+  by hand. Fix only after the architect accepts the cause.
 - No PUT on WF-01 unless a later packet says so.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
@@ -458,6 +468,27 @@ unchanged (Decision 8). Do not invent emails.
 - Captured `people.email` / `full_name` / `title` / `phone`
   never overwritten.
 - LinkedIn-screenshot people are **not** in this sweep.
+
+### Packet 10.4a — Gmail draft+attach spike
+
+**Before 10.4.** Disposable `LNI-TEST-` workflow. Prove on a
+**real stored object** (not a pinned fixture) that Gmail
+`typeVersion` 2.2 `resource=draft` `operation=create`
+accepts `options.attachmentsUi.attachmentsBinary[].property`
+and the draft lands in Drafts **with the file attached**.
+
+GET name, then act. Do not touch ElderWise. Delete the test
+draft after the owner has opened Drafts. If it fails, report
+the failure. **Do not design a fallback** until the architect
+sees it.
+
+**Acceptance**
+
+- One real Gmail draft, one real attachment, one execution
+  id. Owner verifies by opening his Drafts folder.
+- Test workflow name-checked `LNI-TEST-` and deleted (or
+  archived) after the prove.
+- No LNI production PUT. No pinData as evidence.
 
 ### Packet 10.4 — WF-10 `source='history'`
 

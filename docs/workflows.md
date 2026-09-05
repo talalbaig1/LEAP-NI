@@ -2718,9 +2718,9 @@ draft-operations docs agree. **Not proven by an LNI
 execution** — this instance has only run `message.send`
 (Gmail send / Gmail send files). Binary still comes from
 Storage GET (`attach_0`…), filesystem-v2, named keys.
-If draft.create-with-binary fails on a prove, fallback is
-create the draft without the file and say so in the
-Telegram receipt; do not send.
+Packet **10.4a** is the prove on a real stored object.
+If it fails, report the failure. Do not design a fallback
+until the architect sees it.
 
 **Send parse_mode (9.6).** WF-10 sweep senders are `parse_mode:
 HTML`. WF-01 followup senders were **absent** (this build
