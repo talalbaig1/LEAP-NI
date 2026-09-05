@@ -248,3 +248,68 @@ mints everyone else.
 Shared live pattern: second (or later) person on a
 multi-person extraction, or a no-email name duplicate.
 Probes are test rows. Cause only.
+
+## 10.2b — S1–S4 (S6 untouched)
+
+Rollback before PUT: WF-02 `847cc3c7`, WF-10 `97fd7181`.
+S6 / WF-05 not touched.
+
+**S3 idempotency (before build).** No new index. No migration.
+`processing_jobs_asset_job_uniq` is partial on `asset_id IS NOT
+NULL`. A note job has `asset_id` NULL so that index does not
+cover it. Guarantee: same `NOT EXISTS` as live
+`Enqueue entity_resolution` / WF-03 `Maybe enqueue extraction`:
+
+```
+AND NOT EXISTS (
+  SELECT 1 FROM public.processing_jobs j
+  WHERE j.capture_id = c.id AND j.job_type = 'extraction'
+)
+```
+
+Re-run `/done` finds the row and inserts nothing. Sequential
+idempotent. Concurrent double-tap is the same residual those
+nodes already accept. Gate
+`$('Enqueue asset jobs').item.json.id notEmpty` is satisfied
+because the note `INSERT` is in the same statement and
+`RETURNING` includes `id`.
+
+**Surprise S2:** `Call WF-05 contact` is
+`waitForSubWorkflow: false`. A node after Call is still a race.
+Fix stays on WF-02: wait `true`, then
+`Clear open_capture after contact ready` scoped to owner +
+that capture id, and only if `captures.status` is already
+`ready` or `needs_review`. Contact receipt waits for ER
+(seconds). Pointer stays if WF-05 fails.
+
+**Surprise S3:** Kick WF-03 on a note-only extraction job
+hits `No queued jobs` (WF-03 claims vision/transcript only)
+and never calls WF-04. Note-only therefore
+`Call WF-04 note` (`waitForSubWorkflow: false`). Asset
+`/done` still kicks WF-03 only.
+
+S1: `Action done` `item_count` = assets + typed_note +
+`extraction_runs.model = 'wf02-contact-parse'`. All
+`count(*)::int`. Compose wording unchanged.
+
+S4: WF-10 `Set followup capture ready` on every path that
+used to hit `Return to caller`. SQL only updates
+`capture_mode='followup'` and `status='processing'`. Gate on
+`RETURNING id`.
+
+### PUT 5 Sep (one each, from `activeVersion`)
+
+First REST GET: `sanitize_for_put` took
+`response["activeVersion"]` (WF-02 91 nodes / 15 creds;
+WF-10 146 / 53). Top-level draft not used.
+
+| WF | rollback | new `versionId` = `activeVersionId` | nodes |
+|---|---|---|---|
+| 02 | `847cc3c7` | **`201095c6-8aab-4503-8532-aedafb358d90`** | 91 → 95 |
+| 10 | `97fd7181` | **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`** | 146 → 150 |
+
+Settings unchanged: `Asia/Riyadh`, error WF-00, MCP true,
+timeout 300. WF-05 still `68f47505`. WF-01 published still
+`4836ffd8` (draft `e454df40` unpublished).
+
+R1–R5: owner's phone. Not run from this VM.
