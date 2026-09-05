@@ -452,6 +452,19 @@ packet. S6 is diagnosed in this packet **before** any fix.
   by hand. Fix only after the architect accepts the cause.
 - No PUT on WF-01 unless a later packet says so.
 
+### Packet 10.2c — S7a + S7b. STOP before PUT.
+
+Identity loss only. WF-02 + WF-04. Do not touch WF-05 /
+WF-09 / WF-10 / WF-01.
+
+**Stopped 5 Sep.** WF-05 `Set capture status` (`68f47505`)
+is `UPDATE captures SET status=ready|needs_review WHERE
+id=$1` — no prior-status predicate. It writes `ready` on
+`status='open'`. Packet required halt. No WF-02/WF-04 PUT
+until the architect authorises the kick-split (enqueue ER
+on reused, Call WF-05 only when not reused) or a later
+WF-05 WHERE clause.
+
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
 Sweep the ~9 voice-note-only people. Measured reveal rate
