@@ -30,7 +30,7 @@ Confirmed against the official LEAP FAQ, 25 August 2026.
 
 | Fact | Value |
 |---|---|
-| Dates | **31 August – 3 September 2026** |
+| Dates | **31 August – 3 September 2026** (official). **Owner attended 31 Aug – 2 Sep.** 3 Sep skipped — health, not a defect. Zero-capture day is explained and closed. |
 | Venue | Riyadh Exhibition & Convention Centre, Malham |
 | Visitor hours | **1:00 PM – 9:00 PM** daily (12:00 PM selected passes) |
 | Scale | ~200,000 attendees, 1,800+ exhibitors |
@@ -86,9 +86,13 @@ reason and a document update first.**
 | 9 | Primary surface | Telegram-native; dashboard later | 1–9 PM the owner is standing, one hand free. A dashboard is a laptop surface. |
 | 10 | Digests | 10 PM close + 7 AM briefing + `/digest` | Evening = operational health. Morning = actionable intelligence while the event still runs. |
 | 11 | Retention | Indefinite + real per-contact delete | Owner's choice. Delete capability is what makes indefinite defensible. |
-| 12 | Follow-up | Draft-only + visible prioritisation | Auto-send to a mis-extracted address is an unrecoverable loss for a two-second saving. |
-| 13 | Pre-event scope | Phases 0–3 committed; 4 gated on 29 Aug | Enrichment works identically on 5 September. Capture does not. |
+| 12 | Follow-up | Draft-only + visible prioritisation | Auto-send to a mis-extracted address is an unrecoverable loss for a two-second saving. **Strengthened 5 Sep 2026 (D-C):** Phase 10 history outreach creates a Gmail Draft only. The owner sends by hand. Nothing is sent by the system on that path. |
+| 13 | Pre-event scope | Phases 0–3 committed; 4 gated on 29 Aug | Enrichment works identically on 5 September. Capture does not. **Closed:** event ran 31 Aug – 2 Sep. Owner skipped 3 Sep (health — not a defect). |
 | 14 | Implementation split | Cursor implements incl. n8n; Claude verifies by read-back | Author and verifier must be different parties or the check is theatre. |
+| D-A | Post-event outreach | 13 tailored emails, one per person. **Not** bulk send | Owner decision 5 Sep. Each of the 13 people-with-email who have not already been emailed gets their own compose. A blast is the failure mode Decision 12 exists to prevent. |
+| D-B | History-path attachment | Automatic for the 7 with a scene photo. No picker on this path | Owner decision 5 Sep. The live voice-path picker stays. History already knows which capture holds the scene photo; asking again is theatre. |
+| D-C | History-path terminal | Gmail Draft in the owner's Drafts folder. Telegram receipt only. No approve/send button | Owner decision 5 Sep. Supersedes `awaiting_confirm` tap-to-send **for this path only**. Voice path unchanged. Decision 12 unchanged and strengthened. |
+| D-D | WhatsApp | **Out of scope.** Owner will do it manually | Owner decision 5 Sep. Do not design, cost, or reference a WhatsApp path. |
 
 ### Where the owner overrode the recommendation
 
@@ -105,14 +109,11 @@ reason and a document update first.**
   Apollo People Enrichment returns the person's organization block in
   the same response, so person-first is both richer and cheaper than
   company-first. Recorded as a deliberate reversal, not a silent change.
-- **#12** — Decision 12 (draft-only, no auto-send) **STANDS unchanged.**
-  The architect's Phase 7 cut of voice follow-up was reversed by the
-  owner on 28 Aug 2026. Voice is the owner's primary intended use at
-  LEAP. Recorded as a deliberate reversal of the cut, not of Decision
-  12. Live 29 Aug: follow-up is a capture (028). WF-10
-  `7f021c99-1beb-4fd5-8b53-f769a10a2b0c`. WF-01 stays
-  `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` (Phase 9 PUT
-  paused). Phone checklist items 13–20 still on the owner.
+- **#12** — Decision 12 (draft-only, no auto-send) **STANDS and is
+  strengthened.** Phase 7 voice follow-up stays confirm-then-send on
+  the live path. Phase 10 history outreach goes further: the system
+  never sends. It writes a Gmail Draft; the owner reviews and sends
+  from Gmail. D-C. WhatsApp is out of scope (D-D).
 
 ---
 
@@ -179,6 +180,7 @@ Full detail in `phases.md`.
 | 4 | Enrichment | COMPLETE |
 | 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.10: followup `/done` enqueues. TEST `/done` → card **21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 backstop. |
 | 9 | Contact / vCard ingest | Packet 9.6 live (WF-01 `4836ffd8`). 9.6-B: #136 photos enqueued on WF-09 **279752**, audio not. Do not PUT WF-01 again. |
+| 10 | Post-event data repair, S1–S6, Apollo sweep, history outreach | **DOCUMENTED 5 Sep. Not built.** Packets 10.1–10.4a–10.4 in `phases.md`. D-A…D-D locked. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |
