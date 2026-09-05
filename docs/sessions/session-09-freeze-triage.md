@@ -54,10 +54,11 @@ follow_ups 30, open 0, queued 0, awaiting **2** (`5df341f8`,
 
 ## Standing
 
-No workflow PUT. Do not revert drafts. Do not PUT to make
-`versionId` match `activeVersionId`. Freeze holds through
-3 Sep 23:59 Riyadh. Stand down until 4 September. Next
-contact is "capture is broken" from the owner, or 4 Sep.
+No workflow PUT unless a packet says so. Do not revert or
+publish drafts `e454df40` (WF-01) / `76840a2a` (WF-06).
+Do not PUT to make draft `versionId` match `activeVersionId`.
+Freeze lifted 5 Sep. Event closed 2 Sep. Phase 10 packets
+only.
 
 ## Incident closed — WF-01 trigger proven live (30 Aug 06:26Z)
 
@@ -211,8 +212,39 @@ The 13:26Z window returned 317924 / 317928 / 317931 by
 31 Aug 00:00 – 3 Sep 23:59 Riyadh. Capture is not broken.
 No data lost. No fix. No PUT. Stand down until 4 Sep.
 
-## S5 — queued 5 Sep (do not fix in this file yet)
+## S5 — Standing cleaned (10.2a)
 
-`## Standing` is duplicated/spliced (fragment of the 30 Aug
-sentence plus the freeze-hold sentence). Docs-only. Packet
-10.2 cleans it. Meaning survives. Not a Phase 10.0 change.
+`## Standing` is one paragraph: PUT/draft rules plus freeze
+lifted. The spliced 30 Aug sentence and the 3 Sep stand-down
+are gone.
+
+## S6 — cause (10.2a). Do not fix. Do not INSERT.
+
+Ahmed Alkaf `32c8efee-c0a9-4ef9-bac8-f645536d93af` is not
+missing an interaction because WF-05 skipped the node.
+`Insert interaction` ran on #153. It wrote **one** row,
+`person_id` = Ali Abbas `4efe1828` (people[0], note, no
+email). Ahmed is people[1] (`src=card`, blossommena).
+
+Guard: `person_hit … LIMIT 1` plus
+`WHERE NOT EXISTS (… i.capture_id = $2)`. One interaction
+per capture. First join hit wins. Upsert people still
+mints everyone else.
+
+#153 is not the only case. **10** people have zero
+`interactions` rows (67 people, 99 interactions):
+
+| person | id | pattern |
+|---|---|---|
+| LNI No-Match Probe | `ad9c6cde` | probe |
+| Faysal A. Ghauri | `a21a803f` | name-duplicate; interaction on earlier Faysal `c747ab72` |
+| LNI Drain Prove 1/2/3 | `e9292eeb` `4a9f79af` `c2fb1ab7` | probes |
+| **Ahmed Alkaf** | `32c8efee` | **#153 people[1]**; ix → Ali Abbas |
+| Ali Abbas | `d887ab79` | #152 name-duplicate of `4efe1828` |
+| أشرف | `39d9fffa` | **#170 people[1]**; ix → Ashraf Abu Elayyan |
+| Mouaz Abdullah | `ac362f34` | **#171 people[1]**; ix → Muath Abuhilal |
+| Mohamed Ousmane Fayaz | `412f5aa4` | **#176 people[1]**; ix → Muhammad Usman Fiaz |
+
+Shared live pattern: second (or later) person on a
+multi-person extraction, or a no-email name duplicate.
+Probes are test rows. Cause only.
