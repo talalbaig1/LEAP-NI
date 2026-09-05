@@ -247,7 +247,7 @@ to `normal` / nothing open.
 | WF-07 | Digests | 3 | Schedule + on demand |
 | WF-08 | Query (`/ask`) | 3 | Called by WF-01 |
 | WF-09 | Watchdog | 3 | Schedule `*/15`, Asia/Riyadh + executeWorkflow prove |
-| WF-10 | Follow-up drafting | 7 | Execute Workflow. **ACTIVE.** Called by WF-01 `/followup` / `/done`, WF-02 sweep, WF-05 deferred. |
+| WF-10 | Follow-up drafting | 7 · **10.4 (not built):** `source=history` | Execute Workflow. **ACTIVE.** Called by WF-01 `/followup` / `/done`, WF-02 sweep, WF-05 deferred. Phase 10 adds `source=history` (Gmail Draft, no send). |
 
 ### Live versions (GET 29 Aug 2026, name-checked)
 
@@ -2644,6 +2644,83 @@ Do not make `/done` wait. The owner is standing in front of someone.
 `command`. Lookup floor on the voice ladder is **0.25**. Trigram
 (`step=3`) or `hit_count>1` → picker, never a silent pick (phantom
 merge lesson).
+
+### Phase 10 — `source='history'` (documented 5 Sep, not built)
+
+Post-event outreach for the 13 people-with-email who have not
+already been emailed (D-A). One tailored draft each. Not bulk.
+
+**Reads**
+
+- Named person: same lookup ladder as `/followup` (exact email,
+  exact name, trigram). Never silent-pick on `hit_count>1`.
+- Stored brief material: `interactions.summary` / topics /
+  opportunities; `extraction_runs.raw_transcript`; `people`
+  card fields; company name. This **replaces** a live
+  `Assemble brief` input. Do not fork a second composer.
+- Scene photo: `assets` on the linked capture,
+  `kind IN ('photo','selfie')`, `upload_status='stored'`.
+  Auto-attach when present (D-B). No picker on this path.
+
+**Reuses**
+
+- **`Extract draft`** — the live OpenAI node (`gpt-4o-mini`,
+  `temperature: 0`, schema `wf10-v2`). Same node. History
+  fills the `Brief:` line of its user message (today that
+  line is `$('Resolve brief').first().json.brief`). Prompt
+  may gain a one-line "compose from stored meeting notes"
+  preamble. Do not add a second LLM node.
+- Attachment GET `attach_0`… and the Gmail attachment
+  parameter shape already used by **Gmail send files**
+  (`options.attachmentsUi.attachmentsBinary[].property`).
+
+**Writes**
+
+- One `follow_ups` row per person: `to_email` frozen,
+  `cc_email` = owner, `subject`, `body`,
+  `attachment_asset_ids`, `prompt_version`, `person_id`,
+  `interaction_id`, `capture_id`.
+- `draft_state` = planned `gmail_draft` (migration in 10.4,
+  not this docs packet). `status` stays `open`.
+- `gmail_message_id` = Gmail **draft** id from
+  `resource=draft` `operation=create` (node
+  `n8n-nodes-base.gmail` typeVersion **2.2** — same as live
+  send). Output fields `id` and `message.id`.
+- Telegram `reply_text` receipt only. No `reply_markup`.
+- Audit: `action` named for draft-created (not
+  `followup_sent`). No email body, no transcript.
+
+**Does NOT**
+
+- Send mail. No `resource=message` `operation=send` on this
+  branch. No `f7:s:` / `f7:n:` buttons.
+- Touch `awaiting_confirm` or the voice picker.
+- `UPDATE captures` (S4 is 10.2, a different path).
+- Call WF-03. Does not enqueue enrichment.
+- Design, cost, or reference WhatsApp (D-D).
+- Invent facts, emails, or phones (`Extract draft` rules
+  stand).
+- Auto-merge people on name.
+
+**Route.** `Normalize input` must pass `source=history`
+through without collapsing it to `command` if that would
+hit the voice-wait / picker graph. Append a `Route source`
+rule. Re-GET every `connection[i]` after the append.
+
+**Gmail draft + attachment (capability, 5 Sep).** Live
+WF-10 send nodes are `n8n-nodes-base.gmail` **typeVersion
+2.2**. This instance's node type for `resource=draft`
+`operation=create` includes the same attachment option as
+send: `options.attachmentsUi.attachmentsBinary[].property`
+(comma-separated binary keys). Also `subject`, `emailType`,
+`message`, `options.sendTo`, `options.ccList`. Official
+draft-operations docs agree. **Not proven by an LNI
+execution** — this instance has only run `message.send`
+(Gmail send / Gmail send files). Binary still comes from
+Storage GET (`attach_0`…), filesystem-v2, named keys.
+Packet **10.4a** is the prove on a real stored object.
+If it fails, report the failure. Do not design a fallback
+until the architect sees it.
 
 **Send parse_mode (9.6).** WF-10 sweep senders are `parse_mode:
 HTML`. WF-01 followup senders were **absent** (this build

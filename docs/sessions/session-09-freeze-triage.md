@@ -210,3 +210,9 @@ The 13:26Z window returned 317924 / 317928 / 317931 by
 
 31 Aug 00:00 – 3 Sep 23:59 Riyadh. Capture is not broken.
 No data lost. No fix. No PUT. Stand down until 4 Sep.
+
+## S5 — queued 5 Sep (do not fix in this file yet)
+
+`## Standing` is duplicated/spliced (fragment of the 30 Aug
+sentence plus the freeze-hold sentence). Docs-only. Packet
+10.2 cleans it. Meaning survives. Not a Phase 10.0 change.
