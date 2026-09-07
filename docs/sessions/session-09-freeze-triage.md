@@ -428,3 +428,33 @@ Rollback before PUT: WF-02 `201095c6`, WF-04 `28510930`.
 
 Settings unchanged. WF-05 still `68f47505`. T1–T4: owner's
 phone. Not run from this VM. Do not replay the 12.
+
+### 7 Sep phone prove (architect-verified)
+
+No revert. WF-02 `ce51e6f4` and WF-04 `dafe9b02` stand.
+
+T1, T2 ×2 (#209 #210), T4 **PASS**. S7a proven: #209 and
+#210 are #203's shape and both created a person with the
+contact phone.
+
+T3 **UNPROVEN** (and S7b with it). Owner forwarded a
+photo already stored as #174 asset `9cd97335`
+(`telegram_file_unique_id` `AQAD6BBrG_owuFB-`, 1 Sep
+23:44 Riyadh). WF-01 `383057` lastNode `Duplicate
+terminal`. Rule 4 global idempotency. Not a 10.2c
+regression. Kick-split held (Clear did not run on
+#209/#210; ready after `/done`). Owner re-runs T3 with
+a never-sent photo.
+
+**10.1 log — do not act here**
+
+- #210 minted "Zuhair 100 Ventures Jeddah"
+  (+966554936765), duplicate of "Zohair" on #174. Same
+  man, no email, no auto-link. Merge in 10.1.
+- **Do not replay #167 or #174.** Owner re-shared those
+  contacts by hand today; replay would mint a third row.
+- Replay list is **seven:** #151 #156 #157 #165 #184
+  #185 #203.
+- Telegram contact labels as `full_name` is correct when
+  they are the only name; clean in 10.1 (e.g. Fazal
+  From Bahrain…, Zuhair 100 Ventures Jeddah).

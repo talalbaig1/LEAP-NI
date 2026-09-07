@@ -398,6 +398,22 @@ on name (`rules.md` §7 rule 5):
 - Ali Abbas ×2
 - probable أشرف = Ashraf Abu Elayyan
 - probable Imad = Imad Afyouni
+- **Zuhair 100 Ventures Jeddah** (#210, tel +966554936765)
+  = **Zohair** (#174). Same man, two rows, no email on
+  either so nothing auto-linked. Logged 7 Sep after T2.
+  Do **not** replay #174.
+
+Telegram contact labels that became `people.full_name`
+because they were the only name (correct 10.2c behaviour)
+need cleaning here, not in capture: e.g. "Fazal From
+Bahrain Provide Discounts For Students", "Zuhair 100
+Ventures Jeddah".
+
+**S7b replay (authorised later, not 10.2c).** Seven
+captures: **#151 #156 #157 #165 #184 #185 #203**.
+**Do not replay #167 or #174** — owner re-shared those
+contacts by hand on 7 Sep; a replay would mint a third
+row.
 
 Resolve leftover captures **#155 #161 #150 #164** (S2/S3/S4
 rows; do not invent missing assets).
@@ -452,17 +468,15 @@ packet. S6 is diagnosed in this packet **before** any fix.
   by hand. Fix only after the architect accepts the cause.
 - No PUT on WF-01 unless a later packet says so.
 
-### Packet 10.2c — S7a + S7b. STOP before PUT.
+### Packet 10.2c — S7a + S7b. PUT landed.
 
-Identity loss only. WF-02 + WF-04. Do not touch WF-05 /
-WF-09 / WF-10 / WF-01.
+Identity loss only. WF-02 `ce51e6f4` + WF-04 `dafe9b02`.
+WF-05 `68f47505` not touched. S8 logged; not fixed.
 
-**Authorised 5 Sep — kick-split.** WF-02 + WF-04 only.
-WF-05 not touched. S8 logged in `rules.md`; not fixed here.
-WF-04 `Gate: resolution enqueued` must Call WF-05 on
-**both** branches (insert and already-queued). A job
-queued by ingest_contact would otherwise skip Call WF-05
-and T3 would create nobody.
+**7 Sep phone.** T1, T2 (×2: #209 #210), T4 PASS. S7a
+proven. T3 unproven (forwarded photo hit Rule 4 duplicate
+of #174). S7b unproven until a never-sent photo. No revert.
+No replay in this packet.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
