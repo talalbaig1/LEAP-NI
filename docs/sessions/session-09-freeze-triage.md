@@ -507,11 +507,12 @@ Parse untouched. Prompt stays `wf04-v6`.
 Published `versionId` = `activeVersionId` =
 **`6fa41bc4-175f-4787-8b91-458e502e4a62`**. 29 nodes.
 
-Proof: extraction replay **#151 only**. WF-04 exec
+Proof: extraction replay **#151**. WF-04 exec
 **`383289`** (parent WF-09 `383288`). wf04-v6 people[0]
 = Abdullah Ahsan + email + phone, `source=shared_contact`.
 Person `96066d72` created. Capture `ready`. Build
-forwarded `contact_run`. Remaining six wait on architect.
+forwarded `contact_run`. Remaining six replayed 7 Sep
+(10.2e).
 
 ### S9 — replay person has no interaction (do not fix)
 
@@ -520,6 +521,33 @@ forwarded `contact_run`. Remaining six wait on architect.
 interaction` is `WHERE NOT EXISTS (capture_id)`. S6's
 one-row-per-capture guard. Abdullah `96066d72` has
 zero interactions. Outreach joins `people` so it still
-sees him. `/ask` and digests will not. Same shape
-expected on #156 #157 #165 #184 #185 #203. Do not
+sees him. `/ask` and digests will not. Do not
 UPDATE the null `person_id`. Do not fix in 10.2e.
+
+### 10.2e — remaining six replayed 7 Sep
+
+WF-09 `383364` → WF-04 `383365` (six extractions,
+all `wf04-v6` at 08:12:21Z). WF-05 `383367` minted
+#203 only (`Call WF-05` executeOnce on that parent).
+Requeued ER on the other five; WF-09 `383379` →
+WF-05 `383381` (08:13:58Z). All six captures `ready`.
+
+| cap | minted | email | phone |
+|---|---|---|---|
+| 157 | Fawaz Al-Eisai `58ea7ec0` | fawaz@accelerate.sa | +966 55 667 7268 |
+| 156 | Waleed Ahmad Dammam `4ef3824c` | — | 0538584129 |
+| 165 | Khizr Hussain `94f6d2b2` | — | 0509609942 |
+| 184 | Zahid Latif `4e51b68d` | — | +923000334560 |
+| 185 | Awais Rahat `8ae2ea22` | — | +447545222169 |
+| 203 | Abbod `60ff201e` | — | 966501690331 |
+
+#156 did **not** fill onto Rana Waleed. Zero named
+asset people → Parse adopted contact-v1 wholesale
+(`Waleed Ahmad Dammam`). Incoming email null; Rana
+has email; name never auto-merges → second person.
+
+S9: #156–#185 prior interaction still points at the
+**old** person (no recovered email/phone). New row
+has zero interactions. #203 had no prior row, so
+Abbod is linked. Watchdog Telegram fired (stuck
+queued). Do not start 10.4.
