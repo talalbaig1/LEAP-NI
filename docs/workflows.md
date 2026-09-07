@@ -1545,6 +1545,12 @@ and optional — WF-04 **claims from Postgres itself**.
    unchanged. #151 replay WF-04 exec `383289`: wf04-v6 named
    Abdullah Ahsan; person created.
 
+   **S9 (logged, do not fix).** Replay mint of a person on a
+   capture that already has an `interactions` row (`person_id`
+   NULL from the nameless run) writes no second interaction.
+   `Insert interaction` is `WHERE NOT EXISTS (capture_id)`.
+   Outreach still sees the person. `/ask` and digests do not.
+
    **Call WF-05 is not gated on the insert.** Live `28510930` had
    `Gate: resolution enqueued` → false → `Resolution already queued`
    (NoOp). A job queued by `ingest_contact` skipped the call. Both

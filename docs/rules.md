@@ -244,7 +244,9 @@ Logged 2 Sep 2026 (`docs/sessions/session-09-freeze-triage.md`).
 Architect accepted. Capture was not broken. No data lost.
 **10.2b PUT 5 Sep** — S1–S4 live (WF-02 `201095c6`, WF-10
 `1c1c39f4`). S5 docs cleaned. S6 cause written, **not fixed**.
-Phone prove R1–R5 still required.
+**10.2c** S7a/S7b live (WF-02 `ce51e6f4`, WF-04 `6fa41bc4`
+after 10.2c-fix). S8 logged, not fixed. **S9** logged
+7 Sep, not fixed. Phone prove R1–R5 still required.
 
 | ID | Defect |
 |---|---|
@@ -255,6 +257,7 @@ Phone prove R1–R5 still required.
 | **S5** | Docs only. Duplicated/spliced `## Standing` block in `session-09-freeze-triage.md`. Clean up in 10.2. Not a second event-week PR. |
 | **S6** | Person minted with no interaction row. Ahmed Alkaf `32c8efee-c0a9-4ef9-bac8-f645536d93af`, 31 Aug 13:28Z, `source_type=card`, from capture **#153**. `structured_output` contains `blossommena`. Extraction succeeded. WF-05 created the person. **No `interactions` row.** #153 is `ready`. A person with an email and no conversation behind him. Same family as S1–S5. **Cause unknown — 10.2 diagnoses before fixing.** Do not write an interaction row by hand. |
 | **S8** | WF-05 `Set capture status` (`68f47505`) is `UPDATE captures SET status=ready\|needs_review WHERE id=$1` — no prior-status predicate. It can write `ready` onto `status='open'`. Standalone contact (#134 #160) depends on that. A reused open block must not Call WF-05 or the pointer dies mid-capture. 10.2c kick-split is a **discipline** guarantee, not a structural one — Rule 23 class. Structural fix is close-the-capture-before-WF-05. **Do not fix in 10.2c.** Separate packet after outreach. |
+| **S9** | Replay-minted person has no `interactions` row. #151 Abdullah Ahsan `96066d72` (7 Sep 08:02Z, `source_type=shared_contact`). Capture already had an interaction with `person_id` NULL. WF-05 `Insert interaction` is `WHERE NOT EXISTS (… capture_id)` — S6's one-row-per-capture guard. Follow-up lookup joins `people` directly so outreach is unaffected. `/ask` and digests will not see replayed people. Expect the same on the remaining S7b replays. **Do not fix in 10.2e.** Do not UPDATE the null `person_id` by hand. |
 
 **Standing constraint.** n8n execution store prunes at roughly
 24–36 hours. `audit_log.after.execution_id` is the recovery
@@ -276,9 +279,9 @@ no destructive migrations. Only a narrow, tested incident fix with a rollback
 point.
 
 **Freeze lifted 5 Sep 2026.** Event closed 2 Sep (owner skipped
-3 Sep — health, not a defect). Phase 10 is docs-first. S1–S8
-are known defects; they are packet 10.2, not a side fix. S8
-is logged only — do not fix in 10.2c.
+3 Sep — health, not a defect). Phase 10 is docs-first. S1–S9
+are known defects. S8 and S9 are logged only — do not fix in
+10.2c / 10.2e.
 
 **Deferring downstream work costs nothing.** Enrichment, RAG, dashboards, and
 CRM all replay against retained raw assets. Capture does not — data never

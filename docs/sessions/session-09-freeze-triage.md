@@ -512,3 +512,14 @@ Proof: extraction replay **#151 only**. WF-04 exec
 = Abdullah Ahsan + email + phone, `source=shared_contact`.
 Person `96066d72` created. Capture `ready`. Build
 forwarded `contact_run`. Remaining six wait on architect.
+
+### S9 — replay person has no interaction (do not fix)
+
+#151 already had `interactions` row `2015bd72` with
+`person_id` NULL (wf04-v5, no name). WF-05 `Insert
+interaction` is `WHERE NOT EXISTS (capture_id)`. S6's
+one-row-per-capture guard. Abdullah `96066d72` has
+zero interactions. Outreach joins `people` so it still
+sees him. `/ask` and digests will not. Same shape
+expected on #156 #157 #165 #184 #185 #203. Do not
+UPDATE the null `person_id`. Do not fix in 10.2e.

@@ -410,9 +410,9 @@ Bahrain Provide Discounts For Students", "Zuhair 100
 Ventures Jeddah".
 
 **S7b replay.** 10.2c-fix PUT landed (`6fa41bc4`).
-**#151 only** authorised as the first proof. Remaining
+**#151 PASS** (WF-04 `383289`, person minted). Remaining
 six (**#156 #157 #165 #184 #185 #203**) wait on
-architect after #151.
+architect.
 **Do not replay #167 or #174** — owner re-shared those
 contacts by hand on 7 Sep; a replay would mint a third
 row.
@@ -483,7 +483,15 @@ dropped `contact_run`. **10.2c-fix PUT:** WF-04
 `6fa41bc4-175f-4787-8b91-458e502e4a62` (equals
 `activeVersionId`). Rollback `dafe9b02`. Prompt
 `wf04-v6`. #151 replay **PASS** — WF-04 exec `383289`.
-Person Abdullah Ahsan minted. Remaining six wait. No revert.
+Person Abdullah Ahsan minted. **S9** logged: replayed
+person has no interaction (null-`person_id` row already
+on the capture; S6 NOT EXISTS). Remaining six wait.
+
+### Packet 10.2e — repo hygiene + remaining six
+
+Merge #74 #75 #76 (docs already live). Replay
+**#156 #157 #165 #184 #185 #203**. Do not replay
+#167 #174. S9 stands. Do not start 10.4.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
