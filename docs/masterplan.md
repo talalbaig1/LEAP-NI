@@ -86,13 +86,20 @@ reason and a document update first.**
 | 9 | Primary surface | Telegram-native; dashboard later | 1–9 PM the owner is standing, one hand free. A dashboard is a laptop surface. |
 | 10 | Digests | 10 PM close + 7 AM briefing + `/digest` | Evening = operational health. Morning = actionable intelligence while the event still runs. |
 | 11 | Retention | Indefinite + real per-contact delete | Owner's choice. Delete capability is what makes indefinite defensible. |
-| 12 | Follow-up | Draft-only + visible prioritisation | Auto-send to a mis-extracted address is an unrecoverable loss for a two-second saving. **Strengthened 5 Sep 2026 (D-C):** Phase 10 history outreach creates a Gmail Draft only. The owner sends by hand. Nothing is sent by the system on that path. |
+| 12 | Follow-up | Draft-only + visible prioritisation | Auto-send to a mis-extracted address is an unrecoverable loss for a two-second saving. **Strengthened 5 Sep (D-C) / 7 Sep (D-E):** history path never sends. Email = Gmail Draft. WhatsApp / LinkedIn = Telegram copy-text. Owner sends by hand. |
 | 13 | Pre-event scope | Phases 0–3 committed; 4 gated on 29 Aug | Enrichment works identically on 5 September. Capture does not. **Closed:** event ran 31 Aug – 2 Sep. Owner skipped 3 Sep (health — not a defect). |
 | 14 | Implementation split | Cursor implements incl. n8n; Claude verifies by read-back | Author and verifier must be different parties or the check is theatre. |
-| D-A | Post-event outreach | 13 tailored emails, one per person. **Not** bulk send | Owner decision 5 Sep. Each of the 13 people-with-email who have not already been emailed gets their own compose. A blast is the failure mode Decision 12 exists to prevent. |
-| D-B | History-path attachment | Automatic for the 7 with a scene photo. No picker on this path | Owner decision 5 Sep. The live voice-path picker stays. History already knows which capture holds the scene photo; asking again is theatre. |
-| D-C | History-path terminal | Gmail Draft in the owner's Drafts folder. Telegram receipt only. No approve/send button | Owner decision 5 Sep. Supersedes `awaiting_confirm` tap-to-send **for this path only**. Voice path unchanged. Decision 12 unchanged and strengthened. |
-| D-D | WhatsApp | **Out of scope.** Owner will do it manually | Owner decision 5 Sep. Do not design, cost, or reference a WhatsApp path. |
+| D-A | Post-event outreach | One compose per person. **Not** a blast | Owner 5 Sep (13 emails). **Restated 7 Sep:** 20 people with email. Still 20 drafts, not one mail to 20. Decision 12. |
+| D-B | History-path attachment | Automatic scene photo on the **email** path. No picker | Owner 5 Sep. Voice-path picker stays. WhatsApp / LinkedIn copy-text has no attachment. |
+| D-C | History-path terminal | Gmail Draft in Drafts. No approve/send button | Owner 5 Sep. Voice path unchanged. Decision 12 strengthened. WhatsApp / LinkedIn: Telegram copy-text only (D-E). |
+| D-D | WhatsApp API | **Out of scope.** No WhatsApp Business API | Owner 5 Sep. **Narrowed 7 Sep by D-E:** copy-text to Telegram is in scope. The API is not. Do not design, cost, or bind Meta. |
+| D-E | Three channels, one sender | email = Gmail Draft (never sent). whatsapp / linkedin = message TEXT to Telegram to copy. Owner sends all three by hand | Owner 7 Sep. WF-10 `source='history'`. No LinkedIn automation. |
+| D-F | Evidence beside the draft | Transcript + summary travel with every generated message. Wrong-script or garbled: say so; do not write confidently from it | Owner 7 Sep. Whisper is known-unreliable. Q1 in packet 10.4. |
+| D-G | Tone by source | Voice note → what was discussed. No usable voice note → general stay-in-touch, no invented specifics | Owner 7 Sep. 8 of 20 emails have a usable transcript; 12 get the general letter. |
+| D-H | The ask | From the voice note only. No ask in the transcript → no ask in the message | Owner 7 Sep. Four **manual** exceptions (not WF-10): Saad Raja LinkedIn / Ali Abbas WhatsApp (SilaCares); Rana Waleed + Fawaz Alesayi (iOS/Android launch help). |
+| D-I | Signature | Identical block in all three channels. Ionicx was pitched; SilaCares was not | Owner 7 Sep. Text in proposed `sender_profile`, not `lni_config`. |
+| D-J | Muhammad Zahir | One man, two ventures, two cards. One email to both addresses. Same WhatsApp text to both numbers. Do not merge the person rows | Owner 7 Sep. `muhammad@kaacib.com` + `muhammad@haramaincompanion.com`. |
+| D-K | Rashid domain | Exclude `rashid@kacaib.com`. One email to `rashid@kaacib.com` | Owner 7 Sep. OCR transposition; kaacib.com is the live company domain. |
 
 ### Where the owner overrode the recommendation
 
@@ -112,8 +119,9 @@ reason and a document update first.**
 - **#12** — Decision 12 (draft-only, no auto-send) **STANDS and is
   strengthened.** Phase 7 voice follow-up stays confirm-then-send on
   the live path. Phase 10 history outreach goes further: the system
-  never sends. It writes a Gmail Draft; the owner reviews and sends
-  from Gmail. D-C. WhatsApp is out of scope (D-D).
+  never sends. Email = Gmail Draft (D-C). WhatsApp / LinkedIn =
+  copy-text on Telegram (D-E). Owner sends by hand. WhatsApp **API**
+  stays out of scope (D-D).
 
 ---
 
@@ -180,7 +188,7 @@ Full detail in `phases.md`.
 | 4 | Enrichment | COMPLETE |
 | 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.10: followup `/done` enqueues. TEST `/done` → card **21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 backstop. |
 | 9 | Contact / vCard ingest | Packet 9.6 live (WF-01 `4836ffd8`). 9.6-B: #136 photos enqueued on WF-09 **279752**, audio not. Do not PUT WF-01 again. |
-| 10 | Post-event data repair, S1–S6, Apollo sweep, history outreach | **DOCUMENTED 5 Sep. Not built.** Packets 10.1–10.4a–10.4 in `phases.md`. D-A…D-D locked. |
+| 10 | Post-event data repair, S1–S9, Apollo sweep, history outreach | **10.4 DOCUMENTED 7 Sep. Not built.** Packets in `phases.md`. Design: `docs/plans/packet-10-4-history-outreach.md`. D-A…D-K locked. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |
