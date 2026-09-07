@@ -398,6 +398,22 @@ on name (`rules.md` §7 rule 5):
 - Ali Abbas ×2
 - probable أشرف = Ashraf Abu Elayyan
 - probable Imad = Imad Afyouni
+- **Zuhair 100 Ventures Jeddah** (#210, tel +966554936765)
+  = **Zohair** (#174). Same man, two rows, no email on
+  either so nothing auto-linked. Logged 7 Sep after T2.
+  Do **not** replay #174.
+
+Telegram contact labels that became `people.full_name`
+because they were the only name (correct 10.2c behaviour)
+need cleaning here, not in capture: e.g. "Fazal From
+Bahrain Provide Discounts For Students", "Zuhair 100
+Ventures Jeddah".
+
+**S7b replay (authorised later, not 10.2c).** Seven
+captures: **#151 #156 #157 #165 #184 #185 #203**.
+**Do not replay #167 or #174** — owner re-shared those
+contacts by hand on 7 Sep; a replay would mint a third
+row.
 
 Resolve leftover captures **#155 #161 #150 #164** (S2/S3/S4
 rows; do not invent missing assets).
@@ -451,6 +467,21 @@ packet. S6 is diagnosed in this packet **before** any fix.
   interaction was written. Do **not** INSERT an interaction
   by hand. Fix only after the architect accepts the cause.
 - No PUT on WF-01 unless a later packet says so.
+
+### Packet 10.2c — S7a + S7b. PUT landed.
+
+Identity loss only. WF-02 `ce51e6f4` + WF-04 `dafe9b02`.
+WF-05 `68f47505` not touched. S8 logged; not fixed.
+
+**7 Sep phone.** T1, T2 (×2: #209 #210), T4 PASS. S7a
+proven. T3 first attempt hit Rule 4 duplicate of #174.
+**#212 PARTIAL:** composition path proven (wf04-v6 kept
+card name; no duplicate). GAP 2 name suggestion is a
+**defect**: `Build labelled sources` drops `contact_run`,
+so Parse `name_conflicts` is `[]` and Insert writes
+nothing. Cause only — no PUT. Fill-null still unproven
+(card already complete, and merge never ran). No revert.
+No replay in this packet.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 

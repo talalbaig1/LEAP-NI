@@ -313,3 +313,186 @@ timeout 300. WF-05 still `68f47505`. WF-01 published still
 `4836ffd8` (draft `e454df40` unpublished).
 
 R1–R5: owner's phone. Not run from this VM.
+
+## 10.2c — STOP. No PUT.
+
+Authorised: S7a WF-02 + S7b WF-04. Do not touch WF-05 /
+WF-09 / WF-10 / WF-01. S3 completion and R4 clobber are
+10.2d.
+
+### New finding — `Set capture status` writes ready on `open`
+
+Live WF-05 `68f47505` node `Set capture status`:
+
+```
+UPDATE public.captures
+SET status = CASE
+  WHEN COALESCE((
+    SELECT count(*)
+    FROM jsonb_array_elements_text(COALESCE($2::jsonb, '[]'::jsonb)) AS f(val)
+    WHERE f.val IS DISTINCT FROM 'Non-Latin script present in the name field'
+  ), 0) = 0 THEN 'ready'
+  ELSE 'needs_review'
+END
+WHERE id = $1::uuid
+RETURNING id, capture_no, status;
+```
+
+No `AND status = 'processing'`. No `AND status IS DISTINCT
+FROM 'open'`. Packet said: if this can write ready on an
+open capture, report it and **stop before building**.
+
+This is how standalone contact already works (#134 #160:
+ingest creates `open` → ER → `ready`, `close_reason` NULL).
+It is fatal on a reused `/new` block: Call WF-05 mid-block
+flips the still-open capture to ready; S2 then clears
+`open_capture_id`; later photo / note / `/done` strand.
+
+Logged as **S8**. Do not fix in this packet.
+
+### Authorised 5 Sep — kick-split + WF-04 both-branch Call
+
+### How the kick-split prevents it (built)
+
+Do not touch WF-05. Split enqueue from kick:
+
+- `should_resolve` = `(capture_mode IS DISTINCT FROM
+  'followup') AND NOT EXISTS (entity_resolution job)`
+  — drop `NOT reused`. This only **inserts** the ER job.
+- `Call WF-05 contact` only when `should_resolve AND NOT
+  reused` (T1 standalone). Open→ready stays the contact-only
+  close.
+- Reused (T2 / T3): enqueue, do not call. Capture stays
+  `open`. `/done` with assets → WF-03 → WF-04 `wf04-v6`
+  merge → existing `Call WF-05` claims the queued job
+  **after** the new run exists. `/done` with no assets /
+  no note → a WF-02 kick of WF-05 so contact-only reused
+  still resolves.
+
+T1 and T2 then do not double-create: one ER job, one
+WF-05 run. T3 WF-05 reads latest = `wf04-v6`.
+
+Contact-only reused `/done` with no assets does **not**
+depend on 10.2d. `Gate: jobs enqueued` false →
+`Call WF-05 done-er`. After 10.2d a typed note takes the
+WF-04 path instead; that path now Calls WF-05 even when
+the ER row already exists.
+
+### WF-04 gate (proved before PUT, 28510930)
+
+`Call WF-05` is **not** unconditional.
+
+```
+Enqueue entity_resolution  NOT EXISTS … RETURNING id
+  → Gate: resolution enqueued
+      id notEmpty → Call WF-05
+      else        → Resolution already queued   (NoOp, no call)
+```
+
+A job already queued by ingest_contact makes NOT EXISTS
+skip. Without a correction T3 creates nobody. Fix: both
+gate branches → `Call WF-05`. WF-05 claims from Postgres.
+
+### Merge rule (owner-confirmed)
+
+WF-05 `ORDER BY created_at DESC LIMIT 1` stays.
+WF-04 composes `wf04-v6` from asset jobs **plus** the
+same-capture `contact-v1` run. Existing rows immutable.
+
+| Field | Rule |
+|---|---|
+| email, phone | contact-v1 fills **NULL only**. Never overwrite. Never blank. |
+| full_name | **never** overwritten by contact-v1. Differing contact name → `entity_candidates` suggestion `same_capture`, `contact_name_differs: "<contact>" vs "<asset>"`. Not a person. |
+| title, company | fill NULL only. Same as email/phone. |
+| no asset run | contact-v1 is the whole composition. S7a ER → WF-05 reads that only run. |
+
+Telegram contact names are owner labels ("Fazal From
+Bahrain…"). They become `full_name` only when they are
+the only name. A cleaner asset-derived name is kept.
+
+#156 owner-confirmed same man: v6 keeps asset/note name
+`Rana Waleed`, fills `rana.waleed123@gmail.com` and
+`0538584129` from contact-v1, suggests the contact label.
+
+Replay of the 12 multi-run captures is a later authorised
+step. Not this packet.
+
+Rollback before PUT: WF-02 `201095c6`, WF-04 `28510930`.
+
+### PUT 5 Sep (one each, from `activeVersion`)
+
+| WF | rollback | new `versionId` = `activeVersionId` | nodes |
+|---|---|---|---|
+| 02 | `201095c6` | **`ce51e6f4-860e-4bc1-a640-a00c41e5c358`** | 95 → 97 |
+| 04 | `28510930` | **`dafe9b02-4523-4936-9077-4bf975f998aa`** | 28 → 29 |
+
+Settings unchanged. WF-05 still `68f47505`. T1–T4: owner's
+phone. Not run from this VM. Do not replay the 12.
+
+### 7 Sep phone prove (architect-verified)
+
+No revert. WF-02 `ce51e6f4` and WF-04 `dafe9b02` stand.
+
+T1, T2 ×2 (#209 #210), T4 **PASS**. S7a proven: #209 and
+#210 are #203's shape and both created a person with the
+contact phone.
+
+T3 first attempt (#210) **UNPROVEN** as a test: owner
+forwarded a photo already stored as #174 asset
+`9cd97335` (`telegram_file_unique_id` `AQAD6BBrG_owuFB-`,
+1 Sep 23:44 Riyadh). WF-01 `383057` lastNode `Duplicate
+terminal`. Rule 4. Not a 10.2c regression. Kick-split
+held. Owner re-ran with a never-sent photo as **#212**.
+
+**T3 #212 PARTIAL (7 Sep, cause only — no PUT).**
+
+Composition path proven. One person
+`442e3e56` Talal Mirza M. Baig (from #146, 30 Aug),
+ready, no duplicate. contact-v1 `"Talal Baig"` email
+NULL tel `0506062411`. wf04-v6 kept the card name and
+card email/phone. Contact name did not override.
+
+GAP 1 (fill-null) remains unproven as a test: the card
+already had email and phone. Same root cause as GAP 2
+also means `fillNullOnly` never ran — Parse never saw
+`contact_run`. An email-less re-run will still not fill
+until GAP 2 is authorised. No PUT.
+
+GAP 2 — name suggestion missing. **Defect, not
+suppression.** WF-04 exec `383194` (07:50:13–07:50:17Z,
+parent WF-03 `383192`):
+
+1. `Parse + validate + flag` `name_conflicts` = `[]`.
+2. `Insert contact name suggestions` **ran** after
+   Call WF-05 (`383195`). RETURNED `{success:true}` —
+   zero INSERT rows (`alwaysOutputData` on empty).
+3. Neither the `full_name` join nor the pending
+   `same_capture` NOT EXISTS excluded a row. `$3` was
+   `[]` (`jsonb_to_recordset` of empty). Person
+   `442e3e56` has **no** `entity_candidates` row of any
+   kind, pending or otherwise. The only candidate after
+   07:45Z is WF-05 company
+   `incoming_company_name_differs` (IT Deanship vs
+   Islamic University).
+4. Cause: `Load labelled sources` had `contact_run`
+   (`Talal Baig`). `Build labelled sources` does not
+   copy it. Parse reads `$('Build labelled sources')`,
+   so `built.contact_run` is undefined →
+   `contactPeople = []` → merge and
+   `name_conflicts` never run.
+
+Do not PUT until authorised. Likely fix: forward
+`contact_run` on `Build labelled sources`.
+
+**10.1 log — do not act here**
+
+- #210 minted "Zuhair 100 Ventures Jeddah"
+  (+966554936765), duplicate of "Zohair" on #174. Same
+  man, no email, no auto-link. Merge in 10.1.
+- **Do not replay #167 or #174.** Owner re-shared those
+  contacts by hand today; replay would mint a third row.
+- Replay list is **seven:** #151 #156 #157 #165 #184
+  #185 #203.
+- Telegram contact labels as `full_name` is correct when
+  they are the only name; clean in 10.1 (e.g. Fazal
+  From Bahrain…, Zuhair 100 Ventures Jeddah).
