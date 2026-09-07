@@ -409,8 +409,10 @@ need cleaning here, not in capture: e.g. "Fazal From
 Bahrain Provide Discounts For Students", "Zuhair 100
 Ventures Jeddah".
 
-**S7b replay (authorised later, not 10.2c).** Seven
-captures: **#151 #156 #157 #165 #184 #185 #203**.
+**S7b replay.** 10.2c-fix PUT landed (`6fa41bc4`).
+**#151 only** authorised as the first proof. Remaining
+six (**#156 #157 #165 #184 #185 #203**) wait on
+architect after #151.
 **Do not replay #167 or #174** — owner re-shared those
 contacts by hand on 7 Sep; a replay would mint a third
 row.
@@ -476,12 +478,11 @@ WF-05 `68f47505` not touched. S8 logged; not fixed.
 **7 Sep phone.** T1, T2 (×2: #209 #210), T4 PASS. S7a
 proven. T3 first attempt hit Rule 4 duplicate of #174.
 **#212 PARTIAL:** composition path proven (wf04-v6 kept
-card name; no duplicate). GAP 2 name suggestion is a
-**defect**: `Build labelled sources` drops `contact_run`,
-so Parse `name_conflicts` is `[]` and Insert writes
-nothing. Cause only — no PUT. Fill-null still unproven
-(card already complete, and merge never ran). No revert.
-No replay in this packet.
+card name; no duplicate). GAP 2 was a defect: Build
+dropped `contact_run`. **10.2c-fix PUT:** WF-04
+`6fa41bc4-175f-4787-8b91-458e502e4a62` (equals
+`activeVersionId`). Rollback `dafe9b02`. Prompt
+`wf04-v6`. #151 replay next. No revert.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 

@@ -1533,11 +1533,16 @@ and optional — WF-04 **claims from Postgres itself**.
    asset people → contact-v1 is the whole `people[]`. Existing
    `wf04-v5` / `contact-v1` rows are not rewritten.
 
-   **Verified 7 Sep #212 (cause, no PUT).** `Load labelled sources`
-   returns `contact_run`. `Build labelled sources` does not forward
-   it. Parse reads `$('Build labelled sources')`, so
-   `name_conflicts` stays `[]` and `Insert contact name suggestions`
-   inserts nothing. Not SQL suppression.
+   **Verified 7 Sep #212 (cause).** `Load labelled sources` returns
+   `contact_run`. `Build labelled sources` did not forward it. Parse
+   reads `$('Build labelled sources')`, so `name_conflicts` stayed
+   `[]` and S7b never ran.
+
+   **10.2c-fix PUT 7 Sep.** Rollback `dafe9b02`. Published
+   `6fa41bc4-175f-4787-8b91-458e502e4a62` (`versionId` =
+   `activeVersionId`). One change: `Build labelled sources` returns
+   `contact_run: row.contact_run`. Prompt stays `wf04-v6`. Parse
+   unchanged.
 
    **Call WF-05 is not gated on the insert.** Live `28510930` had
    `Gate: resolution enqueued` → false → `Resolution already queued`

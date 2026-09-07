@@ -496,3 +496,17 @@ Do not PUT until authorised. Likely fix: forward
 - Telegram contact labels as `full_name` is correct when
   they are the only name; clean in 10.1 (e.g. Fazal
   From Bahrain…, Zuhair 100 Ventures Jeddah).
+
+### 10.2c-fix PUT 7 Sep (authorised)
+
+One change. WF-04 only. Rollback `dafe9b02`.
+`Build labelled sources` now returns
+`contact_run: row.contact_run` from Load, unchanged.
+Parse untouched. Prompt stays `wf04-v6`.
+
+Published `versionId` = `activeVersionId` =
+**`6fa41bc4-175f-4787-8b91-458e502e4a62`**. 29 nodes.
+
+Proof: extraction replay **#151 only** (contact-v1
+Abdullah Ahsan + wf04-v5 empty people). Remaining six
+wait on architect after this one.
