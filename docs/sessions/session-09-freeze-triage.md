@@ -437,14 +437,52 @@ T1, T2 ×2 (#209 #210), T4 **PASS**. S7a proven: #209 and
 #210 are #203's shape and both created a person with the
 contact phone.
 
-T3 **UNPROVEN** (and S7b with it). Owner forwarded a
-photo already stored as #174 asset `9cd97335`
-(`telegram_file_unique_id` `AQAD6BBrG_owuFB-`, 1 Sep
-23:44 Riyadh). WF-01 `383057` lastNode `Duplicate
-terminal`. Rule 4 global idempotency. Not a 10.2c
-regression. Kick-split held (Clear did not run on
-#209/#210; ready after `/done`). Owner re-runs T3 with
-a never-sent photo.
+T3 first attempt (#210) **UNPROVEN** as a test: owner
+forwarded a photo already stored as #174 asset
+`9cd97335` (`telegram_file_unique_id` `AQAD6BBrG_owuFB-`,
+1 Sep 23:44 Riyadh). WF-01 `383057` lastNode `Duplicate
+terminal`. Rule 4. Not a 10.2c regression. Kick-split
+held. Owner re-ran with a never-sent photo as **#212**.
+
+**T3 #212 PARTIAL (7 Sep, cause only — no PUT).**
+
+Composition path proven. One person
+`442e3e56` Talal Mirza M. Baig (from #146, 30 Aug),
+ready, no duplicate. contact-v1 `"Talal Baig"` email
+NULL tel `0506062411`. wf04-v6 kept the card name and
+card email/phone. Contact name did not override.
+
+GAP 1 (fill-null) remains unproven as a test: the card
+already had email and phone. Same root cause as GAP 2
+also means `fillNullOnly` never ran — Parse never saw
+`contact_run`. An email-less re-run will still not fill
+until GAP 2 is authorised. No PUT.
+
+GAP 2 — name suggestion missing. **Defect, not
+suppression.** WF-04 exec `383194` (07:50:13–07:50:17Z,
+parent WF-03 `383192`):
+
+1. `Parse + validate + flag` `name_conflicts` = `[]`.
+2. `Insert contact name suggestions` **ran** after
+   Call WF-05 (`383195`). RETURNED `{success:true}` —
+   zero INSERT rows (`alwaysOutputData` on empty).
+3. Neither the `full_name` join nor the pending
+   `same_capture` NOT EXISTS excluded a row. `$3` was
+   `[]` (`jsonb_to_recordset` of empty). Person
+   `442e3e56` has **no** `entity_candidates` row of any
+   kind, pending or otherwise. The only candidate after
+   07:45Z is WF-05 company
+   `incoming_company_name_differs` (IT Deanship vs
+   Islamic University).
+4. Cause: `Load labelled sources` had `contact_run`
+   (`Talal Baig`). `Build labelled sources` does not
+   copy it. Parse reads `$('Build labelled sources')`,
+   so `built.contact_run` is undefined →
+   `contactPeople = []` → merge and
+   `name_conflicts` never run.
+
+Do not PUT until authorised. Likely fix: forward
+`contact_run` on `Build labelled sources`.
 
 **10.1 log — do not act here**
 
