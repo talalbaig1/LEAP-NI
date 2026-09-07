@@ -411,11 +411,10 @@ Ventures Jeddah".
 
 **S7b replay.** 10.2c-fix PUT landed (`6fa41bc4`).
 **#151 PASS** (WF-04 `383289`, person minted). Remaining
-six (**#156 #157 #165 #184 #185 #203**) wait on
-architect.
-**Do not replay #167 or #174** — owner re-shared those
-contacts by hand on 7 Sep; a replay would mint a third
-row.
+six replayed 7 Sep (WF-04 `383365`, WF-05 `383367` +
+`383381`). **Do not replay #167 or #174** — owner
+re-shared those contacts by hand on 7 Sep; a replay
+would mint a third row.
 
 Resolve leftover captures **#155 #161 #150 #164** (S2/S3/S4
 rows; do not invent missing assets).
@@ -485,13 +484,49 @@ dropped `contact_run`. **10.2c-fix PUT:** WF-04
 `wf04-v6`. #151 replay **PASS** — WF-04 exec `383289`.
 Person Abdullah Ahsan minted. **S9** logged: replayed
 person has no interaction (null-`person_id` row already
-on the capture; S6 NOT EXISTS). Remaining six wait.
+on the capture; S6 NOT EXISTS). Remaining six replayed
+7 Sep.
 
 ### Packet 10.2e — repo hygiene + remaining six
 
-Merge #74 #75 #76 (docs already live). Replay
-**#156 #157 #165 #184 #185 #203**. Do not replay
-#167 #174. S9 stands. Do not start 10.4.
+**Part A closed.** Squash-merged in order, branches
+deleted. Zero open PRs after the three merges.
+
+| PR | squash SHA | what |
+|---|---|---|
+| #74 | `af7f22251bc1f468c15c34c7710af851ecfae869` | 10.2b S1–S4 |
+| #75 | `61ec55ccf97d363841ab096137d913f3c1602e7a` | 10.2c S7/S8 |
+| #76 | `6fa17b65ede4ab2384fb44a1e8e300f4af2a3d95` | 10.2c-fix + S9 + #151 |
+
+**Part B replayed** 7 Sep. Authorised six only. Not
+#167 #174. Mechanism: enqueue `extraction` (then ER),
+backdate `last_transition_at`, kick WF-09 production.
+
+| kick | parent WF-09 | child |
+|---|---|---|
+| six extractions | `383364` | WF-04 `383365` (all six `wf04-v6`) |
+| #203 ER (executeOnce first hit) | (from `383365`) | WF-05 `383367` |
+| other five ER | `383379` | WF-05 `383381` |
+
+Minted people (architect reads SQL):
+
+| cap | person | email | phone | note |
+|---|---|---|---|---|
+| 157 | Fawaz Al-Eisai `58ea7ec0` | fawaz@accelerate.sa | +966 55 667 7268 | second row; old `49d75705` still null |
+| 156 | Waleed Ahmad Dammam `4ef3824c` | — | 0538584129 | **not** fill onto Rana. 0 named asset people → Parse adopted contact-v1 wholesale. Rana `fc2ba74f` unchanged |
+| 165 | Khizr Hussain `94f6d2b2` | — | 0509609942 | second row (speech spelling **Khizr**, not Khizar) |
+| 184 | Zahid Latif `4e51b68d` | — | +923000334560 | second row |
+| 185 | Awais Rahat `8ae2ea22` | — | +447545222169 | second row |
+| 203 | Abbod `60ff201e` | — | 966501690331 | first mint; interaction linked |
+
+WF-05 name auto-link is email/LinkedIn only, so
+#156 #157 #165 #184 #185 each minted a **second**
+person. Do not merge by hand.
+
+**S9 proven** on #151 and #156–#185: replay-minted
+person has no `interactions` row (prior row exists).
+#203 had no prior row, so Insert ran. Do not fix.
+Do not start 10.4.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
