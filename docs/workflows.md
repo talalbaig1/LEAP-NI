@@ -1542,7 +1542,8 @@ and optional — WF-04 **claims from Postgres itself**.
    `6fa41bc4-175f-4787-8b91-458e502e4a62` (`versionId` =
    `activeVersionId`). One change: `Build labelled sources` returns
    `contact_run: row.contact_run`. Prompt stays `wf04-v6`. Parse
-   unchanged.
+   unchanged. #151 replay WF-04 exec `383289`: wf04-v6 named
+   Abdullah Ahsan; person created.
 
    **Call WF-05 is not gated on the insert.** Live `28510930` had
    `Gate: resolution enqueued` → false → `Resolution already queued`

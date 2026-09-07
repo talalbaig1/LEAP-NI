@@ -507,6 +507,8 @@ Parse untouched. Prompt stays `wf04-v6`.
 Published `versionId` = `activeVersionId` =
 **`6fa41bc4-175f-4787-8b91-458e502e4a62`**. 29 nodes.
 
-Proof: extraction replay **#151 only** (contact-v1
-Abdullah Ahsan + wf04-v5 empty people). Remaining six
-wait on architect after this one.
+Proof: extraction replay **#151 only**. WF-04 exec
+**`383289`** (parent WF-09 `383288`). wf04-v6 people[0]
+= Abdullah Ahsan + email + phone, `source=shared_contact`.
+Person `96066d72` created. Capture `ready`. Build
+forwarded `contact_run`. Remaining six wait on architect.

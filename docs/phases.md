@@ -482,7 +482,8 @@ card name; no duplicate). GAP 2 was a defect: Build
 dropped `contact_run`. **10.2c-fix PUT:** WF-04
 `6fa41bc4-175f-4787-8b91-458e502e4a62` (equals
 `activeVersionId`). Rollback `dafe9b02`. Prompt
-`wf04-v6`. #151 replay next. No revert.
+`wf04-v6`. #151 replay **PASS** — WF-04 exec `383289`.
+Person Abdullah Ahsan minted. Remaining six wait. No revert.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
