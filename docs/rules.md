@@ -242,7 +242,9 @@ row on the next execution.
 
 Logged 2 Sep 2026 (`docs/sessions/session-09-freeze-triage.md`).
 Architect accepted. Capture was not broken. No data lost.
-Packet **10.2** is the fix window. Until then they stand.
+**10.2b PUT 5 Sep** — S1–S4 live (WF-02 `201095c6`, WF-10
+`1c1c39f4`). S5 docs cleaned. S6 cause written, **not fixed**.
+Phone prove R1–R5 still required.
 
 | ID | Defect |
 |---|---|
