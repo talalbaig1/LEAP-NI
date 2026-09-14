@@ -2696,10 +2696,26 @@ Do not make `/done` wait. The owner is standing in front of someone.
 (`step=3`) or `hit_count>1` → picker, never a silent pick (phantom
 merge lesson).
 
-### Phase 10 — `source='history'` (documented 7 Sep, not built)
+### Phase 10 — `source='history'` (10.4b live)
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
+Published **`<WF10_PUBLISHED_CH5>`**
+(172 nodes, `wf10-hist-v4`). Prior graphs
+**`<WF10_PUBLISHED_DESRAJ>`** (<CONTACT_14_NAME> + WA/LI dry run),
+**`<WF10_PUBLISHED_HIST_V4>`** (email batch). Rollback
+**`<WF10_ROLLBACK_DESRAJ>`**.
+Non-Latin is not garbled. Unusable uses `History template`
+(warm card-only note). Usable runs `Extract history draft`
+in English. Every body starts with a greeting by name.
+History Gmail `emailType=html`. WhatsApp/LinkedIn are
+short plain copy on Telegram (no Gmail), with `wa.me`
+click-to-chat (Meta FAQ) or a LinkedIn people-search
+link plus paste-text. Kick
+`POST /webhook/<WF10_HISTORY_PATH>` with `channel`.
+`second_touch` is `draft_state='sent'` only.
+`Extract history draft` is a sibling of live
+`Extract draft` (live expressions would throw).
 
 Measured 7 Sep: 20 email (Gmail Draft), 10 phone-only
 (WhatsApp copy-text on Telegram), LinkedIn copy-text for
@@ -2716,21 +2732,25 @@ are unreliable (D-F).
   opportunities; `extraction_runs.raw_transcript`; `people`
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
-- Signature: proposed `sender_profile.signature_block`.
-  Not `$env`. Not `lni_config`.
-- Scene photo: `assets` on the linked capture,
-  `kind IN ('photo','selfie')`, `upload_status='stored'`.
+- Signature: `sender_profile.signature_block` (031 +
+  032 HTML email), `signature_whatsapp` and
+  `signature_linkedin` (033). Not `$env`. Not
+  `lni_config`. Not hardcoded in the Extract prompt.
+- Scene photo: `assets` `kind IN ('photo','selfie')`,
+  `upload_status='stored'`. Lookup is the interaction
+  capture **or** an `extraction_runs` row whose
+  `structured_output` contains `people.email_normalized`
+  (S9 replay people with `interactions.person_id` NULL).
   Auto-attach on **email** only (D-B). No picker.
+  Interaction backfill proposed, not written.
 - Exclude `<CONTACT_1_EMAIL>` (D-K). Exclude the four D-H
   manuals. <CONTACT_3_NAME>: one compose, two To: addresses (D-J).
 
 **Reuses**
 
-- **`Extract draft`** — live OpenAI node (`gpt-4o-mini`,
-  `temperature: 0`, schema `wf10-v2`). Same node. History
-  fills the `Brief:` line. Prompt gains stored-notes + D-G
-  / D-H / D-I + "if transcript is wrong-script or garbled,
-  say so and write the general letter". No second LLM node.
+- **`Extract history draft`** — sibling OpenAI node
+  (`gpt-4o-mini`, `temperature: 0`, schema `wf10_hist_v1`).
+  Live `Extract draft` stays on the voice/command path.
 - Attachment GET `attach_0`… and Gmail
   `options.attachmentsUi.attachmentsBinary[].property`
   (email path). Packet 10.4a is the prove.
@@ -2741,14 +2761,16 @@ are unreliable (D-F).
   Email: `to_email` frozen, `cc_email` = owner, `subject`,
   `body`, `attachment_asset_ids`, `prompt_version`,
   `person_id`, `interaction_id`, `capture_id`.
-  Planned `draft_state='gmail_draft'`. `gmail_message_id`
+  `draft_state='gmail_draft'`. `gmail_message_id`
   from `draft.create`.
 - WhatsApp / LinkedIn: `body` = copy-text,
-  planned `draft_state='handed_off'`. Telegram delivery.
+  `draft_state='gmail_draft'` (031 has no `handed_off`).
+  Telegram delivery.
 - `status` stays `open`.
 - Audit: draft-created / handed-off. No email body, no
   transcript in the log.
-- Evidence (D-F) rides with the message (Q1).
+- Evidence (D-F / Q1 LOCKED) on Telegram only. Never in
+  the Gmail draft body.
 
 **Does NOT**
 

@@ -593,11 +593,13 @@ to both addresses, do not merge rows (D-J). Exclude
 Reuse `Extract draft`. Scene photo auto-attach on email
 only (D-B). Voice path untouched (D-C).
 
-**Q1–Q3** are in the plan and in the PR body. Implementer
-recommendation: evidence in the Gmail body (email) and in
-the Telegram copy (WA/LI); one batch of 20 separate
-drafts; `follow_ups` + `channel` so a re-run does not
-duplicate.
+**Q1–Q3 LOCKED 14 Sep.** Q1 reversed: evidence on
+Telegram only, never in the Gmail body. Q2: three-draft
+dry run first, then the rest. Q3: `follow_ups.channel` +
+`gmail_draft` + partial unique `(person_id, channel)`.
+Migration 031 applied. WF-10 `source=history` is the
+build. Do not generate the remaining seventeen without
+authorisation.
 
 **Acceptance (docs packet)**
 
@@ -617,6 +619,22 @@ duplicate.
 - Four D-H names absent from the SELECT. `<CONTACT_1_DOMAIN>`
   absent. <CONTACT_3_NAME> one draft, two To: addresses.
 - Voice path unchanged. Architect GET of published WF-10.
+
+### Packet 10.4b — BUILD (14 Sep)
+
+Q1–Q3 locked (Q1 reversed: Telegram evidence only).
+Migration `031_sender_profile_history` catalog
+`20260914060746`. WF-10 history published
+`966950f1` accepted; composer `0799a8dd`; C1–C5 now
+`<WF10_PUBLISHED_HIST_V4>` (rollback `<WF10_ROLLBACK_DESRAJ>`). 032 HTML signature.
+Email batch accepted. <CONTACT_14_NAME> second-touch email
+**462598**. Unique index unchanged (sent row
+`channel` NULL). CH1–CH5 close Phase 10: <CONTACT_15_NAME> +
+<CONTACT_6_NAME> second-channel drafts; `wa.me` from Meta click-
+to-chat; LinkedIn people-search + paste note; 
+`second_touch` is `draft_state='sent'` only;
+033 channel signatures. WF-10 **`<WF10_PUBLISHED_CH5>`**.
+Phase 10 closed.
 
 ---
 

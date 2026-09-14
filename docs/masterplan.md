@@ -94,10 +94,10 @@ reason and a document update first.**
 | D-C | History-path terminal | Gmail Draft in Drafts. No approve/send button | Owner 5 Sep. Voice path unchanged. Decision 12 strengthened. WhatsApp / LinkedIn: Telegram copy-text only (D-E). |
 | D-D | WhatsApp API | **Out of scope.** No WhatsApp Business API | Owner 5 Sep. **Narrowed 7 Sep by D-E:** copy-text to Telegram is in scope. The API is not. Do not design, cost, or bind Meta. |
 | D-E | Three channels, one sender | email = Gmail Draft (never sent). whatsapp / linkedin = message TEXT to Telegram to copy. Owner sends all three by hand | Owner 7 Sep. WF-10 `source='history'`. No LinkedIn automation. |
-| D-F | Evidence beside the draft | Transcript + summary travel with every generated message. Wrong-script or garbled: say so; do not write confidently from it | Owner 7 Sep. Whisper is known-unreliable. Q1 in packet 10.4. |
+| D-F | Evidence beside the draft | Transcript + summary on **Telegram only**. Never in the Gmail draft body. Wrong-script or garbled: warn and write the general letter | Owner 7 Sep. Q1 LOCKED 14 Sep (reversed). |
 | D-G | Tone by source | Voice note → what was discussed. No usable voice note → general stay-in-touch, no invented specifics | Owner 7 Sep. 8 of 20 emails have a usable transcript; 12 get the general letter. |
 | D-H | The ask | From the voice note only. No ask in the transcript → no ask in the message | Owner 7 Sep. Four **manual** exceptions (not WF-10): <CONTACT_12_NAME> LinkedIn / <CONTACT_13_NAME> WhatsApp (SilaCares); <CONTACT_11_NAME> + <CONTACT_6_NAME> (iOS/Android launch help). |
-| D-I | Signature | Identical block in all three channels. Ionicx was pitched; SilaCares was not | Owner 7 Sep. Text in proposed `sender_profile`, not `lni_config`. |
+| D-I | Signature | Identical block in all three channels. Ionicx was pitched; SilaCares was not | Owner 7 Sep. Text in `sender_profile` (031 live), not `lni_config`. |
 | D-J | <CONTACT_3_NAME> | One man, two ventures, two cards. One email to both addresses. Same WhatsApp text to both numbers. Do not merge the person rows | Owner 7 Sep. `<CONTACT_3_EMAIL>` + `<CONTACT_4_EMAIL>`. |
 | D-K | <CONTACT_1_NAME> domain | Exclude `<CONTACT_1_EMAIL>`. One email to `<CONTACT_2_EMAIL>` | Owner 7 Sep. OCR transposition; <CONTACT_2_DOMAIN> is the live company domain. |
 
@@ -119,9 +119,11 @@ reason and a document update first.**
 - **#12** — Decision 12 (draft-only, no auto-send) **STANDS and is
   strengthened.** Phase 7 voice follow-up stays confirm-then-send on
   the live path. Phase 10 history outreach goes further: the system
-  never sends. Email = Gmail Draft (D-C). WhatsApp / LinkedIn =
-  copy-text on Telegram (D-E). Owner sends by hand. WhatsApp **API**
-  stays out of scope (D-D).
+  never sends. Email = Gmail Draft (D-C). WhatsApp /
+  LinkedIn = copy-text on Telegram (D-E), with Meta
+  `wa.me` or a LinkedIn people-search paste. Owner
+  sends by hand. WhatsApp **API** stays out of scope
+  (D-D). Phase 10 is closed after CH1–CH5.
 
 ---
 
@@ -188,7 +190,7 @@ Full detail in `phases.md`.
 | 4 | Enrichment | COMPLETE |
 | 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.10: followup `/done` enqueues. TEST `/done` → card **21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 backstop. |
 | 9 | Contact / vCard ingest | Packet 9.6 live (WF-01 `<WF01_PUBLISHED>`). 9.6-B: #136 photos enqueued on WF-09 **279752**, audio not. Do not PUT WF-01 again. |
-| 10 | Post-event data repair, S1–S9, Apollo sweep, history outreach | **10.4 DOCUMENTED 7 Sep. Not built.** Packets in `phases.md`. Design: `docs/plans/packet-10-4-history-outreach.md`. D-A…D-K locked. |
+| 10 | Post-event data repair, S1–S9, Apollo sweep, history outreach | **10.4b live.** WF-10 `<WF10_PUBLISHED_DESRAJ>`. 20 email drafts (19 + <CONTACT_14_NAME> second-touch). WA/LI dry run of 3. Rest stopped. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |

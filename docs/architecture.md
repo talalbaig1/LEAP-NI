@@ -84,7 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
-| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (Phase 10.4, documented 7 Sep, not built) |
+| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `<WF10_PUBLISHED_DESRAJ>`; rollback `<WF10_ROLLBACK_DESRAJ>`) |
 
 ---
 
@@ -376,7 +376,7 @@ The brief is **stored rows**, not a live followup block.
 | Conversation | `interactions.summary`, `topics`, `opportunities` |
 | Transcript | `extraction_runs.raw_transcript` on that capture |
 | Scene photo | `assets` `kind IN ('photo','selfie')` on the linked capture — auto-attach on **email** only (D-B) |
-| Signature | proposed `sender_profile.signature_block` (031). Not `lni_config` |
+| Signature | `sender_profile`: `signature_block` (031 + 032 HTML email), `signature_whatsapp` / `signature_linkedin` (033 plain). Not `lni_config`. Not hardcoded in the prompt |
 
 Measured 7 Sep: 37 reachable; 20 email (all also phone);
 10 phone-only; 18 no channel. 8 of 20 emails have a usable
@@ -385,16 +385,18 @@ are unreliable — D-F.
 
 WF-10 `Extract draft` writes `subject` / `body`. Terminals:
 
-- email → Gmail Draft (`draft_state=gmail_draft`, planned).
+- email → Gmail Draft (`draft_state=gmail_draft`).
   LNI does not send. Owner sends from Gmail.
 - whatsapp / linkedin → Telegram copy-text
-  (`draft_state=handed_off`, planned). Owner pastes.
+  (`draft_state=gmail_draft` until a later `handed_off`
+  value is added). Owner pastes.
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
-**Evidence (D-F).** Transcript + summary travel with the
-message (Q1). Wrong-script or garbled: say so on the draft;
-do not quote it as the conversation.
+**Evidence (D-F / Q1 LOCKED).** Telegram only. Never in
+the Gmail draft body. Name, channel, transcript, summary,
+garbled warning. Wrong-script or garbled: general letter;
+do not quote garbage as the conversation.
 
 **<CONTACT_3_NAME> (D-J).** Two `people` rows. One draft, two To:
 addresses. Do not merge. **<CONTACT_1_NAME> (D-K).** Exclude
@@ -407,14 +409,13 @@ from `status`. `status` stays `open` \| `done` \| `cancelled` —
 cancel = `cancelled` on both `status` and `draft_state` (025);
 Gmail or attachment fail stays `open` with `draft_state='failed'`.
 
-**Phase 10 planned values (not live).** `gmail_draft` = a Gmail
-Draft exists and has **not** been sent by LNI. `handed_off` =
-WhatsApp / LinkedIn copy-text delivered on Telegram. `status`
-stays `open`. `gmail_message_id` stores the Gmail draft id
-from `draft.create`. No `awaiting_confirm` buttons on this
-path (D-C). Voice path keeps `awaiting_confirm` → `sending`
-→ `sent`. Optional `channel` (`email | whatsapp | linkedin`)
-is Q3. Do not write the CHECK migration in this docs packet.
+**Phase 10 (031 live).** `gmail_draft` = a Gmail Draft exists
+and has **not** been sent by LNI. `status` stays `open`.
+`gmail_message_id` stores the Gmail draft id. `channel` is
+`email | whatsapp | linkedin`. Partial unique
+`(person_id, channel) WHERE draft_state <> 'cancelled'`.
+No `awaiting_confirm` on this path (D-C). Voice path
+unchanged.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -506,10 +507,10 @@ Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
 
 **`value` is integer.** It cannot hold the D-I signature.
-Do not add a text column here. Proposed home (10.4, **not
-written**): `sender_profile` as migration **031** (030 is
-Phase 6 embeddings). One row per owner, `signature_block
-text`, RLS same shape as this table. See
+Do not add a text column here. Home is `sender_profile`
+(031 live, 032 HTML email, 033 WhatsApp/LinkedIn plain).
+030 is reserved for Phase 6 embeddings. One row per
+owner. RLS same shape as this table. See
 `docs/plans/packet-10-4-history-outreach.md`.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
@@ -726,7 +727,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` · **planned (10.4, not live):** `gmail_draft` \| `handed_off` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031). `handed_off` not added |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1248,7 +1249,9 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 028 | `028_captures_followup_mode` | `captures.capture_mode` gains `followup`. `follow_ups.capture_id`. Follow-up is a capture, not a window. |
 | 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`** (no `029_` prefix). Same class as 023. Do not re-apply. |
 | 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029/031 for this. |
-| 031 | — | **Not applied.** Proposed `sender_profile` (10.4). Signature block. Do not write in the docs packet. |
+| 031 | `031_sender_profile_history` | `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)`. Applied 14 Sep 2026. |
+| 032 | `032_sender_profile_signature_html` | HTML `signature_block` typography. Does not add columns. |
+| 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
 
 ### Connection policy — verified 25 Aug 2026
 
