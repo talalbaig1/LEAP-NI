@@ -631,9 +631,11 @@ Migration `031_sender_profile_history` catalog
 `bed27da5` (rollback `1c1c39f4`). 032 HTML signature.
 Email batch accepted. DES RAJ second-touch email
 **462598**. Unique index unchanged (sent row
-`channel` NULL). WF-10 **`1e4ae9c6`**. WhatsApp/
-LinkedIn dry run **462602** / **462603** / **462604**.
-Rest stopped.
+`channel` NULL). CH1–CH5 close Phase 10: Shahzad +
+Fawaz second-channel drafts; `wa.me` from Meta click-
+to-chat; LinkedIn people-search + paste note; 
+`second_touch` keys on `draft_state='sent'` only;
+033 channel signatures. See packet 10.4.
 
 ---
 

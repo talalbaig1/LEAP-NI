@@ -119,9 +119,11 @@ reason and a document update first.**
 - **#12** — Decision 12 (draft-only, no auto-send) **STANDS and is
   strengthened.** Phase 7 voice follow-up stays confirm-then-send on
   the live path. Phase 10 history outreach goes further: the system
-  never sends. Email = Gmail Draft (D-C). WhatsApp / LinkedIn =
-  copy-text on Telegram (D-E). Owner sends by hand. WhatsApp **API**
-  stays out of scope (D-D).
+  never sends. Email = Gmail Draft (D-C). WhatsApp /
+  LinkedIn = copy-text on Telegram (D-E), with Meta
+  `wa.me` or a LinkedIn people-search paste. Owner
+  sends by hand. WhatsApp **API** stays out of scope
+  (D-D). Phase 10 is closed after CH1–CH5.
 
 ---
 

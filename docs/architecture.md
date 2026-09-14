@@ -376,7 +376,7 @@ The brief is **stored rows**, not a live followup block.
 | Conversation | `interactions.summary`, `topics`, `opportunities` |
 | Transcript | `extraction_runs.raw_transcript` on that capture |
 | Scene photo | `assets` `kind IN ('photo','selfie')` on the linked capture — auto-attach on **email** only (D-B) |
-| Signature | `sender_profile.signature_block` (031 + 032 HTML). Not `lni_config` |
+| Signature | `sender_profile`: `signature_block` (031 + 032 HTML email), `signature_whatsapp` / `signature_linkedin` (033 plain). Not `lni_config`. Not hardcoded in the prompt |
 
 Measured 7 Sep: 37 reachable; 20 email (all also phone);
 10 phone-only; 18 no channel. 8 of 20 emails have a usable
@@ -508,9 +508,9 @@ Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 
 **`value` is integer.** It cannot hold the D-I signature.
 Do not add a text column here. Home is `sender_profile`
-(031 live, 032 HTML typography). 030 is reserved for
-Phase 6 embeddings. One row per owner, `signature_block
-text`, RLS same shape as this table. See
+(031 live, 032 HTML email, 033 WhatsApp/LinkedIn plain).
+030 is reserved for Phase 6 embeddings. One row per
+owner. RLS same shape as this table. See
 `docs/plans/packet-10-4-history-outreach.md`.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
@@ -1250,6 +1250,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`** (no `029_` prefix). Same class as 023. Do not re-apply. |
 | 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029/031 for this. |
 | 031 | `031_sender_profile_history` | `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)`. Applied 14 Sep 2026. |
+| 032 | `032_sender_profile_signature_html` | HTML `signature_block` typography. Does not add columns. |
+| 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
 
 ### Connection policy — verified 25 Aug 2026
 

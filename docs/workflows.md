@@ -2708,8 +2708,11 @@ Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
 in English. Every body starts with a greeting by name.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
-short plain copy on Telegram (no Gmail). Kick
+short plain copy on Telegram (no Gmail), with `wa.me`
+click-to-chat (Meta FAQ) or a LinkedIn people-search
+link plus paste-text. Kick
 `POST /webhook/lni-wf10-history` with `channel`.
+`second_touch` is `draft_state='sent'` only.
 `Extract history draft` is a sibling of live
 `Extract draft` (live expressions would throw).
 
@@ -2729,7 +2732,9 @@ are unreliable (D-F).
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
 - Signature: `sender_profile.signature_block` (031 +
-  032 HTML typography). Not `$env`. Not `lni_config`.
+  032 HTML email), `signature_whatsapp` and
+  `signature_linkedin` (033). Not `$env`. Not
+  `lni_config`. Not hardcoded in the Extract prompt.
 - Scene photo: `assets` `kind IN ('photo','selfie')`,
   `upload_status='stored'`. Lookup is the interaction
   capture **or** an `extraction_runs` row whose

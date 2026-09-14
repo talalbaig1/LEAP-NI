@@ -1,8 +1,8 @@
 # Packet 10.4 — History outreach (docs only)
 
-**Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (10.4b)
-**Status:** Q1–Q3 LOCKED. Email channel accepted (19 + DES RAJ
-second-touch). WhatsApp/LinkedIn dry run of three. Rest stopped.
+**Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (Phase 10 close)
+**Status:** Q1–Q3 LOCKED. Phase 10 CLOSED after CH1–CH5.
+Email + WhatsApp + LinkedIn generated. Decision 12 holds.
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
@@ -125,16 +125,20 @@ the only SilaCares asks, and they are done by the owner.
 
 ---
 
-## D-I — Signature block
+## D-I — Signature block (CH5)
 
-Identical in all three channels. Loaded from Postgres
-(`sender_profile.signature_block`, 031 seed + 032 HTML
-typography). Never `$env`. Never jsCode. Never
-`lni_config` (integer). Same D-I words. Name, two
-ventures, credential line, and LinkedIn are separate
-HTML blocks with a top border so the signature is
-visually distinct from the letter. History Gmail
-`emailType=html`.
+Same content, three renderings, all in `sender_profile`.
+Never `$env`. Never jsCode. Never `lni_config`. Never
+hardcoded in the Extract prompt.
+
+| Column | Channel | Shape |
+|---|---|---|
+| `signature_block` | email | existing HTML (032). Unchanged. |
+| `signature_whatsapp` | whatsapp | compact plain text, no HTML, no bullets. Four short lines: name; SilaCares + URL; Ionicx; LinkedIn URL. |
+| `signature_linkedin` | linkedin | one line plus the URL. Connection note + bio must stay under 300 characters. |
+
+033 added the two plain columns (forward-only). 030 stays
+reserved for Phase 6. History Gmail `emailType=html`.
 
 Ionicx was pitched in person to most contacts. SilaCares was
 **not**. Do not write as if SilaCares was discussed, except
@@ -356,3 +360,53 @@ null). Re-run cannot double-draft.
 | Raheel Zaman | whatsapp | **462602** | 951 | `66b1d4a7` | Extract | 172 |
 | Ahmed Alkaf | whatsapp | **462603** | 952 | `c9fcd3c7` | template | 150 |
 | Vishvajit Pathak | linkedin | **462604** | 953 | `f3962905` | template | 126 |
+
+Those three dry-run rows were **cancelled** before CH2–CH5
+regeneration (Alkaf WhatsApp had wrongly `second_touch=true`
+because a Gmail draft was treated as a touch).
+
+---
+
+## CH1–CH5 — Phase 10 close (14 Sep)
+
+**CH1.** Previously-emailed people get a second-channel
+touch, same as DES RAJ. Shahzad Jameel and Fawaz Al-Eisai
+(09-07 row `58ea7ec0`, the one with email + phone) are
+on the History load. Shahzad's transcript is factually
+wrong ("NetEngine Bus"; he is at VirtueNetz) — name
+force to template, Extract never runs. Rana Waleed,
+Saad Raja, Ali Abbas, both Aadil Abbasi USA rows, and
+Abbod stay excluded.
+
+**CH2.** WhatsApp evidence includes a Meta click-to-chat
+link. Context7 was not available in this environment.
+Verified against Meta Help Center
+https://faq.whatsapp.com/5913398998672934 and
+https://faq.whatsapp.com/425247423114725:
+
+- Format: `https://wa.me/<number>?text=<urlencodedtext>`
+- Number is full international format. Omit plus, dashes,
+  brackets, and leading zeros.
+- Use `https://wa.me/1XXXXXXXXXX`. Don't
+  `https://wa.me/+001-(XXX)XXXXXXX`.
+- Local Saudi numbers (leading 0, 10 digits): drop 0,
+  prefix 966. Do not silently rewrite country code 996
+  (Kyrgyzstan) to 966.
+
+**CH3.** No stored `linkedin_url` on the LinkedIn-channel
+cohort. LinkedIn Help (a563153) documents Connect → Add
+a note from a **profile**; there is no documented public
+URL that prefills a connection note. `linkedin://profile/[id]`
+needs a member id we do not have. `linkedin.com/in/{vanity}`
+needs a vanity we do not have. Emit a people-search URL
+from name + company, the paste-text below it, and a plain
+line that the profile must be found manually.
+
+**CH4.** `second_touch` keys on `follow_ups.draft_state='sent'`
+only. A Gmail draft is not a touch. Ahmed Alkaf WhatsApp
+regenerated after the fix.
+
+**CH5.** Bios from 033 columns. Prompt does not contain
+the bio.
+
+Generation table (live, after this run) follows.

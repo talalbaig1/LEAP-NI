@@ -211,19 +211,23 @@ from your target sectors. 3 people asked you to follow up today."*
 
 ---
 
-## 8b. Post-event outreach (Phase 10.4b, three-draft dry run)
+## 8b. Post-event outreach (Phase 10 closed)
 
 The event is over. Capture is closed. Job 5 (follow up
 before the memory fades) is now the work.
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
-D-A…D-K.
+D-A…D-K. CH1–CH5: previously-emailed people get a
+second-channel touch; WhatsApp uses Meta `wa.me`;
+LinkedIn is a people-search link plus paste-text;
+`second_touch` is `draft_state='sent'` only; bios live
+in `sender_profile` for all three channels.
 
-**Who (measured 7 Sep).** 37 reachable. 20 have email (all
-20 also have a phone) → Gmail Drafts. 10 phone-only →
-WhatsApp copy-text on Telegram. 18 no channel. LinkedIn
-copy-text only where a URL exists and email does not.
-Not a list blast (D-A).
+**Who (measured 7 Sep, then CH1).** In-window humans
+with email get a Gmail Draft (Rana Waleed excluded —
+owner contacted her). Those with a phone also get
+WhatsApp copy-text. No-email/no-phone get LinkedIn
+search + note. Not a list blast (D-A).
 
 Of the 20 emails, 8 have a usable transcript. 12 get a
 general stay-in-touch letter (D-G). Transcripts are
