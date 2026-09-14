@@ -84,7 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
-| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `0799a8dd`; rollback `1c1c39f4`) |
+| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `bed27da5`; rollback `1c1c39f4`) |
 
 ---
 
@@ -376,7 +376,7 @@ The brief is **stored rows**, not a live followup block.
 | Conversation | `interactions.summary`, `topics`, `opportunities` |
 | Transcript | `extraction_runs.raw_transcript` on that capture |
 | Scene photo | `assets` `kind IN ('photo','selfie')` on the linked capture — auto-attach on **email** only (D-B) |
-| Signature | `sender_profile.signature_block` (031 live). Not `lni_config` |
+| Signature | `sender_profile.signature_block` (031 + 032 HTML). Not `lni_config` |
 
 Measured 7 Sep: 37 reachable; 20 email (all also phone);
 10 phone-only; 18 no channel. 8 of 20 emails have a usable
@@ -507,9 +507,9 @@ Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
 
 **`value` is integer.** It cannot hold the D-I signature.
-Do not add a text column here. Proposed home (10.4, **not
-written**): `sender_profile` as migration **031** (030 is
-Phase 6 embeddings). One row per owner, `signature_block
+Do not add a text column here. Home is `sender_profile`
+(031 live, 032 HTML typography). 030 is reserved for
+Phase 6 embeddings. One row per owner, `signature_block
 text`, RLS same shape as this table. See
 `docs/plans/packet-10-4-history-outreach.md`.
 

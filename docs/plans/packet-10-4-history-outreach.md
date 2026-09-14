@@ -1,8 +1,8 @@
 # Packet 10.4 — History outreach (docs only)
 
 **Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (10.4b)
-**Status:** Q1–Q3 LOCKED. Migration 031 + WF-10 `source=history`
-authorised. Three-draft dry run only.
+**Status:** Q1–Q3 LOCKED. Migration 031 + 032 + WF-10 `source=history`
+authorised. Fourth dry run only. Do not generate the seventeen.
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
@@ -128,20 +128,13 @@ the only SilaCares asks, and they are done by the owner.
 ## D-I — Signature block
 
 Identical in all three channels. Loaded from Postgres
-(`sender_profile.signature_block`, 031 live). Never `$env`.
-Never jsCode. Never `lni_config` (integer).
-
-```
-Talal Baig
-Building SilaCares - caring for loved ones from a distance,
-  through technology. silacares.com
-Building Ionicx.io - AI-driven architecture and services.
-  We automate the work: lower cost, faster processes,
-  more revenue.
-Twenty years in IT, networks and communications - now
-  putting it into my own products.
-linkedin.com/in/talal-baig
-```
+(`sender_profile.signature_block`, 031 seed + 032 HTML
+typography). Never `$env`. Never jsCode. Never
+`lni_config` (integer). Same D-I words. Name, two
+ventures, credential line, and LinkedIn are separate
+HTML blocks with a top border so the signature is
+visually distinct from the letter. History Gmail
+`emailType=html`.
 
 Ionicx was pitched in person to most contacts. SilaCares was
 **not**. Do not write as if SilaCares was discussed, except
@@ -291,5 +284,24 @@ null). Re-run cannot double-draft.
 | Deema Alwaala | `2ca63896` | **461872** | 929 | `c2c819f8` | `r-8320115643520228008` | Extract | 0 |
 | Abdalla Elkhouli | `db31bc6e` | **461873** | 930 | `76083561` | `r-7517758840755362577` | template (`aaa aaa`) | 103619 |
 
+- Third dry run: mechanics accepted, content rejected
+  (greeting + dry template + signature typography).
+- C1: 032 HTML `signature_block`. History parse wraps
+  the letter and appends the HTML signature.
+- C2: `History template` is a warm stay-in-touch note
+  from the card only. Invents nothing about a conversation.
+- C3: greeting-by-name is a hard rule in the Extract
+  prompt, the template, and History parse (prepend if
+  the body does not start with Hello / Dear / Hi).
+- C4: S9 attachment miss. History load photo lookup
+  joined only through `interactions.person_id = p.id`.
+  Proposed interaction backfill is **not unambiguous**
+  for all seven (only #151 Abdullah). Backfill **not
+  written**. WF-10 photo LATERAL also matches
+  `extraction_runs.structured_output` on
+  `email_normalized` (Abdullah #151, 107532 bytes).
+- C5 / fourth dry run pending after cancel of stale
+  v2 + Zahir v3. Prompt `wf10-hist-v4`. Published
+  **`bed27da5`**.
 - Do not generate the remaining seventeen without
   authorisation.

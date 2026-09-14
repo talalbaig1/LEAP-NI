@@ -2700,11 +2700,14 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`0799a8dd-2e16-4cc8-b3c4-fb9dddfe7b34`**
-(172 nodes). Rollback
+Published **`bed27da5-cda8-44ed-bc54-ece007dc49e8`**
+(172 nodes, `wf10-hist-v4`). Prior composer
+**`0799a8dd`**. Rollback
 **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
-Non-Latin is not garbled. Unusable uses `History template`.
-Usable runs `Extract history draft` in English.
+Non-Latin is not garbled. Unusable uses `History template`
+(warm card-only note). Usable runs `Extract history draft`
+in English. Every body starts with a greeting by name.
+History Gmail `emailType=html`.
 `Route source` output 3 = history, 4 = unknown.
 Kick: `POST /webhook/lni-wf10-history`.
 `Extract history draft` is a sibling of live
@@ -2725,11 +2728,15 @@ are unreliable (D-F).
   opportunities; `extraction_runs.raw_transcript`; `people`
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
-- Signature: `sender_profile.signature_block` (031).
-  Not `$env`. Not `lni_config`.
-- Scene photo: `assets` on the linked capture,
-  `kind IN ('photo','selfie')`, `upload_status='stored'`.
+- Signature: `sender_profile.signature_block` (031 +
+  032 HTML typography). Not `$env`. Not `lni_config`.
+- Scene photo: `assets` `kind IN ('photo','selfie')`,
+  `upload_status='stored'`. Lookup is the interaction
+  capture **or** an `extraction_runs` row whose
+  `structured_output` contains `people.email_normalized`
+  (S9 replay people with `interactions.person_id` NULL).
   Auto-attach on **email** only (D-B). No picker.
+  Interaction backfill proposed, not written.
 - Exclude `rashid@kacaib.com` (D-K). Exclude the four D-H
   manuals. Zahir: one compose, two To: addresses (D-J).
 
