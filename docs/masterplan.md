@@ -188,7 +188,7 @@ Full detail in `phases.md`.
 | 4 | Enrichment | COMPLETE |
 | 7 | Follow-up as a capture; deferred complete when the person appears | LIVE. 9.10: followup `/done` enqueues. TEST `/done` → card **21 s** (WF-02 **280253** / WF-10 **280271**). WF-09 backstop. |
 | 9 | Contact / vCard ingest | Packet 9.6 live (WF-01 `4836ffd8`). 9.6-B: #136 photos enqueued on WF-09 **279752**, audio not. Do not PUT WF-01 again. |
-| 10 | Post-event data repair, S1–S9, Apollo sweep, history outreach | **10.4b live.** 031 + WF-10 `source=history` `bdb37399` (rollback `1c1c39f4`). Composer v2 dry run only. Remaining 17 need authorisation. |
+| 10 | Post-event data repair, S1–S9, Apollo sweep, history outreach | **10.4b live.** 031 + WF-10 `source=history` `0799a8dd` (rollback `1c1c39f4`). Usable path proven. Remaining 17 need authorisation. |
 | 6 | pgvector RAG | Post-event. Migration **030**. Not applied. |
 | 5 | Web dashboard | Post-event. Needs RLS re-proof when SELECT is granted. |
 | 8 | PWA capture surface | Refused pre-event, post-event |

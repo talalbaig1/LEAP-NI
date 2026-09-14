@@ -247,8 +247,9 @@ null). Re-run cannot double-draft.
 - Rollback WF-10 published **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**
   (named before any history PUT). First accepted history
   graph: **`966950f1`**. Composer fix published
-  **`bdb37399-21fe-4229-b6c9-59ea5d33358a`** (172 nodes).
-  Name-checked `LNI WF-10 - Follow-up drafting`.
+  **`0799a8dd-2e16-4cc8-b3c4-fb9dddfe7b34`** (172 nodes).
+  Non-Latin script is not garbled. Extract proven on Zahir
+  and Deema. Name-checked `LNI WF-10 - Follow-up drafting`.
 - `Extract history draft` is a sibling OpenAI node. Live
   `Extract draft` expressions require command/voice nodes
   and would throw on this path. Voice-path Gmail nodes stay

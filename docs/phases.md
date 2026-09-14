@@ -627,9 +627,9 @@ authorisation.
 Q1–Q3 locked (Q1 reversed: Telegram evidence only).
 Migration `031_sender_profile_history` catalog
 `20260914060746`. WF-10 history published
-`966950f1` accepted; composer fix `bdb37399` (rollback
-`1c1c39f4`). First dry run rejected. Second:
-WF-10 **461817** / **461818** / **461819**. STOP.
+`966950f1` accepted; composer now `0799a8dd` (rollback
+`1c1c39f4`). Third dry run usable path:
+WF-10 **461871** / **461872** / **461873**. STOP.
 Remaining seventeen need a new authorisation.
 
 ---

@@ -2700,10 +2700,11 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`bdb37399-21fe-4229-b6c9-59ea5d33358a`**
-(172 nodes; composer fix). Rollback
+Published **`0799a8dd-2e16-4cc8-b3c4-fb9dddfe7b34`**
+(172 nodes). Rollback
 **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
-Unusable transcript uses `History template`, not the LLM.
+Non-Latin is not garbled. Unusable uses `History template`.
+Usable runs `Extract history draft` in English.
 `Route source` output 3 = history, 4 = unknown.
 Kick: `POST /webhook/lni-wf10-history`.
 `Extract history draft` is a sibling of live
