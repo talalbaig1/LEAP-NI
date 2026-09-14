@@ -1,8 +1,8 @@
 # Packet 10.4 — History outreach (docs only)
 
-**Date:** 7 Sep 2026
-**Status:** DOCUMENTED. No PUT, no migration, no SQL write until
-the architect authorises the build.
+**Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (10.4b)
+**Status:** Q1–Q3 LOCKED. Migration 031 + WF-10 `source=history`
+authorised. Three-draft dry run only.
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
@@ -78,16 +78,15 @@ needed) for WF-01 or WF-10 to deliver on Telegram.
 
 ## D-F — Evidence beside the draft
 
-Every generated message is accompanied by the transcript and
-the `interactions.summary` it was written from. A draft with
-no visible source is not acceptable.
+**Q1 LOCKED 14 Sep (reversed).** Evidence goes to
+**Telegram only.** Never into the Gmail draft body. A draft
+body is one careless send from the recipient. The Gmail
+draft is the sendable email and nothing else.
 
-Where the transcript is wrong-script, garbled, or known-wrong,
-**say so on the draft** and fall back to the general letter
+Telegram carries: person name, channel, transcript, summary,
+and an explicit warning line where the transcript is
+wrong-script or garbled. Fall back to the general letter
 (D-G). Do not quote garbage as if it were the conversation.
-
-**Q1 (open — recommendation below).** How the evidence reaches
-the owner.
 
 ---
 
@@ -225,60 +224,30 @@ attachment.
 
 ---
 
-## Q1–Q3 — implementer recommendation (architect decides)
+## Q1–Q3 — LOCKED 14 Sep 2026
 
-**Q1 — How does a draft carry its evidence?**
-Recommend **both**, because the surfaces differ.
+**Q1.** Telegram only. Never put evidence in the Gmail
+draft body. Draft = sendable email. Telegram = name,
+channel, transcript, summary, garbled warning.
 
-- **Email:** evidence appendix **in the Gmail draft body**,
-  below the signature, marked so the owner deletes it before
-  send (e.g. a line `--- evidence, delete before send ---`
-  then transcript + summary). The owner reviews in Gmail.
-  A Telegram-only receipt would split the letter from its
-  source.
-- **WhatsApp / LinkedIn:** there is no Gmail draft. Evidence
-  rides in the **same Telegram message** as the copy-text
-  (or `reply_text_2`). Telegram is the only surface.
+**Q2.** Batch, but a **three-draft dry run first**: one
+voice-note / usable transcript, one no-transcript, one
+with a scene photo. Owner reads. Remaining seventeen
+need a separate authorisation.
 
-Wrong-script / garbled: the evidence block says so in
-plain words. The letter above it is the general stay-in-touch.
-
-**Q2 — Trigger: per person, or a batch of 20 drafts?**
-Recommend **one batch** that produces **20 separate Gmail
-drafts** (and a later batch for the 10 WhatsApp texts).
-Not a blast: 20 composes, one To: each (D-A, Decision 12).
-The set is closed and counted. Per-person Telegram commands
-invite "later" on a fading event. Build note: Gmail
-`executeOnce` must not collapse the 20 into one draft
-(WF-04 Call WF-05 lesson).
-
-**Q3 — What marks contacted so a re-run does not duplicate?**
-Recommend **`follow_ups` + `channel`**, not a new table.
-
-- One row per `(person_id, channel)`.
-- Email: `draft_state='gmail_draft'`, `gmail_message_id` set,
-  `status='open'`.
-- WhatsApp / LinkedIn: `draft_state='handed_off'`.
-- History SELECT: `NOT EXISTS` a non-cancelled row for that
-  person+channel.
-- Zahir: two rows, same `gmail_message_id`, both channels
-  marked.
-- Already-sent live-path follow-ups (`draft_state='sent'`)
-  also exclude.
-
-`draft_state` alone without `channel` cannot tell email-done
-from WhatsApp-still-open on the same person.
+**Q3.** `follow_ups.channel` + `draft_state='gmail_draft'`.
+Partial unique index `(person_id, channel) WHERE
+draft_state <> 'cancelled'` (and person_id / channel not
+null). Re-run cannot double-draft.
 
 ---
 
-## Out of this packet
+## 10.4b build notes
 
-- PUT WF-10 / WF-01
-- Migration 031
-- 10.4a Gmail draft+attach spike (still the prove before
-  attaching scene photos)
-- 10.3 Apollo sweep
-- Merging Zahir's two people rows
-- The four D-H manuals
-- S9 interaction backfill
-- Starting Phase 5 / 6 / 8
+- Rollback WF-10 published `1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`
+  before the history PUT.
+- `Extract history draft` is a sibling OpenAI node. Live
+  `Extract draft` expressions require command/voice nodes
+  and would throw on this path.
+- Do not generate the remaining seventeen without
+  authorisation.

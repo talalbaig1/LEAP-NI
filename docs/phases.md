@@ -595,11 +595,13 @@ to both addresses, do not merge rows (D-J). Exclude
 Reuse `Extract draft`. Scene photo auto-attach on email
 only (D-B). Voice path untouched (D-C).
 
-**Q1–Q3** are in the plan and in the PR body. Implementer
-recommendation: evidence in the Gmail body (email) and in
-the Telegram copy (WA/LI); one batch of 20 separate
-drafts; `follow_ups` + `channel` so a re-run does not
-duplicate.
+**Q1–Q3 LOCKED 14 Sep.** Q1 reversed: evidence on
+Telegram only, never in the Gmail body. Q2: three-draft
+dry run first, then the rest. Q3: `follow_ups.channel` +
+`gmail_draft` + partial unique `(person_id, channel)`.
+Migration 031 applied. WF-10 `source=history` is the
+build. Do not generate the remaining seventeen without
+authorisation.
 
 **Acceptance (docs packet)**
 

@@ -392,9 +392,10 @@ WF-10 `Extract draft` writes `subject` / `body`. Terminals:
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
-**Evidence (D-F).** Transcript + summary travel with the
-message (Q1). Wrong-script or garbled: say so on the draft;
-do not quote it as the conversation.
+**Evidence (D-F / Q1 LOCKED).** Telegram only. Never in
+the Gmail draft body. Name, channel, transcript, summary,
+garbled warning. Wrong-script or garbled: general letter;
+do not quote garbage as the conversation.
 
 **Zahir (D-J).** Two `people` rows. One draft, two To:
 addresses. Do not merge. **Rashid (D-K).** Exclude
@@ -407,14 +408,13 @@ from `status`. `status` stays `open` \| `done` \| `cancelled` —
 cancel = `cancelled` on both `status` and `draft_state` (025);
 Gmail or attachment fail stays `open` with `draft_state='failed'`.
 
-**Phase 10 planned values (not live).** `gmail_draft` = a Gmail
-Draft exists and has **not** been sent by LNI. `handed_off` =
-WhatsApp / LinkedIn copy-text delivered on Telegram. `status`
-stays `open`. `gmail_message_id` stores the Gmail draft id
-from `draft.create`. No `awaiting_confirm` buttons on this
-path (D-C). Voice path keeps `awaiting_confirm` → `sending`
-→ `sent`. Optional `channel` (`email | whatsapp | linkedin`)
-is Q3. Do not write the CHECK migration in this docs packet.
+**Phase 10 (031 live).** `gmail_draft` = a Gmail Draft exists
+and has **not** been sent by LNI. `status` stays `open`.
+`gmail_message_id` stores the Gmail draft id. `channel` is
+`email | whatsapp | linkedin`. Partial unique
+`(person_id, channel) WHERE draft_state <> 'cancelled'`.
+No `awaiting_confirm` on this path (D-C). Voice path
+unchanged.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -1248,7 +1248,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 028 | `028_captures_followup_mode` | `captures.capture_mode` gains `followup`. `follow_ups.capture_id`. Follow-up is a capture, not a window. |
 | 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`** (no `029_` prefix). Same class as 023. Do not re-apply. |
 | 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029/031 for this. |
-| 031 | — | **Not applied.** Proposed `sender_profile` (10.4). Signature block. Do not write in the docs packet. |
+| 031 | `031_sender_profile_history` | `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)`. Applied 14 Sep 2026. |
 
 ### Connection policy — verified 25 Aug 2026
 

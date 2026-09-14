@@ -2748,7 +2748,8 @@ are unreliable (D-F).
 - `status` stays `open`.
 - Audit: draft-created / handed-off. No email body, no
   transcript in the log.
-- Evidence (D-F) rides with the message (Q1).
+- Evidence (D-F / Q1 LOCKED) on Telegram only. Never in
+  the Gmail draft body.
 
 **Does NOT**
 
