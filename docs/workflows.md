@@ -2700,11 +2700,12 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`<WF10_PUBLISHED_CH5>`**
-(172 nodes, `wf10-hist-v4`). Prior graphs
-**`<WF10_PUBLISHED_DESRAJ>`** (<CONTACT_14_NAME> + WA/LI dry run),
-**`<WF10_PUBLISHED_HIST_V4>`** (email batch). Rollback
-**`<WF10_ROLLBACK_DESRAJ>`**.
+Published **`<WF10_ROLLBACK>`**
+(172 nodes). Packet 10.1 skip-list PUT 14 Sep.
+Rollback **`<WF10_PUBLISHED_CH5>`**
+(CH1–CH5 close). Prior graphs **`<WF10_PUBLISHED_DESRAJ>`**
+(<CONTACT_14_NAME> + WA/LI dry run), **`<WF10_PUBLISHED_HIST_V4>`** (email
+batch), **`<WF10_ROLLBACK_DESRAJ>`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
 in English. Every body starts with a greeting by name.
@@ -2745,6 +2746,13 @@ are unreliable (D-F).
   Interaction backfill proposed, not written.
 - Exclude `<CONTACT_1_EMAIL>` (D-K). Exclude the four D-H
   manuals. <CONTACT_3_NAME>: one compose, two To: addresses (D-J).
+  History load still skips <CONTACT_3_NAME> <CONTACT_2_COMPANY> row `ba037ac0`
+  (not merged — Phase 12 `person_emails`). After 10.1
+  merges, do **not** skip the <CONTACT_6_NAME> / <CONTACT_37_NAME> / <CONTACT_39_NAME> /
+  <CONTACT_42_NAME> / <CONTACT_43_NAME> survivors; they were empty 09-01/09-02
+  rows and now hold the contact. Name skips unchanged:
+  `<CONTACT_12_NAME>`, `<CONTACT_13_NAME>`, `<CONTACT_11_NAME>`, `<CONTACT_51_NAME>`,
+  `<CONTACT_20_NAME>`.
 
 **Reuses**
 

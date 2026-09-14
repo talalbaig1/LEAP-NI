@@ -1,8 +1,10 @@
 # Packet 10.4 — History outreach (docs only)
 
-**Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (Phase 10 close)
+**Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (Phase 10 close + 10.1 skip list)
 **Status:** Q1–Q3 LOCKED. Phase 10 CLOSED after CH1–CH5.
 Email + WhatsApp + LinkedIn generated. Decision 12 holds.
+Packet 10.1: History load skip ids reduced to <CONTACT_3_NAME>
+<CONTACT_2_COMPANY> `ba037ac0` only (WF-10 published `<WF10_ROLLBACK>`).
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
