@@ -245,9 +245,11 @@ null). Re-run cannot double-draft.
 ## 10.4b build notes
 
 - Rollback WF-10 published **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**
-  (named before PUT). History PUT published
-  **`70e636b8-d87c-4a88-ac30-a17c3df2ba20`**, 170 nodes, ACTIVE.
-  Name-checked `LNI WF-10 - Follow-up drafting`.
+  (named before any history PUT). Live published
+  **`966950f1-ba3f-413b-99bb-d23fd0a5052a`**, 170 nodes, ACTIVE
+  (parse unwrap + empty-photo INSERT fix on top of first
+  history PUT `70e636b8`). Name-checked
+  `LNI WF-10 - Follow-up drafting`.
 - `Extract history draft` is a sibling OpenAI node. Live
   `Extract draft` expressions require command/voice nodes
   and would throw on this path. Voice-path Gmail nodes stay
@@ -261,10 +263,18 @@ null). Re-run cannot double-draft.
 - Gmail draft + real attachment proven before the batch:
   `LNI-TEST- 10.4b gmail draft attach` `YjgQeHvlRigRzugm`
   exec **461630**. Owner should delete that test draft.
-- Three-draft dry run (owner reads; STOP):
-  Martin Chakhtoura `d7cb0ba8` (usable transcript),
-  Abdullah Ahsan `96066d72` (no transcript),
-  Rashid Mehmood `9f91fb97` (kaacib.com, scene photo).
-  Exclude Rashid `9292bc7e` (`kacaib.com`).
+- Three-draft dry run **done**. Owner reads; STOP.
+  Remaining seventeen need a new authorisation.
+
+| Person | person_id | Exec | Telegram | follow_ups | Gmail draft | Attach |
+|---|---|---|---|---|---|---|
+| Martin Chakhtoura (usable transcript) | `d7cb0ba8` | **461699** | 922 | `ff71b02c` | `r-4771201824276099028` | 0 |
+| Abdullah Ahsan (no transcript) | `96066d72` | **461700** | 923 | `ada18272` | `r2191068012233806658` | 0 |
+| Rashid Mehmood (kaacib, scene photo) | `9f91fb97` | **461701** | 924 | `5d9a7d64` | `r3672318059885616863` | 1 |
+
+  Failed while wiring: **461679** (parse unwrap), **461689**
+  (empty photo uuid). Orphan Gmail draft from 461689:
+  `r-662288926798849644` — delete it. Typo Rashid
+  `9292bc7e` (`kacaib.com`) has zero follow_ups.
 - Do not generate the remaining seventeen without
   authorisation.

@@ -2700,7 +2700,7 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`70e636b8-d87c-4a88-ac30-a17c3df2ba20`**
+Published **`966950f1-ba3f-413b-99bb-d23fd0a5052a`**
 (170 nodes). Rollback
 **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
 `Route source` output 3 = history, 4 = unknown.
