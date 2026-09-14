@@ -2700,9 +2700,10 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`1e4ae9c6-44c2-478e-a638-5234751079ea`**
-(172 nodes, `wf10-hist-v4`). Prior email-batch
-**`bed27da5`**. Rollback
+Published **`fd8b7f9b-f156-4295-ae92-87fa21c98350`**
+(172 nodes, `wf10-hist-v4`). Prior graphs
+**`1e4ae9c6`** (DES RAJ + WA/LI dry run),
+**`bed27da5`** (email batch). Rollback
 **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`

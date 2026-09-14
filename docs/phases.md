@@ -634,8 +634,9 @@ Email batch accepted. DES RAJ second-touch email
 `channel` NULL). CH1–CH5 close Phase 10: Shahzad +
 Fawaz second-channel drafts; `wa.me` from Meta click-
 to-chat; LinkedIn people-search + paste note; 
-`second_touch` keys on `draft_state='sent'` only;
-033 channel signatures. See packet 10.4.
+`second_touch` is `draft_state='sent'` only;
+033 channel signatures. WF-10 **`fd8b7f9b`**.
+Phase 10 closed.
 
 ---
 

@@ -407,6 +407,78 @@ only. A Gmail draft is not a touch. Ahmed Alkaf WhatsApp
 regenerated after the fix.
 
 **CH5.** Bios from 033 columns. Prompt does not contain
-the bio.
+the bio. Catalog `033_sender_profile_channel_signatures`
+(`20260914083604`). 030 still absent.
 
-Generation table (live, after this run) follows.
+WF-10 published **`fd8b7f9b`**. 42 kicks, all HTTP 200.
+Live counts: 22 email `gmail_draft`, 29 WhatsApp, 11
+LinkedIn. Telegram 954–995. Decision 12: none sent.
+
+**Coverage.** In-window humans with an email and no
+email draft: **Rana Waleed** only (manual). Zahir
+kaacib row `ba037ac0` also has no draft — D-J duplicate
+of the haramain row; both addresses already on that
+Gmail To:.
+
+**CH4 proof.** Ahmed Alkaf WhatsApp `8138a531` Telegram
+959, `second_touch=false` (email is `gmail_draft`, not
+`sent`). Shahzad + DES RAJ `second_touch=true`.
+
+**CH2 proof.** Local SA → `966` and drop 0: Khizr
+`wa.me/966509609942`, Waleed `966538584129`, Raheel
+`966567888578`. Syed Ammad: no link, 996 flag, Telegram
+980. Telegram evidence has the full `?text=` prefill.
+
+**CH3.** All LinkedIn notes ≤247 characters including
+bio. Search URL + “find manually”. No fake `/in/` links.
+
+Phase 10 is **closed**.
+
+New-row table (prior 20 emails unchanged, Telegram
+931–950). `wa.me` shown without `?text=`; prefill is
+on Telegram.
+
+| Person | Channel | Path | Reason | Chars | wa.me / why none | LinkedIn search | Photo | Tg |
+|---|---|---|---|---|---|---|---|---|
+| Fawaz Al-Eisai | email | template | no transcript | 1259 | n/a | n/a | c4f9a0aa…jpg | 955 |
+| Shahzad Jameel | email | template | NetEngine Bus forced | 1164 | n/a | n/a | cdf49511…jpg | 954 |
+| Abdalla Elkhouli | whatsapp | template | aaa aaa | 237 | https://wa.me/966562284579 | n/a | e26b572f…jpg | 956 |
+| Abdullah Ahsan | whatsapp | template | no transcript | 238 | https://wa.me/966547098160 | n/a | 6ea2d374…jpg | 957 |
+| Ahmad Alnasser | whatsapp | Extract | usable | 333 | https://wa.me/966541105476 | n/a | - | 958 |
+| Ahmed Alkaf | whatsapp | template | no transcript | 235 | https://wa.me/966582887324 | n/a | - | 959 |
+| Animesh Anand | whatsapp | template | no transcript | 237 | https://wa.me/918434348504 | n/a | - | 960 |
+| Awais Rahat | whatsapp | template | no transcript | 235 | https://wa.me/447545222169 | n/a | - | 961 |
+| DES RAJ CHAUHAN | whatsapp | template | no transcript | 250 | https://wa.me/966538714540 | n/a | efece2a9…jpg | 963 |
+| Deema Alwaala | whatsapp | Extract | usable | 363 | https://wa.me/966534037303 | n/a | - | 962 |
+| Faten Matmati | whatsapp | Extract | usable | 328 | https://wa.me/21629350910 | n/a | - | 964 |
+| Fawaz Al-Eisai | whatsapp | template | no transcript | 235 | https://wa.me/966556677268 | n/a | c4f9a0aa…jpg | 965 |
+| Fazal (Bahrain) | whatsapp | template | no transcript | 235 | https://wa.me/97336555758 | n/a | - | 966 |
+| Ghassan Siyamak | whatsapp | template | no transcript | 237 | https://wa.me/966543334381 | n/a | 697cf050…jpg | 967 |
+| Imad Afyouni | whatsapp | Extract | usable | 315 | https://wa.me/971525122455 | n/a | - | 968 |
+| Jamal Rafiq | whatsapp | template | no transcript | 235 | https://wa.me/923335684410 | n/a | - | 969 |
+| Khizer Ahmed Siddiqui | whatsapp | template | no transcript | 236 | https://wa.me/923324046546 | n/a | - | 970 |
+| Khizr Hussain | whatsapp | template | no transcript | 235 | https://wa.me/966509609942 | n/a | - | 971 |
+| Muhammad Toheed | whatsapp | template | no transcript | 238 | https://wa.me/923167142536 | n/a | - | 972 |
+| Muhammad Zahir | whatsapp | Extract | usable | 334 | https://wa.me/447522192620 | n/a | 96e2bf67…jpg | 973 |
+| Omair Shaikh | whatsapp | Extract | usable | 327 | https://wa.me/966582839355 | n/a | 4db135cb…jpg | 974 |
+| Raheel Zaman | whatsapp | Extract | usable | 343 | https://wa.me/966567888578 | n/a | 492ef0e6…jpg | 975 |
+| Rashid Mehmood | whatsapp | template | no transcript | 236 | https://wa.me/923334002269 | n/a | 2b14354c…jpg | 976 |
+| Shahzad Jameel | whatsapp | template | NetEngine Bus forced | 254 | https://wa.me/923028444707 | n/a | cdf49511…jpg | 977 |
+| Soliman A. Alzahrani | whatsapp | template | no transcript | 237 | https://wa.me/966591910548 | n/a | - | 978 |
+| Sulaiman Asif | whatsapp | Extract | usable | 307 | https://wa.me/923012730261 | n/a | 80372849…jpg | 979 |
+| Syed Ammad | whatsapp | template | garbled | 234 | no link: stored 996 is Kyrgyzstan, OCR, do not auto-correct | n/a | 6a4ecbf0…jpg | 980 |
+| Tasneem Ibraheim | whatsapp | template | no transcript | 237 | https://wa.me/962788711503 | n/a | - | 981 |
+| Waleed Ahmad Dammam | whatsapp | template | no transcript | 236 | https://wa.me/966538584129 | n/a | - | 982 |
+| Zahid Latif | whatsapp | template | no transcript | 235 | https://wa.me/923000334560 | n/a | - | 983 |
+| Zuhair 100 Ventures Jeddah | whatsapp | template | no transcript | 236 | https://wa.me/966554936765 | n/a | - | 984 |
+| Ashraf Abu Elayyan | linkedin | Extract | usable | 247 | n/a | name search | 10fa70f3…jpg | 985 |
+| Deshraj Chauhan | linkedin | Extract | usable | 184 | n/a | name+Utopian | - | 986 |
+| Hayam A. | linkedin | Extract | usable | 222 | n/a | name search | - | 987 |
+| Imad | linkedin | Extract | usable | 208 | n/a | name search | 8bd42dda…jpg | 988 |
+| Mohamed Ousmane Fayaz | linkedin | template | no transcript | 139 | n/a | name+BYOC.global | - | 989 |
+| Mouaz Abdullah | linkedin | template | no transcript | 137 | n/a | name search | - | 990 |
+| Muath Abuhilal | linkedin | Extract | usable | 233 | n/a | name+KFUPM | 858a7cef…jpg | 991 |
+| Muhammad Usman Fiaz | linkedin | Extract | usable | 225 | n/a | name+BYOC.global | deff4730…jpg | 992 |
+| Syed Sair Ali | linkedin | Extract | usable | 242 | n/a | name+Blinkco.io | - | 993 |
+| Vishvajit Pathak | linkedin | template | no transcript | 141 | n/a | name+MarsDevs | b77e443c…jpg | 994 |
+| أشرف | linkedin | template | no transcript | 136 | n/a | Arabic name+SEED | - | 995 |
