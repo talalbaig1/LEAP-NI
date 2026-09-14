@@ -2700,11 +2700,12 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`fd8b7f9b-f156-4295-ae92-87fa21c98350`**
-(172 nodes, `wf10-hist-v4`). Prior graphs
-**`1e4ae9c6`** (DES RAJ + WA/LI dry run),
-**`bed27da5`** (email batch). Rollback
-**`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
+Published **`226fe197-39bf-497c-ad4f-2735740f0547`**
+(172 nodes). Packet 10.1 skip-list PUT 14 Sep.
+Rollback **`fd8b7f9b-f156-4295-ae92-87fa21c98350`**
+(CH1–CH5 close). Prior graphs **`1e4ae9c6`**
+(DES RAJ + WA/LI dry run), **`bed27da5`** (email
+batch), **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
 in English. Every body starts with a greeting by name.
@@ -2745,6 +2746,13 @@ are unreliable (D-F).
   Interaction backfill proposed, not written.
 - Exclude `rashid@kacaib.com` (D-K). Exclude the four D-H
   manuals. Zahir: one compose, two To: addresses (D-J).
+  History load still skips Zahir kaacib row `ba037ac0`
+  (not merged — Phase 12 `person_emails`). After 10.1
+  merges, do **not** skip the Fawaz / Awais / Khizr /
+  Zahid / Zuhair survivors; they were empty 09-01/09-02
+  rows and now hold the contact. Name skips unchanged:
+  `saad raja`, `ali abbas`, `rana waleed`, `abbod`,
+  `aadil abbasi usa`.
 
 **Reuses**
 

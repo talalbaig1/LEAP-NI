@@ -428,6 +428,77 @@ rows; do not invent missing assets).
   (leave / extract-note / close-ready). No silent DELETE.
 - Architect verifies from live SQL, not the implementer report.
 
+**Executed 14 Sep (owner-authorised Part A–D).** Architect
+verifies from live SQL. Implementer report is not evidence.
+
+Part A (record, not a scoring fix): 77 pending
+`entity_candidates`. **37** score=1 hardcoded
+(OCR-split / unlinked_company_payload /
+`field_latin_disagrees` / company alias). **40**
+`name_trgm` computed `similarity()` 0.3–0.6875. Do not
+fix scoring in 10.1.
+
+Part B — ten owner-decided merges. Survivor =
+interactions win. Never overwrite a non-null field.
+Never delete a people row that still holds an
+interaction, follow_up, or person_companies link.
+`person_companies` has **no** UNIQUE `(person_id,
+company_id)` — two current employers are allowed.
+
+| # | Survivor | Absorb | Copied | Moved | Notes |
+|---|---|---|---|---|---|
+| 1 | Fawaz `49d75705` | `58ea7ec0` | email+phone | 2 drafts | leftover absorb deleted after children moved |
+| 2 | Khizr `ee8f8242` | `94f6d2b2` | phone | WA draft | |
+| 3 | Zahid `bc1a347f` | `4e51b68d` | phone | WA draft | |
+| 4 | Awais `ae02af5e` | `8ae2ea22` | phone | WA draft | dropped dup IVY link |
+| 5 | Rana `fc2ba74f` | `4ef3824c` | **phone only** | WA draft | name stays Rana Waleed |
+| 6 | Zuhair `f60aebe7` | `3be1d85e` | phone | WA + 1 interaction | renamed Zohair → **Zuhair** |
+| 7 | DES RAJ `61b14e31` | `1905fff3` | none (Aliph kept) | cancelled LI + 1 interaction | Utopian added as **second** `person_companies`; live channels stay email+WA |
+| 8 | Ashraf `10cf0540` | `39d9fffa` | SEED link | cancelled LI | one live LinkedIn remains |
+| 9 | Ali Abbas `4efe1828` | `d887ab79` | — | — | empty duplicate; dropped dup Blossom |
+| 11 | Rashid `9f91fb97` | `9292bc7e` | **never email** | 1 interaction | dropped dup KAACIB; survivor email stays `rashid@kaacib.com` |
+
+**#10 Muhammad Zahir — not merged.** `d2335783`
+(haramain) and `ba037ac0` (kaacib) both kept. Two
+employers with two emails is a normal networking
+case. Needs `person_emails` (or equivalent). See
+Phase 12. Outreach already dual-To: on the haramain
+draft.
+
+Part C — rename: `"Fazal From Bahrain Provide
+Discounts For Students"` `fab486c2` → **Fazal**.
+Zuhair label handled by merge 6. Waleed Ahmad Dammam
+moot (merge 5). **Aadil Abbasi USA: not touched**
+(two test rows remain).
+
+Part D — **do nothing** to 61 pre-window pending
+candidates (`created_at < 2026-08-30 21:00Z`: 2 on
+27 Aug, 57 on 28 Aug, 2 on 29 Aug).
+`decision='rejected'` would claim a review nobody
+did. No migration 034. 16 in-window pending also
+left pending (table reworked in Phase 12).
+
+Live counts (SQL 14 Sep):
+
+| | people | interactions | follow_ups | person_companies |
+|---|---|---|---|---|
+| Before leftover Fawaz delete | 84 | 125 | 108 | 58 |
+| After 10 deletes + Fazal rename | 74 | 125 | 108 | 55 |
+
+Missing-person orphans: interactions 0, follow_ups 0,
+person_companies 0. Pre-existing NULL `person_id`
+(S9, not this packet): interactions 8, follow_ups 7.
+Pending candidates still 77 (61+16). Absorbed ids
+gone. Zahir both rows unchanged.
+
+WF-10 History skip list PUT after the merges: published
+`226fe197-39bf-497c-ad4f-2735740f0547`. Rollback
+`fd8b7f9b-f156-4295-ae92-87fa21c98350`. Removed
+obsolete skip ids (Fawaz / Awais / Khizr / Zahid /
+Zuhair survivors). Kept `ba037ac0` (Zahir kaacib) and
+the name skips (`saad raja`, `ali abbas`,
+`rana waleed`, `abbod`, `aadil abbasi usa`).
+
 ### Packet 10.2 — S1–S6 fixes + PR #71
 
 Fix the September defects (`rules.md` known defects S1–S6).
@@ -649,6 +720,31 @@ review UI.
 
 Built after the event on purpose: it will be designed against a database full of
 real contacts and real failure patterns, rather than assumptions.
+
+---
+
+## Phase 12 — Multi-value contact keys
+
+**Timing:** post-Phase 10. Not designed. Logged 14 Sep
+from Packet 10.1.
+
+`people.email` is one column with UNIQUE
+`(owner_id, email_normalized)` where not null. That
+forced Muhammad Zahir into two people rows (Haramain
+Companion + KAACIB). Owner refused a schema change
+under time pressure for one contact.
+
+**Requirement:** `person_emails` (or equivalent) so one
+human can hold several emails, phones, titles, and
+employers. Outreach already handles Zahir correctly
+(one compose, two To:). Do not merge those rows until
+this exists.
+
+Also in this phase: rework `entity_candidates` (61
+pre-window pending left untouched in 10.1 — a false
+`rejected` is worse than clutter). Queue needs a stored
+pair + human-readable reasons, not trigram-only
+`{name_trgm}`.
 
 ---
 

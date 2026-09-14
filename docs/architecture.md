@@ -289,6 +289,16 @@ write this table.
 | `source_type` | text | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
 
+**One email per person (live).** UNIQUE
+`(owner_id, email_normalized)` WHERE
+`email_normalized IS NOT NULL`. Two employers with two
+emails is a normal networking case, not an edge case
+(Muhammad Zahir, Packet 10.1 — both rows kept).
+**Phase 12 requirement:** `person_emails` (or equivalent)
+so one human can hold several emails, phones, titles
+and employers. Not designed under 10.1. Do not merge
+Zahir until that exists. Outreach already dual-To: him.
+
 **`companies`** — canonical company.
 
 | Column | Type | Default | Null |
@@ -313,6 +323,11 @@ write this table.
 | `role_title` | text | — | YES |
 | `is_current` | boolean | `true` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+
+No UNIQUE `(person_id, company_id)`. Two **current**
+affiliations are allowed (DES RAJ Chauhan: Aliph
+Solutions + Utopian, Packet 10.1). Same-company links
+on an absorbed duplicate are deleted, not re-pointed.
 
 **`interactions`** — what was discussed.
 
@@ -435,6 +450,13 @@ confirm time.
 | `reasons` | text[] | `'{}'::text[]` | NO |
 | `decision` | text | `'pending'` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+
+**Packet 10.1 / Phase 12.** 61 pre-window pending rows
+(`created_at < 2026-08-30 21:00Z`) were **not** set to
+`rejected` — that would claim a review nobody did. No
+migration 034. Table is reworked in Phase 12. Scoring
+record (not a 10.1 fix): 37 hardcoded score=1, 40
+computed `name_trgm` 0.3–0.6875.
 
 **`field_corrections`** — user edits, never overwritten.
 
