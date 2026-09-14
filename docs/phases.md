@@ -629,9 +629,10 @@ Migration `031_sender_profile_history` catalog
 `20260914060746`. WF-10 history published
 `966950f1` accepted; composer `0799a8dd`; C1–C5 now
 `bed27da5` (rollback `1c1c39f4`). 032 HTML signature.
-Fourth dry run WF-10 **462396** / **462397** / **462398**
-/ **462399**. C4 interaction backfill not written.
-STOP. Remaining seventeen need a new authorisation.
+Fourth dry run accepted. Email batch complete:
+Deema/Abdalla v4 + 13 remaining humans. 19 live
+`gmail_draft` rows. C4 backfill not written. STOP.
+Do not start WhatsApp or LinkedIn.
 
 ---
 

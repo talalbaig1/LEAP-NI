@@ -2,7 +2,8 @@
 
 **Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (10.4b)
 **Status:** Q1–Q3 LOCKED. Migration 031 + 032 + WF-10 `source=history`
-authorised. Fourth dry run only. Do not generate the seventeen.
+authorised. Email batch complete (19 humans, `wf10-hist-v4`).
+Do not start WhatsApp or LinkedIn.
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
@@ -311,6 +312,34 @@ null). Re-run cannot double-draft.
 | Abdullah Ahsan | `96066d72` | **462398** | 933 | `a8b2dbaf` | `r7147000344519431064` | template | 107532 | no transcript |
 | Muhammad Zahir | `d2335783` | **462399** | 934 | `b1786e3f` | `r-4333065214953054450` | Extract | 110524 | greeting + HTML sig |
 
-  Deema `c2c819f8` and Abdalla `76083561` kept (v3).
-- Do not generate the remaining seventeen without
-  authorisation.
+  Fourth dry run accepted. C4 backfill stays unwritten
+  until 10.1 merges duplicates.
+- Deema + Abdalla regenerated v4. Remaining in-window
+  email humans drafted. 19 live `gmail_draft` rows.
+  One-webhook multi-person fails when Extract and
+  template mix (`History parse` pairing). Kicked one
+  person per webhook. WF-10 still `bed27da5`.
+  WhatsApp / LinkedIn not started.
+
+| Person | person_id | Exec | Telegram | follow_ups | Gmail draft | Path | Attach | Reason |
+|---|---|---|---|---|---|---|---|---|
+| Deema Alwaala | `2ca63896` | **462459** | 935 | `c789f86c` | `r8067515570626867707` | Extract | 0 | usable |
+| Abdalla Elkhouli | `db31bc6e` | **462469** | 936 | `1fbc8a9f` | `r8677868495208793358` | template | 103619 | aaa aaa |
+| Ahmad Alnasser | `deafcf1a` | **462472** | 937 | `a9ac18b1` | `r7748022095252994021` | Extract | 0 | usable |
+| Ahmed Alkaf | `32c8efee` | **462474** | 938 | `a1b91e19` | `r-836529973338330291` | template | 0 | no transcript |
+| Animesh Anand | `9bfa8ce0` | **462475** | 939 | `724f0add` | `r5119167887856017740` | template | 0 | no transcript |
+| Faten Matmati | `1831ecd0` | **462476** | 940 | `9309173a` | `r5415257922690620755` | Extract | 0 | usable |
+| Ghassan Siyamak | `a602827b` | **462477** | 941 | `83b68f68` | `r-1790470466397325196` | template | 106306 | no transcript |
+| Imad Afyouni | `26ed5169` | **462478** | 942 | `44c889ca` | `r434767192073961307` | Extract | 0 | usable |
+| Jamal Rafiq | `681d308c` | **462479** | 943 | `adff2e7c` | `r3542818162193356830` | template | 0 | no transcript |
+| Khizer Ahmed Siddiqui | `b01f265a` | **462481** | 944 | `d4b7074e` | `r1626157842668145537` | template | 0 | no transcript |
+| Muhammad Toheed | `32bac9fc` | **462482** | 945 | `988d4cd2` | `r-6183830881006665318` | template | 0 | no transcript |
+| Rashid Mehmood | `9f91fb97` | **462483** | 946 | `c208f7b6` | `r1436963579507133188` | template | 106701 | no transcript |
+| Syed Ammad | `40b9bbe4` | **462485** | 947 | `6a7cf7b9` | `r5109628820246424018` | template | 125373 | garbled |
+| Soliman A. Alzahrani | `77efedfd` | **462487** | 948 | `245ed4cb` | `r1790556644158495512` | template | 0 | no transcript |
+| Tasneem Ibraheim | `541a55ec` | **462488** | 949 | `b2809899` | `r8981891638223927533` | template | 0 | no transcript |
+
+  Skipped by load filter / human dedupe: D-H four,
+  DES RAJ, Shahzad, `kacaib.com` typo, Zahir kaacib
+  row (same human as live haramain draft), pre-window,
+  LNI-prefix, example/invalid. 19 humans, not 23 rows.
