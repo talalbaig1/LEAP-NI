@@ -29,7 +29,8 @@ start, not by sliding the gate.
 | 31 Aug – 2 Sep | Event operations (owner attended) |
 | 3 Sep | Official last day. Owner skipped — health. Zero-capture day closed. |
 | **5 Sep** | Phase 10 documented (not built). Freeze lifted. |
-| Sep onward | Phase 10 packets 10.1–10.4a–10.4, then Phases 5–8 |
+| **14 Sep** | Phase 10 closed. Packet 12.0 docs (multi-tenancy). No migration. |
+| Sep onward | Phase 12 packets after Q1–Q5 lock, then Phases 5–8 |
 
 **Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete. Phase
 2 complete. Phase 3 closed (WF-07/08/09 ACTIVE). Owner opened Phase 4
@@ -462,7 +463,7 @@ company_id)` — two current employers are allowed.
 (haramain) and `ba037ac0` (kaacib) both kept. Two
 employers with two emails is a normal networking
 case. Needs `person_emails` (or equivalent). See
-Phase 12. Outreach already dual-To: on the haramain
+packet **12.3**. Outreach already dual-To: on the haramain
 draft.
 
 Part C — rename: `"Fazal From Bahrain Provide
@@ -475,8 +476,11 @@ Part D — **do nothing** to 61 pre-window pending
 candidates (`created_at < 2026-08-30 21:00Z`: 2 on
 27 Aug, 57 on 28 Aug, 2 on 29 Aug).
 `decision='rejected'` would claim a review nobody
-did. No migration 034. 16 in-window pending also
-left pending (table reworked in Phase 12).
+did. 10.1 wrote no 034. 16 in-window pending also
+left pending (table reworked in packet **12.4**).
+034 is now reserved for 12.1 (`lni_settings` +
+`lni_instance` + uniques + platform owner), not
+this table.
 
 Live counts (SQL 14 Sep):
 
@@ -723,28 +727,81 @@ real contacts and real failure patterns, rather than assumptions.
 
 ---
 
-## Phase 12 — Multi-value contact keys
+## Phase 12 — Multi-tenancy
 
-**Timing:** post-Phase 10. Not designed. Logged 14 Sep
-from Packet 10.1.
+**Timing:** post-Phase 10. Docs 14 Sep (`docs/plans/phase-12-plan.md`).
+Packet **12.0a** locked Q1–Q5. No migration in 12.0 / 12.0a.
+030 stays Phase 6. Product name **NIS**; `LNI` is the
+legacy internal prefix (D-N).
 
-`people.email` is one column with UNIQUE
-`(owner_id, email_normalized)` where not null. That
-forced Muhammad Zahir into two people rows (Haramain
-Companion + KAACIB). Owner refused a schema change
-under time pressure for one contact.
+Launch used one owner. Every user-owned table already
+has `owner_id` + RLS. Workflows still resolve that owner
+from `events.name = 'LEAP 2026'`. Cron therefore serves
+one person. `lni_config.value` is integer — no display
+name. **Tenant = `owner_id` (D-L ACCEPTED).** No
+`tenants` table. No `tenant_id` column. No `value_text`
+on `lni_config`.
 
-**Requirement:** `person_emails` (or equivalent) so one
-human can hold several emails, phones, titles, and
-employers. Outreach already handles Zahir correctly
-(one compose, two To:). Do not merge those rows until
-this exists.
+`person_emails` and `entity_candidates` rework stay
+**inside this phase**, deferred to 12.3 / 12.4. They are
+not a reason to start with a migration. Login surface is
+**12.5**, after isolation is proven.
 
-Also in this phase: rework `entity_candidates` (61
-pre-window pending left untouched in 10.1 — a false
-`rejected` is worse than clutter). Queue needs a stored
-pair + human-readable reasons, not trigram-only
-`{name_trgm}`.
+### Packet 12.0 / 12.0a — Docs
+
+Plan, D-L…D-O, Q1–Q5 LOCKED. No SQL file. No PUT.
+
+**Acceptance**
+
+- Q1–Q5 locked in the plan. D-L ACCEPTED. D-M D-N D-O
+  in `masterplan.md`.
+- 034 named, not written. 030 untouched.
+
+### Packet 12.1 — Isolation schema (not started)
+
+Catalog **034**. Same packet:
+
+- `lni_settings (owner_id, key, value text)` UNIQUE
+  `(owner_id, key)`. RLS same shape as `lni_config`.
+  Seed `display_name` for the live owner.
+- `lni_instance` — not owner-scoped, one row, instance
+  name. Fingerprint. After this, `LEAP 2026` is not in
+  workflow logic.
+- `UNIQUE (telegram_user_id)` on `bot_state`.
+- assets UNIQUE `(owner_id, telegram_file_unique_id)`
+  (replaces column-only unique).
+- Platform owner seed: `donotreplynis@gmail.com`
+  (dotless). No `bot_state`, no `events`, no
+  `sender_profile`.
+
+Do not write the file in 12.0a.
+
+### Packet 12.2 — Owner resolution (not started)
+
+Split self-identify onto `lni_instance`. Owner from
+`bot_state` inbound; iterate tenant `owner_id` on cron.
+Fail-closed Gmail/Apollo (D-M). `capture_no` lookups
+include `owner_id` (audit every workflow). Storage path
+read-back. Permanent test tenant `bot_state` (Q2) —
+never deleted. No unpublished-draft publish.
+
+### Packet 12.3 — `person_emails` (deferred)
+
+One human, several emails/phones/titles. Zahir
+`d2335783` + `ba037ac0` stay two rows until this
+exists. Do not merge.
+
+### Packet 12.4 — `entity_candidates` pair storage (deferred)
+
+Stored pair + human-readable reasons. 61 pre-window
+pending stay pending. No false `rejected`.
+
+### Packet 12.5 — Login surface (after isolation)
+
+Minimal login: Supabase Auth, Google/Microsoft,
+Telegram-ID capture. A Phase 12 **dependency**, landing
+**after** isolation is proven. Isolation before there is
+a door.
 
 ---
 
