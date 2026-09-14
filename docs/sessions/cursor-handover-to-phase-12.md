@@ -22,6 +22,12 @@ Phase 12 is **multi-tenancy**. Schema work identified in
 a text config column) is **deferred inside this phase**,
 not a reason to start with a migration.
 
+**12.0 (docs, this window):** `docs/plans/phase-12-plan.md`.
+D-L proposed: tenant = `owner_id`. Text home =
+`lni_settings` as 034 **when 12.1 names it**. Q1–Q5
+must lock before any migration. Do not write 034 in
+12.0. Do not PUT.
+
 ---
 
 ## 1. Live workflow versions (GET 14 Sep 2026)

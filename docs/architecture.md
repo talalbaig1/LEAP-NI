@@ -91,7 +91,12 @@ These are invariants. Violating one is a defect regardless of test results.
 ## 4. Data model
 
 UUID primary keys. `timestamptz` throughout. `owner_id` and RLS on every
-user-owned table — single owner at launch, designed for multi-user.
+user-owned table. Launch is one owner (`a79b744e`). **Phase 12 (D-L proposed):
+tenant = `owner_id`.** No parallel `tenant_id`. Isolation is already
+the column; n8n still resolves the owner from `events.name = 'LEAP 2026'`
+until packet 12.2. Text config home is proposed `lni_settings` (034),
+not `lni_config.value` (integer) and not stolen 030. Design:
+`docs/plans/phase-12-plan.md`.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
 on 27 August 2026, plus packet 4.1 migrations `018`–`021`.** Every column
@@ -294,10 +299,11 @@ write this table.
 `email_normalized IS NOT NULL`. Two employers with two
 emails is a normal networking case, not an edge case
 (Muhammad Zahir, Packet 10.1 — both rows kept).
-**Phase 12 requirement:** `person_emails` (or equivalent)
+**Phase 12.3 (deferred):** `person_emails` (or equivalent)
 so one human can hold several emails, phones, titles
-and employers. Not designed under 10.1. Do not merge
-Zahir until that exists. Outreach already dual-To: him.
+and employers. Not designed under 10.1. Not 12.0 / 12.1.
+Do not merge Zahir until that exists. Outreach already
+dual-To: him.
 
 **`companies`** — canonical company.
 
@@ -451,12 +457,14 @@ confirm time.
 | `decision` | text | `'pending'` | NO |
 | `created_at` | timestamptz | `now()` | NO |
 
-**Packet 10.1 / Phase 12.** 61 pre-window pending rows
+**Packet 10.1 / Phase 12.4.** 61 pre-window pending rows
 (`created_at < 2026-08-30 21:00Z`) were **not** set to
 `rejected` — that would claim a review nobody did. No
-migration 034. Table is reworked in Phase 12. Scoring
-record (not a 10.1 fix): 37 hardcoded score=1, 40
-computed `name_trgm` 0.3–0.6875.
+migration in 12.0. Table is reworked in packet 12.4
+(stored pair + human-readable reasons). Scoring record
+(not a 10.1 fix): 37 hardcoded score=1, 40 computed
+`name_trgm` 0.3–0.6875. 034 is reserved for
+`lni_settings` (12.1), not this table.
 
 **`field_corrections`** — user edits, never overwritten.
 
@@ -528,12 +536,22 @@ mechanism, not a second. UNIQUE `(owner_id, key)`.
 Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
 
-**`value` is integer.** It cannot hold the D-I signature.
-Do not add a text column here. Home is `sender_profile`
-(031 live, 032 HTML email, 033 WhatsApp/LinkedIn plain).
-030 is reserved for Phase 6 embeddings. One row per
-owner. RLS same shape as this table. See
-`docs/plans/packet-10-4-history-outreach.md`.
+**Proposed `lni_settings` (Phase 12.1, not live).** Owner-scoped
+text key/value. UNIQUE `(owner_id, key)`. Columns: `id`,
+`owner_id`, `key text`, `value text`, `created_at`,
+`updated_at`. RLS `lni_settings_owner_all`, same shape as
+this table. First key: `display_name`. Signatures stay on
+`sender_profile`. Ceilings stay on `lni_config`. Do not
+create this table until packet 12.1 names catalog 034.
+
+**`value` is integer.** It cannot hold the D-I signature
+or a tenant display name. Do **not** add `value_text`
+here. Signature home is `sender_profile` (031 live, 032
+HTML email, 033 WhatsApp/LinkedIn plain). Tenant display
+name (and any other prose setting) home is proposed
+`lni_settings` (Phase 12.1, catalog 034 when named).
+030 is reserved for Phase 6 embeddings. See
+`docs/plans/phase-12-plan.md`.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
 Not owner-scoped. RLS enabled; `SELECT` for `authenticated`; writes are
@@ -615,6 +633,13 @@ justified. LNI WF-00 also resolves the Telegram alert `chat_id` from
 this table. Migration `012` **never applied** (GUC without `missing_ok`,
 26 Aug). The live allowlist row exists uncatalogued. Migration `014`
 repairs the catalog without disturbing that row.
+
+**Phase 12.1 (proposed).** Live unique is `(owner_id,
+telegram_user_id)` only. WF-01 looks up by
+`telegram_user_id` alone, so two owners must not share a
+chat id. Packet 12.1 adds `UNIQUE (telegram_user_id)`.
+Live count is 1. WF-00 stays a platform alert to the
+operator chat until a later packet (Q5).
 
 **`captures.flags` is a jsonb OBJECT.** Default `'{}'::jsonb`. CHECK
 `jsonb_typeof(flags) = 'object'` (migration `015`). Reserved keys only:
@@ -1274,6 +1299,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 031 | `031_sender_profile_history` | `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)`. Applied 14 Sep 2026. |
 | 032 | `032_sender_profile_signature_html` | HTML `signature_block` typography. Does not add columns. |
 | 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
+| 034 | — | **Not applied.** Phase 12.1 proposed `lni_settings` (text, owner-scoped) + `bot_state.telegram_user_id` UNIQUE. Named only after Q1–Q5 lock. 030 stays Phase 6. Do not put `value_text` on `lni_config`. |
 
 ### Connection policy — verified 25 Aug 2026
 

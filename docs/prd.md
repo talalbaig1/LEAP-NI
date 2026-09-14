@@ -10,7 +10,11 @@ Version 2.0 · 25 August 2026
 
 ## 1. The user and the situation
 
-One user: Talal, attending LEAP 2026 in Riyadh as a visitor, 31 Aug – 3 Sep.
+Launch user: Talal, attending LEAP 2026 in Riyadh as a visitor, 31 Aug – 3 Sep.
+
+**Phase 12 (D-L).** A second human is a second `owner_id`, not a
+team login on Talal's data. Capture stays Telegram. Design:
+`docs/plans/phase-12-plan.md`. Q1–Q5 must lock before 12.1.
 
 **The physical reality the product must survive:**
 - Halls open 1:00 PM – 9:00 PM. Eight hours on his feet, four days running.
@@ -259,11 +263,27 @@ duplicate (Q3). Voice path unchanged.
 
 ---
 
+## 8c. Multi-tenancy (Phase 12, docs 14 Sep)
+
+Tenant = `owner_id`. The second user does not see Talal's
+people, captures, or drafts. WF-01 allowlist stays
+`bot_state`. Display name lives in proposed
+`lni_settings`, not in integer `lni_config`. Signatures
+stay on `sender_profile`.
+
+Not in 12.0: a migration, a PUT, Zahir merge, candidate
+rejects, per-owner Gmail/Apollo.
+
+---
+
 ## 9. Non-goals
 
 Explicitly out of scope, to prevent scope creep under deadline pressure:
 
-- Multi-user or team collaboration (schema supports it; not built)
+- Team collaboration on one owner's data (Phase 12 is a
+  second `owner_id`, not shared rows)
+- Per-owner Gmail / OpenAI / Apollo credentials (Phase 12
+  Q3 recommended out)
 - Automated outbound **send** of any kind. Phase 10 writes
   Gmail Drafts and Telegram copy-text; the owner sends.
   That is not a send.

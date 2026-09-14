@@ -30,6 +30,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
+| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. Cron: every `bot_state.owner_id`. Self-id `LEAP 2026` is the **database fingerprint**, not the owner lookup | Launch still works because there is one event and one owner. Packet 12.2 splits the SELECT. Do not hardcode `a79b744e`. Do not take owner from `$env`. Design: `docs/plans/phase-12-plan.md`. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
@@ -375,6 +376,9 @@ Receives errors from every LNI workflow.
      the public 009 seed). `queryReplacement` is the array expression
      `{{ [event_name, workflow_name, node_name, execution_id,
      redacted_message, request_id] }}` — not a CSV, not `.join()`.
+     **Phase 12:** this SELECT is the database fingerprint **and**
+     today's owner lookup. Packet 12.2 splits them. Do not PUT WF-00
+     in 12.0. Q5: alerts stay on the operator chat.
    - `chat_id` ← parameterised
      `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
      using the resolved owner.
