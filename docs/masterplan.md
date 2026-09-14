@@ -4,6 +4,9 @@
 Version 2.0 · 26 August 2026 · Owner: Talal Baig
 Architect/verifier: Claude · Implementer: Cursor
 
+Product name: **Networking Intelligence System (NIS)**.
+`LNI` is the legacy internal code prefix (D-N).
+
 **Document set:** `masterplan.md` (this) · `architecture.md` · `phases.md` ·
 `prd.md` · `workflows.md` · `rules.md`
 
@@ -100,7 +103,10 @@ reason and a document update first.**
 | D-I | Signature | Identical block in all three channels. Ionicx was pitched; SilaCares was not | Owner 7 Sep. Text in `sender_profile` (031 live), not `lni_config`. |
 | D-J | Muhammad Zahir | One man, two ventures, two cards. One email to both addresses. Same WhatsApp text to both numbers. Do not merge the person rows | Owner 7 Sep. `muhammad@kaacib.com` + `muhammad@haramaincompanion.com`. |
 | D-K | Rashid domain | Exclude `rashid@kacaib.com`. One email to `rashid@kaacib.com` | Owner 7 Sep. OCR transposition; kaacib.com is the live company domain. |
-| D-L | Tenant identity | **PROPOSED.** Tenant = `owner_id`. No `tenant_id` column. No `value_text` on `lni_config`. Text config = `lni_settings` (034 when 12.1 names it). 030 stays Phase 6 | Implementer 14 Sep (`docs/plans/phase-12-plan.md`). Not live until architect accepts Q1–Q5. |
+| D-L | Tenant identity | **ACCEPTED.** Tenant = `owner_id`. No `tenants` table. No `tenant_id` column. No `value_text` on `lni_config`. Text config = `lni_settings` (034 when 12.1 names it). 030 stays Phase 6 | Architect 14 Sep (Q1). `docs/plans/phase-12-plan.md`. |
+| D-M | Credential isolation | **Fail closed.** No tenant without a linked mailbox receives a Gmail draft or a digest email. No tenant without a ceiling row spends Apollo credits. Copy-text on Telegram instead (D-E). A second tenant's drafts in the live owner's mailbox is a privacy defect | Architect 14 Sep (Q3 overridden). |
+| D-N | Product rename | Product name is **Networking Intelligence System (NIS)**. Internal identifiers do **not** change: `lni_config`, `lni_settings`, `lni_public_suffixes`, `lni_free_email_domains`, `lni_normalize_domain`, bucket `lni-assets`, all `*_owner_all` policies, catalogued migration names, the `LNI ` / `LNI-TEST-` workflow-name prefix, the repo path. That prefix is the safety rule that keeps n8n API calls off ElderWise. `LNI` is the legacy internal code prefix | Owner 14 Sep, scoped by architect. |
+| D-O | Platform owner | A dedicated `auth.users` row owns platform-level `audit_log` rows. It is an **identity, never a sender**: no `bot_state`, no `events`, no `sender_profile`, must not later be promoted to the system mail sender. Canonical, dotless: `donotreplynis@gmail.com` (Gmail ignores dots) | Architect 14 Sep (Q5). |
 
 ### Where the owner overrode the recommendation
 
@@ -229,7 +235,7 @@ fallback.
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | **CLOSED 26 Aug 2026** — held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeded `bot_state`. Live allowlist proven. | — |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | **CLOSED 28 Aug 2026** — Apollo Basic 2,500 credits/month. Phase 4 ran on that budget. | — |
-| 6 | Confirm whether anyone else needs access | Talal | **REOPENED Phase 12.** A second `bot_state` row is necessary but not sufficient: cron still takes `owner_id` from `events.name = 'LEAP 2026'`, and `lni_config` cannot store a display name. Plan: `docs/plans/phase-12-plan.md`. Q2 is the first prove. | 12.1 / 12.2 |
+| 6 | Confirm whether anyone else needs access | Talal | **REOPENED Phase 12.** Q2 LOCKED: permanent test tenant (not throwaway). Schema 12.1, live second `bot_state` in 12.2. Never deleted. Plan: `docs/plans/phase-12-plan.md`. | 12.1 / 12.2 |
 | 7 | Create owner Auth user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — confirmed Auth user; `009` bound seed via `lni.owner_email`. | — |
 | 8 | Create second authenticated test user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — throwaway test user for P3. | — |
 | 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |

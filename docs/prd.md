@@ -3,6 +3,10 @@
 **LEAP Networking Intelligence (LNI)** · Product Requirements
 Version 2.0 · 25 August 2026
 
+Product name: **Networking Intelligence System (NIS)**.
+`LNI` is the legacy internal code prefix (D-N). Workflow
+names, table names, bucket, and repo path do not change.
+
 > **Documentation precedes implementation.** Behaviour changes are recorded here
 > *before* they are built. See `rules.md` §1.
 
@@ -12,9 +16,10 @@ Version 2.0 · 25 August 2026
 
 Launch user: Talal, attending LEAP 2026 in Riyadh as a visitor, 31 Aug – 3 Sep.
 
-**Phase 12 (D-L).** A second human is a second `owner_id`, not a
-team login on Talal's data. Capture stays Telegram. Design:
-`docs/plans/phase-12-plan.md`. Q1–Q5 must lock before 12.1.
+**Phase 12 (D-L ACCEPTED).** A second human is a second
+`owner_id`, not a team login on Talal's data. Capture
+stays Telegram. Q1–Q5 LOCKED. Design:
+`docs/plans/phase-12-plan.md`.
 
 **The physical reality the product must survive:**
 - Halls open 1:00 PM – 9:00 PM. Eight hours on his feet, four days running.
@@ -263,16 +268,27 @@ duplicate (Q3). Voice path unchanged.
 
 ---
 
-## 8c. Multi-tenancy (Phase 12, docs 14 Sep)
+## 8c. Multi-tenancy (Phase 12, Q1–Q5 LOCKED 14 Sep)
 
-Tenant = `owner_id`. The second user does not see Talal's
-people, captures, or drafts. WF-01 allowlist stays
-`bot_state`. Display name lives in proposed
-`lni_settings`, not in integer `lni_config`. Signatures
-stay on `sender_profile`.
+Product name is **NIS**. Internal `LNI` identifiers stay
+(D-N). Tenant = `owner_id`. The second user does not see
+Talal's people, captures, or drafts. WF-01 allowlist stays
+`bot_state`. Display name lives in `lni_settings`, not in
+integer `lni_config`. Signatures stay on `sender_profile`.
+Instance fingerprint is `lni_instance`, not `LEAP 2026`.
 
-Not in 12.0: a migration, a PUT, Zahir merge, candidate
-rejects, per-owner Gmail/Apollo.
+**Fail closed (D-M).** No linked mailbox → no Gmail draft,
+no digest email. Copy-text on Telegram (D-E). No Apollo
+ceiling row → ceiling 0, never unlimited. Another
+tenant's drafts in the live owner's mailbox is a privacy
+defect.
+
+**Self-serve onboarding** is packet **12.5**: Supabase
+Auth, Google/Microsoft, Telegram-ID capture. After
+isolation is proven. Isolation before there is a door.
+
+Not in 12.0a: a migration, a PUT, Zahir merge, candidate
+rejects, per-owner Gmail/Apollo credentials.
 
 ---
 
@@ -283,7 +299,7 @@ Explicitly out of scope, to prevent scope creep under deadline pressure:
 - Team collaboration on one owner's data (Phase 12 is a
   second `owner_id`, not shared rows)
 - Per-owner Gmail / OpenAI / Apollo credentials (Phase 12
-  Q3 recommended out)
+  fail-closed instead: D-M)
 - Automated outbound **send** of any kind. Phase 10 writes
   Gmail Drafts and Telegram copy-text; the owner sends.
   That is not a send.

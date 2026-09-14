@@ -22,11 +22,24 @@ Phase 12 is **multi-tenancy**. Schema work identified in
 a text config column) is **deferred inside this phase**,
 not a reason to start with a migration.
 
-**12.0 (docs, this window):** `docs/plans/phase-12-plan.md`.
-D-L proposed: tenant = `owner_id`. Text home =
-`lni_settings` as 034 **when 12.1 names it**. Q1–Q5
-must lock before any migration. Do not write 034 in
-12.0. Do not PUT.
+**12.0a (docs, this window):** `docs/plans/phase-12-plan.md`.
+Q1–Q5 **LOCKED**. D-L ACCEPTED. D-M D-N D-O locked.
+12.1 (catalog 034, not written): `lni_settings` +
+`lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` +
+assets UNIQUE `(owner_id, telegram_file_unique_id)` +
+platform owner seed. Do not write 034 in 12.0a. Do not PUT.
+
+Q1 ACCEPTED — tenant = `owner_id`. No `tenants` table.
+Q2 AMENDED — permanent test tenant. Schema 12.1, live
+second `bot_state` in 12.2. Never deleted, never frozen.
+Q3 OVERRIDDEN — fail closed. No mailbox → no Gmail /
+digest email (Telegram copy-text). No Apollo ceiling → 0.
+Q4 OVERRIDDEN — fingerprint is `lni_instance`, not
+`LEAP 2026`. After 12.1 that string is not in workflow
+logic.
+Q5 ROUTING ACCEPTED, OWNERSHIP OVERRIDDEN — operator
+chat for alerts; platform `audit_log` owned by
+`donotreplynis@gmail.com` (dotless). No `bot_state`.
 
 ---
 

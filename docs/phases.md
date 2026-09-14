@@ -478,7 +478,8 @@ candidates (`created_at < 2026-08-30 21:00Z`: 2 on
 `decision='rejected'` would claim a review nobody
 did. 10.1 wrote no 034. 16 in-window pending also
 left pending (table reworked in packet **12.4**).
-034 is now reserved for `lni_settings` (12.1), not
+034 is now reserved for 12.1 (`lni_settings` +
+`lni_instance` + uniques + platform owner), not
 this table.
 
 Live counts (SQL 14 Sep):
@@ -729,44 +730,60 @@ real contacts and real failure patterns, rather than assumptions.
 ## Phase 12 — Multi-tenancy
 
 **Timing:** post-Phase 10. Docs 14 Sep (`docs/plans/phase-12-plan.md`).
-No migration in 12.0. 030 stays Phase 6.
+Packet **12.0a** locked Q1–Q5. No migration in 12.0 / 12.0a.
+030 stays Phase 6. Product name **NIS**; `LNI` is the
+legacy internal prefix (D-N).
 
 Launch used one owner. Every user-owned table already
 has `owner_id` + RLS. Workflows still resolve that owner
 from `events.name = 'LEAP 2026'`. Cron therefore serves
 one person. `lni_config.value` is integer — no display
-name. **Tenant = `owner_id` (D-L, proposed).** No `tenant_id`
-column. No `value_text` on `lni_config`.
+name. **Tenant = `owner_id` (D-L ACCEPTED).** No
+`tenants` table. No `tenant_id` column. No `value_text`
+on `lni_config`.
 
 `person_emails` and `entity_candidates` rework stay
 **inside this phase**, deferred to 12.3 / 12.4. They are
-not a reason to start with a migration.
+not a reason to start with a migration. Login surface is
+**12.5**, after isolation is proven.
 
-### Packet 12.0 — Docs (this)
+### Packet 12.0 / 12.0a — Docs
 
-Plan, D-L, Q1–Q5. No SQL file. No PUT.
+Plan, D-L…D-O, Q1–Q5 LOCKED. No SQL file. No PUT.
 
 **Acceptance**
 
-- D-L in `masterplan.md`, the plan, this packet,
-  `architecture.md`, `prd.md` §8c, `workflows.md` §1.
-- `lni_settings` proposed as 034. 030 untouched.
-- Architect answers Q1–Q5 before 12.1.
+- Q1–Q5 locked in the plan. D-L ACCEPTED. D-M D-N D-O
+  in `masterplan.md`.
+- 034 named, not written. 030 untouched.
 
-### Packet 12.1 — Text config home (not started)
+### Packet 12.1 — Isolation schema (not started)
 
-`lni_settings (owner_id, key, value text)` UNIQUE
-`(owner_id, key)`. RLS same shape as `lni_config`.
-Seed `display_name` for the live owner. Same packet:
-`UNIQUE (telegram_user_id)` on `bot_state`. Catalog
-**034**. Do not write the file until Q1–Q5 are locked.
+Catalog **034**. Same packet:
+
+- `lni_settings (owner_id, key, value text)` UNIQUE
+  `(owner_id, key)`. RLS same shape as `lni_config`.
+  Seed `display_name` for the live owner.
+- `lni_instance` — not owner-scoped, one row, instance
+  name. Fingerprint. After this, `LEAP 2026` is not in
+  workflow logic.
+- `UNIQUE (telegram_user_id)` on `bot_state`.
+- assets UNIQUE `(owner_id, telegram_file_unique_id)`
+  (replaces column-only unique).
+- Platform owner seed: `donotreplynis@gmail.com`
+  (dotless). No `bot_state`, no `events`, no
+  `sender_profile`.
+
+Do not write the file in 12.0a.
 
 ### Packet 12.2 — Owner resolution (not started)
 
-Split self-identify (LEAP 2026 = Leap-NI fingerprint)
-from owner lookup (`bot_state` inbound; iterate
-`bot_state.owner_id` on cron). No WF-01 PUT unless the
-packet says so. Per-owner Gmail/Apollo out (Q3).
+Split self-identify onto `lni_instance`. Owner from
+`bot_state` inbound; iterate tenant `owner_id` on cron.
+Fail-closed Gmail/Apollo (D-M). `capture_no` lookups
+include `owner_id` (audit every workflow). Storage path
+read-back. Permanent test tenant `bot_state` (Q2) —
+never deleted. No unpublished-draft publish.
 
 ### Packet 12.3 — `person_emails` (deferred)
 
@@ -778,6 +795,13 @@ exists. Do not merge.
 
 Stored pair + human-readable reasons. 61 pre-window
 pending stay pending. No false `rejected`.
+
+### Packet 12.5 — Login surface (after isolation)
+
+Minimal login: Supabase Auth, Google/Microsoft,
+Telegram-ID capture. A Phase 12 **dependency**, landing
+**after** isolation is proven. Isolation before there is
+a door.
 
 ---
 
