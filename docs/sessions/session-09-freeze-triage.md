@@ -549,4 +549,4 @@ S9: #156–#185 prior interaction still points at the
 **old** person (no recovered email/phone). New row
 has zero interactions. #203 had no prior row, so
 <CONTACT_51_NAME> is linked. Watchdog Telegram fired (stuck
-queued). Do not start 10.4.
+queued). 10.4 is docs-first; no build until authorised.
