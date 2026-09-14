@@ -84,7 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
-| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `bed27da5`; rollback `1c1c39f4`) |
+| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `1e4ae9c6`; rollback `1c1c39f4`) |
 
 ---
 

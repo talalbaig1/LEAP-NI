@@ -2700,21 +2700,16 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`bed27da5-cda8-44ed-bc54-ece007dc49e8`**
-(172 nodes, `wf10-hist-v4`). Prior composer
-**`0799a8dd`**. Rollback
+Published **`1e4ae9c6-44c2-478e-a638-5234751079ea`**
+(172 nodes, `wf10-hist-v4`). Prior email-batch
+**`bed27da5`**. Rollback
 **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
 in English. Every body starts with a greeting by name.
-History Gmail `emailType=html`.
-`Route source` output 3 = history, 4 = unknown.
-Kick: `POST /webhook/lni-wf10-history`.
-Fourth dry run accepted. Email batch: 19 live
-`gmail_draft` rows, `wf10-hist-v4`. Multi-person
-webhook pairing breaks on mixed Extract/template;
-kicked one person_id per call. WhatsApp/LinkedIn
-not started.
+History Gmail `emailType=html`. WhatsApp/LinkedIn are
+short plain copy on Telegram (no Gmail). Kick
+`POST /webhook/lni-wf10-history` with `channel`.
 `Extract history draft` is a sibling of live
 `Extract draft` (live expressions would throw).
 

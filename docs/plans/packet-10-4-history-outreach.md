@@ -1,9 +1,8 @@
 # Packet 10.4 — History outreach (docs only)
 
 **Date:** 7 Sep 2026 · **Updated:** 14 Sep 2026 (10.4b)
-**Status:** Q1–Q3 LOCKED. Migration 031 + 032 + WF-10 `source=history`
-authorised. Email batch complete (19 humans, `wf10-hist-v4`).
-Do not start WhatsApp or LinkedIn.
+**Status:** Q1–Q3 LOCKED. Email channel accepted (19 + DES RAJ
+second-touch). WhatsApp/LinkedIn dry run of three. Rest stopped.
 **Home:** this file. Contracts also in `masterplan.md` §4,
 `phases.md` packet 10.4, `architecture.md` compose-from-history,
 `workflows.md` WF-10, `prd.md` §8b.
@@ -343,3 +342,17 @@ null). Re-run cannot double-draft.
   DES RAJ, Shahzad, `kacaib.com` typo, Zahir kaacib
   row (same human as live haramain draft), pre-window,
   LNI-prefix, example/invalid. 19 humans, not 23 rows.
+
+- DES RAJ second-touch email. Sent row `4c58b08a` untouched
+  (`channel` NULL, so unique index does not apply — no 033).
+  Name skip removed for him only. Exec **462598**, Telegram
+  950, follow_ups `7f4b0c2f`, Gmail `r-4113403307621163658`,
+  photo 83829. WF-10 **`1e4ae9c6`** (rollback `1c1c39f4`).
+- WhatsApp/LinkedIn: webhook `channel`, short plain copy,
+  no Gmail. Dry run of three; rest stopped.
+
+| Person | channel | Exec | Telegram | follow_ups | Path | chars |
+|---|---|---|---|---|---|---|
+| Raheel Zaman | whatsapp | **462602** | 951 | `66b1d4a7` | Extract | 172 |
+| Ahmed Alkaf | whatsapp | **462603** | 952 | `c9fcd3c7` | template | 150 |
+| Vishvajit Pathak | linkedin | **462604** | 953 | `f3962905` | template | 126 |
