@@ -84,7 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
-| History outreach | Compose from stored capture; Gmail Draft; owner sends | WF-10 `source=history` (Phase 10.4, not built) |
+| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (Phase 10.4, documented 7 Sep, not built) |
 
 ---
 
@@ -365,22 +365,40 @@ The brief that must survive picker / callback / deferred completion
 lives on the row. `capture_id` binds a draft to a followup capture.
 Read the row. Do not re-derive from which nodes ran.
 
-**Compose-from-history (Phase 10.4, not built).** The source of
-the brief is **stored rows**, not a live followup block.
+**Compose-from-history (Phase 10.4, documented 7 Sep, not
+built).** Design: `docs/plans/packet-10-4-history-outreach.md`.
+The brief is **stored rows**, not a live followup block.
 
 | Read | From |
 |---|---|
-| Person + card fields | `people` (name, title, email, phone, LinkedIn) |
+| Person + card fields | `people` (name, title, email, phone, LinkedIn, `source_type`) |
 | Company | `person_companies` → `companies` |
 | Conversation | `interactions.summary`, `topics`, `opportunities` |
 | Transcript | `extraction_runs.raw_transcript` on that capture |
-| Scene photo | `assets` `kind IN ('photo','selfie')` on the person's linked capture — auto-attach, no picker (D-B) |
+| Scene photo | `assets` `kind IN ('photo','selfie')` on the linked capture — auto-attach on **email** only (D-B) |
+| Signature | proposed `sender_profile.signature_block` (031). Not `lni_config` |
 
-WF-10 `Extract draft` writes `subject` / `body` from that
-brief. Terminal state is a **Gmail Draft** (`draft_state=
-gmail_draft`, planned). LNI does not send. Owner sends from
-Gmail. Telegram is a receipt. Voice-path picker and
-`awaiting_confirm` are untouched.
+Measured 7 Sep: 37 reachable; 20 email (all also phone);
+10 phone-only; 18 no channel. 8 of 20 emails have a usable
+transcript; 12 get the general letter (D-G). Transcripts
+are unreliable — D-F.
+
+WF-10 `Extract draft` writes `subject` / `body`. Terminals:
+
+- email → Gmail Draft (`draft_state=gmail_draft`, planned).
+  LNI does not send. Owner sends from Gmail.
+- whatsapp / linkedin → Telegram copy-text
+  (`draft_state=handed_off`, planned). Owner pastes.
+
+Voice-path picker and `awaiting_confirm` are untouched.
+
+**Evidence (D-F).** Transcript + summary travel with the
+message (Q1). Wrong-script or garbled: say so on the draft;
+do not quote it as the conversation.
+
+**Zahir (D-J).** Two `people` rows. One draft, two To:
+addresses. Do not merge. **Rashid (D-K).** Exclude
+`rashid@kacaib.com`.
 
 **`follow_ups.draft_state`** (packet 7.1). Email lifecycle, separate
 from `status`. `status` stays `open` \| `done` \| `cancelled` —
@@ -389,13 +407,14 @@ from `status`. `status` stays `open` \| `done` \| `cancelled` —
 cancel = `cancelled` on both `status` and `draft_state` (025);
 Gmail or attachment fail stays `open` with `draft_state='failed'`.
 
-**Phase 10 planned value (not live).** `gmail_draft` = a Gmail
-Draft exists in the owner's Drafts folder and has **not** been
-sent by LNI. `status` stays `open`. `gmail_message_id` stores
-the Gmail draft id returned by `draft.create`. No
-`awaiting_confirm` buttons on this path (D-C). Voice path
-keeps `awaiting_confirm` → `sending` → `sent`. Do not write
-the CHECK migration in the docs packet.
+**Phase 10 planned values (not live).** `gmail_draft` = a Gmail
+Draft exists and has **not** been sent by LNI. `handed_off` =
+WhatsApp / LinkedIn copy-text delivered on Telegram. `status`
+stays `open`. `gmail_message_id` stores the Gmail draft id
+from `draft.create`. No `awaiting_confirm` buttons on this
+path (D-C). Voice path keeps `awaiting_confirm` → `sending`
+→ `sent`. Optional `channel` (`email | whatsapp | linkedin`)
+is Q3. Do not write the CHECK migration in this docs packet.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -485,6 +504,13 @@ mechanism, not a second. UNIQUE `(owner_id, key)`.
 
 Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
+
+**`value` is integer.** It cannot hold the D-I signature.
+Do not add a text column here. Proposed home (10.4, **not
+written**): `sender_profile` as migration **031** (030 is
+Phase 6 embeddings). One row per owner, `signature_block
+text`, RLS same shape as this table. See
+`docs/plans/packet-10-4-history-outreach.md`.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
 Not owner-scoped. RLS enabled; `SELECT` for `authenticated`; writes are
@@ -700,7 +726,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` · **planned (10.4, not live):** `gmail_draft` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` · **planned (10.4, not live):** `gmail_draft` \| `handed_off` |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1221,7 +1247,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 027 | `027_follow_ups_brief` | `follow_ups.brief`, `has_arabic`, `has_latin`. The brief lives on the row. |
 | 028 | `028_captures_followup_mode` | `captures.capture_mode` gains `followup`. `follow_ups.capture_id`. Follow-up is a capture, not a window. |
 | 029 | `people_source_type_contact` | `people.source_type` gains `shared_contact` \| `vcard`. `assets.kind` gains `vcard`. Live catalog name is **`people_source_type_contact`** (no `029_` prefix). Same class as 023. Do not re-apply. |
-| 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029 for this. |
+| 030 | — | **Not applied.** Phase 6 embeddings. Post-event. Do not take 027/028/029/031 for this. |
+| 031 | — | **Not applied.** Proposed `sender_profile` (10.4). Signature block. Do not write in the docs packet. |
 
 ### Connection policy — verified 25 Aug 2026
 

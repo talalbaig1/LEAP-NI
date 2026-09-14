@@ -211,36 +211,46 @@ from your target sectors. 3 people asked you to follow up today."*
 
 ---
 
-## 8b. Post-event outreach (Phase 10, not built)
+## 8b. Post-event outreach (Phase 10.4, documented, not built)
 
-The event is over. Capture is closed. Job 5 (follow up before
-the memory fades) is now the work.
+The event is over. Capture is closed. Job 5 (follow up
+before the memory fades) is now the work.
 
-**Who.** 13 people with email who have not already been
-emailed. Not a list blast (D-A). LinkedIn-only contacts are
-the owner's LinkedIn, out of scope. WhatsApp is the owner's
-hands, out of scope (D-D).
+Design: `docs/plans/packet-10-4-history-outreach.md`.
+D-A…D-K.
+
+**Who (measured 7 Sep).** 37 reachable. 20 have email (all
+20 also have a phone) → Gmail Drafts. 10 phone-only →
+WhatsApp copy-text on Telegram. 18 no channel. LinkedIn
+copy-text only where a URL exists and email does not.
+Not a list blast (D-A).
+
+Of the 20 emails, 8 have a usable transcript. 12 get a
+general stay-in-touch letter (D-G). Transcripts are
+unreliable — the owner must see the source next to the
+draft (D-F).
 
 **What the owner sees**
 
-1. He names a person (or the implementer kicks the 13 as
-   a controlled list — 10.4 specifies the trigger).
-2. The system writes **one Gmail Draft** in his Drafts
-   folder: tailored body from the stored conversation,
-   scene photo attached when we have one (D-B). No picker.
-3. Telegram: a receipt. Example shape:
-   `Draft ready in Gmail · Abdalla Elkhouli · <subject>`.
-   No Send button. No approve card.
-4. He opens Gmail, reads the draft, sends or edits or
-   deletes it himself.
+1. One authorised batch (Q2) writes **20 separate Gmail
+   Drafts**. Inbox stays empty. Scene photo attached when
+   we have one (D-B). No picker.
+2. WhatsApp / LinkedIn: Telegram messages with the text
+   to copy. No API send (D-E / D-D).
+3. Every generated message carries its transcript and
+   summary (D-F). Wrong-script or garbled is labelled.
+4. He opens Gmail (or copies from Telegram), edits, sends
+   himself. No Send button. No approve card.
 
-**What he does not see.** A Telegram approve-to-send flow.
-That stays on the live voice `/followup` path only.
-Decision 12 is stronger here: the system cannot send on
-this path even if someone taps.
+**What he does not see.** A Telegram approve-to-send flow
+(that stays on live `/followup`). SilaCares as if it was
+pitched (D-I), except four manuals he sends himself (D-H).
+A second email to `rashid@kacaib.com` (D-K). A merged
+Zahir row (D-J).
 
-**Success.** Thirteen drafts exist. Zero messages left the
-building. The seven scene photos are on the right drafts.
+**Success.** Twenty drafts in Drafts, zero sent by LNI.
+Ten WhatsApp copy-texts delivered. Re-run does not
+duplicate (Q3). Voice path unchanged.
 
 ---
 
@@ -249,9 +259,11 @@ building. The seven scene photos are on the right drafts.
 Explicitly out of scope, to prevent scope creep under deadline pressure:
 
 - Multi-user or team collaboration (schema supports it; not built)
-- Automated outbound messaging of any kind. Phase 10 writes
-  Gmail Drafts; the owner sends. That is not a send.
-- LinkedIn connection or message automation
+- Automated outbound **send** of any kind. Phase 10 writes
+  Gmail Drafts and Telegram copy-text; the owner sends.
+  That is not a send.
+- WhatsApp Business API (D-D). Copy-text is D-E.
+- LinkedIn connection or message automation (copy-text is D-E)
 - Face matching, badge scanning, or attendee-list scraping
 - A native mobile app
 - Real-time processing — asynchronous is correct and sufficient

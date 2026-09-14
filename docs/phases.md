@@ -379,8 +379,9 @@ voice-note-only and in scope for enrichment. 16 captures at
 Person minted with no interaction is **S6** (Ahmed Alkaf),
 not an extra 10.1 task.
 
-**Locked:** D-A, D-B, D-C, D-D (`masterplan.md` §4). Decision 12
-strengthened. WhatsApp is not designed.
+**Locked:** D-A…D-K (`masterplan.md` §4). Decision 12
+strengthened. WhatsApp **API** is not designed (D-D). Copy-text
+to Telegram is (D-E).
 
 ### Packet 10.1 — Data repair
 
@@ -526,7 +527,8 @@ person. Do not merge by hand.
 **S9 proven** on #151 and #156–#185: replay-minted
 person has no `interactions` row (prior row exists).
 #203 had no prior row, so Insert ran. Do not fix.
-Do not start 10.4.
+10.4 is **docs first** (`docs/plans/packet-10-4-history-outreach.md`).
+No build until the architect authorises.
 
 ### Packet 10.3 — Apollo sweep, voice-note-only
 
@@ -566,36 +568,57 @@ sees it.
   archived) after the prove.
 - No LNI production PUT. No pinData as evidence.
 
-### Packet 10.4 — WF-10 `source='history'`
+### Packet 10.4 — WF-10 `source='history'` (docs 7 Sep)
 
-New source. Load stored interaction summary, transcript,
-and card fields for a **named** person. Compose a tailored
-draft by **reusing `Extract draft`**, not a second LLM
-node. Auto-attach the scene photo when one exists (D-B).
-Create a **Gmail Draft**. Telegram gets a receipt only.
-No Send / approve button (D-C).
+**Docs only.** Design:
+`docs/plans/packet-10-4-history-outreach.md`. No PUT, no
+migration, no SQL write until authorised.
 
-**Acceptance**
+**Measured (architect SQL, 7 Sep).** 37 reachable. 20 have
+email (all 20 also have a phone). 10 phone-only. 18 no
+channel. Of the 20 emails: 8 usable transcript, 12 general
+letter. Transcripts are unreliable (wrong-script, garbled
+entities, one factually wrong summary). Whisper defect.
 
-- `Normalize input` / `Route source` accept `history`.
-  After appending the Switch rule, re-GET every
-  `connection[i]` (standing trap).
-- `Extract draft` is the same node (prompt version may
-  gain a history preamble; no forked composer).
-- For each of the 13: one `follow_ups` row,
-  `draft_state` = the new Gmail-draft value (proposed
-  `gmail_draft`; migration is 10.4, not this docs packet).
-  `status` stays `open`. `gmail_message_id` holds the
-  Gmail draft id.
-- The 7 with a scene photo have that asset on
-  `attachment_asset_ids` with no picker.
-- Gmail Drafts folder contains the 13. Inbox does not.
-- Telegram receipt names person + subject + "draft in
-  Gmail". No inline keyboard.
-- Voice path (`awaiting_confirm` + Send) is unchanged.
-- WhatsApp is not referenced in the graph.
-- Architect GET of published WF-10. No send node on the
-  history branch.
+**Locked here:** D-E…D-K. D-A restated (20 drafts, not a
+blast). D-D narrowed to WhatsApp **API** only.
+
+Three channels, one sender (D-E): email → Gmail Draft,
+never sent; whatsapp / linkedin → TEXT on Telegram to
+copy. Evidence beside every draft (D-F). Tone by
+`source_type` (D-G). Ask from the voice note only (D-H);
+four manuals stay off the SELECT. Signature from proposed
+`sender_profile`, not `lni_config` (D-I). Zahir: one email
+to both addresses, do not merge rows (D-J). Exclude
+`rashid@kacaib.com` (D-K).
+
+Reuse `Extract draft`. Scene photo auto-attach on email
+only (D-B). Voice path untouched (D-C).
+
+**Q1–Q3** are in the plan and in the PR body. Implementer
+recommendation: evidence in the Gmail body (email) and in
+the Telegram copy (WA/LI); one batch of 20 separate
+drafts; `follow_ups` + `channel` so a re-run does not
+duplicate.
+
+**Acceptance (docs packet)**
+
+- D-E…D-K written in `masterplan.md`, this packet, the
+  plan, `architecture.md`, `workflows.md`, `prd.md` §8b.
+- `sender_profile` proposed as 031. 030 stays Phase 6.
+  No migration file in this PR.
+- Architect answers Q1 Q2 Q3 before the build.
+
+**Acceptance (later build — do not execute here)**
+
+- `Route source` accepts `history`. Re-GET every
+  `connection[i]`.
+- `Extract draft` is the same node.
+- 20 Gmail Drafts, Inbox empty. 10 WhatsApp copy-texts
+  on Telegram. No send API.
+- Four D-H names absent from the SELECT. `kacaib.com`
+  absent. Zahir one draft, two To: addresses.
+- Voice path unchanged. Architect GET of published WF-10.
 
 ---
 
