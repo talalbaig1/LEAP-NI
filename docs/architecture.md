@@ -84,7 +84,7 @@ These are invariants. Violating one is a defect regardless of test results.
 | Enrichment | Person-by-email auto; company from the same Apollo response | Apollo (primary) → Tavily (company website only) |
 | Monitoring | Failures, stuck jobs, throughput | `processing_jobs` + WF-00 + WF-09 |
 | Query | Natural-language recall | WF-08; pgvector added in Phase 6 |
-| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (Phase 10.4, documented 7 Sep, not built) |
+| History outreach | Compose from stored capture; Gmail Draft or Telegram copy-text; owner sends | WF-10 `source=history` (10.4b live `70e636b8`; rollback `1c1c39f4`) |
 
 ---
 
@@ -376,7 +376,7 @@ The brief is **stored rows**, not a live followup block.
 | Conversation | `interactions.summary`, `topics`, `opportunities` |
 | Transcript | `extraction_runs.raw_transcript` on that capture |
 | Scene photo | `assets` `kind IN ('photo','selfie')` on the linked capture — auto-attach on **email** only (D-B) |
-| Signature | proposed `sender_profile.signature_block` (031). Not `lni_config` |
+| Signature | `sender_profile.signature_block` (031 live). Not `lni_config` |
 
 Measured 7 Sep: 37 reachable; 20 email (all also phone);
 10 phone-only; 18 no channel. 8 of 20 emails have a usable
@@ -385,10 +385,11 @@ are unreliable — D-F.
 
 WF-10 `Extract draft` writes `subject` / `body`. Terminals:
 
-- email → Gmail Draft (`draft_state=gmail_draft`, planned).
+- email → Gmail Draft (`draft_state=gmail_draft`).
   LNI does not send. Owner sends from Gmail.
 - whatsapp / linkedin → Telegram copy-text
-  (`draft_state=handed_off`, planned). Owner pastes.
+  (`draft_state=gmail_draft` until a later `handed_off`
+  value is added). Owner pastes.
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
@@ -726,7 +727,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` · **planned (10.4, not live):** `gmail_draft` \| `handed_off` |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031). `handed_off` not added |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 

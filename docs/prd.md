@@ -211,7 +211,7 @@ from your target sectors. 3 people asked you to follow up today."*
 
 ---
 
-## 8b. Post-event outreach (Phase 10.4, documented, not built)
+## 8b. Post-event outreach (Phase 10.4b, three-draft dry run)
 
 The event is over. Capture is closed. Job 5 (follow up
 before the memory fades) is now the work.
@@ -237,8 +237,9 @@ draft (D-F).
    we have one (D-B). No picker.
 2. WhatsApp / LinkedIn: Telegram messages with the text
    to copy. No API send (D-E / D-D).
-3. Every generated message carries its transcript and
-   summary (D-F). Wrong-script or garbled is labelled.
+3. Transcript and summary go to **Telegram only** (Q1).
+   Wrong-script or garbled is labelled there. The Gmail
+   draft is the sendable email and nothing else.
 4. He opens Gmail (or copies from Telegram), edits, sends
    himself. No Send button. No approve card.
 

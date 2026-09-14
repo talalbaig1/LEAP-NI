@@ -622,6 +622,15 @@ authorisation.
   absent. Zahir one draft, two To: addresses.
 - Voice path unchanged. Architect GET of published WF-10.
 
+### Packet 10.4b — BUILD (14 Sep)
+
+Q1–Q3 locked (Q1 reversed: Telegram evidence only).
+Migration `031_sender_profile_history` catalog
+`20260914060746`. WF-10 history PUT published
+`70e636b8` (rollback `1c1c39f4`). Gmail draft+attach
+prove exec **461630**. Three-draft dry run next;
+remaining seventeen need a new authorisation.
+
 ---
 
 ## Phase 8 — PWA capture surface

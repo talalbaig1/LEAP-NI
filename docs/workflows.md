@@ -2696,10 +2696,17 @@ Do not make `/done` wait. The owner is standing in front of someone.
 (`step=3`) or `hit_count>1` → picker, never a silent pick (phantom
 merge lesson).
 
-### Phase 10 — `source='history'` (documented 7 Sep, not built)
+### Phase 10 — `source='history'` (10.4b live)
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
+Published **`70e636b8-d87c-4a88-ac30-a17c3df2ba20`**
+(170 nodes). Rollback
+**`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
+`Route source` output 3 = history, 4 = unknown.
+Kick: `POST /webhook/lni-wf10-history`.
+`Extract history draft` is a sibling of live
+`Extract draft` (live expressions would throw).
 
 Measured 7 Sep: 20 email (Gmail Draft), 10 phone-only
 (WhatsApp copy-text on Telegram), LinkedIn copy-text for
@@ -2716,7 +2723,7 @@ are unreliable (D-F).
   opportunities; `extraction_runs.raw_transcript`; `people`
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
-- Signature: proposed `sender_profile.signature_block`.
+- Signature: `sender_profile.signature_block` (031).
   Not `$env`. Not `lni_config`.
 - Scene photo: `assets` on the linked capture,
   `kind IN ('photo','selfie')`, `upload_status='stored'`.
@@ -2726,11 +2733,9 @@ are unreliable (D-F).
 
 **Reuses**
 
-- **`Extract draft`** — live OpenAI node (`gpt-4o-mini`,
-  `temperature: 0`, schema `wf10-v2`). Same node. History
-  fills the `Brief:` line. Prompt gains stored-notes + D-G
-  / D-H / D-I + "if transcript is wrong-script or garbled,
-  say so and write the general letter". No second LLM node.
+- **`Extract history draft`** — sibling OpenAI node
+  (`gpt-4o-mini`, `temperature: 0`, schema `wf10_hist_v1`).
+  Live `Extract draft` stays on the voice/command path.
 - Attachment GET `attach_0`… and Gmail
   `options.attachmentsUi.attachmentsBinary[].property`
   (email path). Packet 10.4a is the prove.
@@ -2741,10 +2746,11 @@ are unreliable (D-F).
   Email: `to_email` frozen, `cc_email` = owner, `subject`,
   `body`, `attachment_asset_ids`, `prompt_version`,
   `person_id`, `interaction_id`, `capture_id`.
-  Planned `draft_state='gmail_draft'`. `gmail_message_id`
+  `draft_state='gmail_draft'`. `gmail_message_id`
   from `draft.create`.
 - WhatsApp / LinkedIn: `body` = copy-text,
-  planned `draft_state='handed_off'`. Telegram delivery.
+  `draft_state='gmail_draft'` (031 has no `handed_off`).
+  Telegram delivery.
 - `status` stays `open`.
 - Audit: draft-created / handed-off. No email body, no
   transcript in the log.

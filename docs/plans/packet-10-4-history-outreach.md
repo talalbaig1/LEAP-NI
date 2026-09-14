@@ -128,7 +128,7 @@ the only SilaCares asks, and they are done by the owner.
 ## D-I — Signature block
 
 Identical in all three channels. Loaded from Postgres
-(`sender_profile.signature_block`, proposed). Never `$env`.
+(`sender_profile.signature_block`, 031 live). Never `$env`.
 Never jsCode. Never `lni_config` (integer).
 
 ```
@@ -244,10 +244,27 @@ null). Re-run cannot double-draft.
 
 ## 10.4b build notes
 
-- Rollback WF-10 published `1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`
-  before the history PUT.
+- Rollback WF-10 published **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**
+  (named before PUT). History PUT published
+  **`70e636b8-d87c-4a88-ac30-a17c3df2ba20`**, 170 nodes, ACTIVE.
+  Name-checked `LNI WF-10 - Follow-up drafting`.
 - `Extract history draft` is a sibling OpenAI node. Live
   `Extract draft` expressions require command/voice nodes
-  and would throw on this path.
+  and would throw on this path. Voice-path Gmail nodes stay
+  `resource=message` `operation=send`. History Gmail nodes
+  are `resource=draft` `operation=create`.
+- `Route source` outputs: 0 command, 1 voice, 2 callback,
+  3 history, 4 unknown.
+- Kick path: `POST /webhook/lni-wf10-history`
+  `{source:history, person_id}`. MCP `execute_workflow`
+  cannot run an Execute-Workflow-only graph.
+- Gmail draft + real attachment proven before the batch:
+  `LNI-TEST- 10.4b gmail draft attach` `YjgQeHvlRigRzugm`
+  exec **461630**. Owner should delete that test draft.
+- Three-draft dry run (owner reads; STOP):
+  Martin Chakhtoura `d7cb0ba8` (usable transcript),
+  Abdullah Ahsan `96066d72` (no transcript),
+  Rashid Mehmood `9f91fb97` (kaacib.com, scene photo).
+  Exclude Rashid `9292bc7e` (`kacaib.com`).
 - Do not generate the remaining seventeen without
   authorisation.
