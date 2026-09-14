@@ -595,11 +595,13 @@ to both addresses, do not merge rows (D-J). Exclude
 Reuse `Extract draft`. Scene photo auto-attach on email
 only (D-B). Voice path untouched (D-C).
 
-**Q1–Q3** are in the plan and in the PR body. Implementer
-recommendation: evidence in the Gmail body (email) and in
-the Telegram copy (WA/LI); one batch of 20 separate
-drafts; `follow_ups` + `channel` so a re-run does not
-duplicate.
+**Q1–Q3 LOCKED 14 Sep.** Q1 reversed: evidence on
+Telegram only, never in the Gmail body. Q2: three-draft
+dry run first, then the rest. Q3: `follow_ups.channel` +
+`gmail_draft` + partial unique `(person_id, channel)`.
+Migration 031 applied. WF-10 `source=history` is the
+build. Do not generate the remaining seventeen without
+authorisation.
 
 **Acceptance (docs packet)**
 
@@ -619,6 +621,22 @@ duplicate.
 - Four D-H names absent from the SELECT. `kacaib.com`
   absent. Zahir one draft, two To: addresses.
 - Voice path unchanged. Architect GET of published WF-10.
+
+### Packet 10.4b — BUILD (14 Sep)
+
+Q1–Q3 locked (Q1 reversed: Telegram evidence only).
+Migration `031_sender_profile_history` catalog
+`20260914060746`. WF-10 history published
+`966950f1` accepted; composer `0799a8dd`; C1–C5 now
+`bed27da5` (rollback `1c1c39f4`). 032 HTML signature.
+Email batch accepted. DES RAJ second-touch email
+**462598**. Unique index unchanged (sent row
+`channel` NULL). CH1–CH5 close Phase 10: Shahzad +
+Fawaz second-channel drafts; `wa.me` from Meta click-
+to-chat; LinkedIn people-search + paste note; 
+`second_touch` is `draft_state='sent'` only;
+033 channel signatures. WF-10 **`fd8b7f9b`**.
+Phase 10 closed.
 
 ---
 
