@@ -300,8 +300,17 @@ null). Re-run cannot double-draft.
   written**. WF-10 photo LATERAL also matches
   `extraction_runs.structured_output` on
   `email_normalized` (Abdullah #151, 107532 bytes).
-- C5 / fourth dry run pending after cancel of stale
-  v2 + Zahir v3. Prompt `wf10-hist-v4`. Published
-  **`bed27da5`**.
+- C5 / fourth dry run. Stale v2 + Zahir v3 cancelled.
+  Prompt `wf10-hist-v4`. Published **`bed27da5`**.
+  Owner reads bodies. STOP.
+
+| Person | person_id | Exec | Telegram | follow_ups | Gmail draft | Path | Attach | Reason |
+|---|---|---|---|---|---|---|---|---|
+| Omair Shaikh | `a864283f` | **462396** | 931 | `32146c79` | `r-2339983374018899941` | Extract | 114326 | Urdu usable |
+| Sulaiman Asif | `e4f1751a` | **462397** | 932 | `5f4d1173` | `r635050107219057841` | Extract | 111968 | Urdu usable |
+| Abdullah Ahsan | `96066d72` | **462398** | 933 | `a8b2dbaf` | `r7147000344519431064` | template | 107532 | no transcript |
+| Muhammad Zahir | `d2335783` | **462399** | 934 | `b1786e3f` | `r-4333065214953054450` | Extract | 110524 | greeting + HTML sig |
+
+  Deema `c2c819f8` and Abdalla `76083561` kept (v3).
 - Do not generate the remaining seventeen without
   authorisation.

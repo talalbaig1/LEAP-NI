@@ -629,10 +629,9 @@ Migration `031_sender_profile_history` catalog
 `20260914060746`. WF-10 history published
 `966950f1` accepted; composer `0799a8dd`; C1–C5 now
 `bed27da5` (rollback `1c1c39f4`). 032 HTML signature.
-Third dry run **461871** / **461872** / **461873**
-(mechanics accepted, content rejected). C4 interaction
-backfill not written. Fourth dry run next. STOP.
-Remaining seventeen need a new authorisation.
+Fourth dry run WF-10 **462396** / **462397** / **462398**
+/ **462399**. C4 interaction backfill not written.
+STOP. Remaining seventeen need a new authorisation.
 
 ---
 
