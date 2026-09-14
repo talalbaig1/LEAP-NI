@@ -282,5 +282,14 @@ null). Re-run cannot double-draft.
   21:00:00+00`, excludes `full_name LIKE 'LNI %'` and
   example/invalid emails. Dry run is still a hand-passed
   list of three; there is no batch SELECT of the 20.
+- Third dry run (usable path). D3: non-Latin is not
+  garbled. Owner reads; STOP.
+
+| Person | person_id | Exec | Telegram | follow_ups | Gmail draft | Path | Attach |
+|---|---|---|---|---|---|---|---|
+| Muhammad Zahir | `d2335783` | **461871** | 928 | `10787045` | `r6789855113287998840` | Extract | 110524 |
+| Deema Alwaala | `2ca63896` | **461872** | 929 | `c2c819f8` | `r-8320115643520228008` | Extract | 0 |
+| Abdalla Elkhouli | `db31bc6e` | **461873** | 930 | `76083561` | `r-7517758840755362577` | template (`aaa aaa`) | 103619 |
+
 - Do not generate the remaining seventeen without
   authorisation.
