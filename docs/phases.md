@@ -744,8 +744,11 @@ on `lni_config`.
 
 `person_emails` and `entity_candidates` rework stay
 **inside this phase**, deferred to 12.3 / 12.4. They are
-not a reason to start with a migration. Login surface is
-**12.5**, after isolation is proven.
+not a reason to start with a migration. Isolation proven
+with two real accounts is **12.5**. Login surface is
+**12.6**, after that. Permanent test tenant is **12.2b**
+(slipped from 12.2). Fan-out N>1 is **12.4b**, before
+12.5.
 
 ### Packet 12.0 / 12.0a — Docs
 
@@ -789,6 +792,8 @@ WF-00 / WF-07 / WF-08 PUT. WF-01 published still
 `5ec180fd`). WF-07 `9197f7a3` (rollback `fb9ee1c4`).
 WF-08 `8b835659` (rollback `b699e7d6`). Full cross-tenant
 isolation is **not** proven (12.5, two real accounts).
+Permanent test tenant `bot_state` **did not land** —
+packet **12.2b**.
 
 - Fingerprint is `lni_instance` name `NIS`. The string
   `LEAP 2026` is gone from WF-00 / WF-07 / WF-08.
@@ -805,19 +810,24 @@ isolation is **not** proven (12.5, two real accounts).
   corpus `$1` still the caller `owner_id`.
 
 WF-01 / 02 / 03 / 05 / 06 / 09 / 10 unchanged.
-Permanent test tenant and `capture_no` audit stay later.
+`capture_no` audit stays later.
 
-### Packet 12.3 carry-over — `digest_email` (applied 16 Sep)
+### Packet 12.2a — `digest_email` (applied 16 Sep)
 
 Catalog **036_digest_email** (`20260916030417`). WF-07
-PUT `becd329b` (rollback `9197f7a3`). Load digest looks
+PUT `28754af8` (rollback `becd329b`; 12.2a first PUT was
+`becd329b` / `9197f7a3`). Load digest looks
 up `digest_email` for `$1`. Live owner seeded from
 `auth.users.email`. Platform owner not seeded (D-O).
 Mailbox linkage until Phase 14 OAuth. N>1 hourly
-fan-out blockers recorded in the plan (E1–E3); not
-fixed. WF-06 Apollo missing-ceiling is already 0; no
-PUT. WF-01 draft still `e454df40`. WF-06 draft still
-`76840a2a`.
+fan-out blockers filed as **12.4b**; not fixed. WF-06
+Apollo missing-ceiling is already 0; no PUT. WF-01
+draft still `e454df40`. WF-06 draft still `76840a2a`.
+
+### Packet 12.2b — permanent test tenant (slipped)
+
+12.2 did not insert a second `bot_state`. Live count
+is 1. Do not assert that row.
 
 ### Packet 12.3 — `person_emails` (deferred)
 
@@ -830,12 +840,22 @@ exists. Do not merge.
 Stored pair + human-readable reasons. 61 pre-window
 pending stay pending. No false `rejected`.
 
-### Packet 12.5 — Login surface (after isolation)
+### Packet 12.4b — hourly fan-out N>1 (before 12.5)
+
+E1 `Any delivered?` executeOnce + `.first()`. E2 `Wait
+both channels` chooseBranch/useDataOfInput:1. E3 Empty
+digest terminal abort-all. A second tenant is what
+breaks them. Fix before 12.5.
+
+### Packet 12.5 — Isolation proven (two real accounts)
+
+Two real `bot_state` rows. Depends on 12.2b and 12.4b.
+
+### Packet 12.6 — Login surface (after isolation)
 
 Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. A Phase 12 **dependency**, landing
-**after** isolation is proven. Isolation before there is
-a door.
+**after** 12.5. Isolation before there is a door.
 
 ---
 

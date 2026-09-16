@@ -30,8 +30,9 @@ assets UNIQUE `(owner_id, telegram_file_unique_id)` +
 platform owner seed. Do not write 034 in 12.0a. Do not PUT.
 
 Q1 ACCEPTED — tenant = `owner_id`. No `tenants` table.
-Q2 AMENDED — permanent test tenant. Schema 12.1, live
-second `bot_state` in 12.2. Never deleted, never frozen.
+Q2 AMENDED — permanent test tenant. Schema 12.1. Live
+second `bot_state` **slipped from 12.2** (packet 12.2b).
+Never deleted, never frozen.
 Q3 OVERRIDDEN — fail closed. No mailbox → no Gmail /
 digest email (Telegram copy-text). No Apollo ceiling → 0.
 Q4 OVERRIDDEN — fingerprint is `lni_instance`, not
@@ -69,7 +70,7 @@ changes, someone wrote again — STOP.
 | 04 | `cxyvgBJC1DD8LEbU` | true | `6fa41bc4-175f-4787-8b91-458e502e4a62` | same | named `dafe9b02` 10.2c-fix (history-pruned) | 29 |
 | 05 | `Iv0loGijYVH77OGh` | true | `68f47505-36b6-4843-98e1-16892a098aa2` | same | named `74b08d0f` (history-pruned) | 29 |
 | **06** | `eNlgt1wk9Z8Nefwy` | true | `356a2d1f-daf1-4560-a68f-4df82ff64ceb` | **`76840a2a-3d4f-454e-86ff-0f70bca48ca1` unpublished autosave** | named `f6b39538-28ae-4946-ac81-504c9f004c36` | 53 |
-| 07 | `AyPtkP8PMFeEdYU9` | true | `becd329b-86a0-4368-9b9d-2afec2dd6495` | same | **12.3 rollback `9197f7a3-af51-41aa-8ea2-8f32a7670726`** | 27 |
+| 07 | `AyPtkP8PMFeEdYU9` | true | `28754af8-1960-479b-912e-b398e7264343` | same | **12.2a rollback `becd329b-86a0-4368-9b9d-2afec2dd6495`** | 27 |
 | 08 | `QIioJBxuZYJh5R4W` | true | `8b835659-6179-4472-9f78-f096bdaba841` | same | **12.2 rollback `b699e7d6-ecd4-431d-86ff-d61bd1472390`** | 19 |
 | 09 | `m0lvc9dzpyxLj2hI` | true | `fdd6fe67-9cc4-4b05-af20-3994f3e1e859` | same | named `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | 43 |
 | 10 | `D9PRjbZMQxe9ESVW` | true | `226fe197-39bf-497c-ad4f-2735740f0547` | same | **`fd8b7f9b-f156-4295-ae92-87fa21c98350` (live history)** | 172 |
@@ -107,7 +108,7 @@ Next LNI schema number is **037**.
 | 033 | `20260914083604` | `033_sender_profile_channel_signatures` — `signature_whatsapp` + `signature_linkedin` |
 | 034 | `20260916022806` | `034_multitenancy_foundation` — packet 12.1 |
 | 035 | `20260916024816` | `035_operator_chat` — packet 12.2. `operator_chat_id` + `lni_settings` updated_at trigger |
-| 036 | `20260916030417` | `036_digest_email` — packet 12.3. `digest_email` for live owner only from `auth.users.email` |
+| 036 | `20260916030417` | `036_digest_email` — packet 12.2a. `digest_email` for live owner only from `auth.users.email` |
 
 Next LNI schema number is **037**. Phase 12 must not steal 030.
 

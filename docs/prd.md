@@ -283,9 +283,10 @@ ceiling row → ceiling 0, never unlimited. Another
 tenant's drafts in the live owner's mailbox is a privacy
 defect.
 
-**Self-serve onboarding** is packet **12.5**: Supabase
+**Self-serve onboarding** is packet **12.6**: Supabase
 Auth, Google/Microsoft, Telegram-ID capture. After
-isolation is proven. Isolation before there is a door.
+isolation is proven (**12.5**, two real accounts).
+Isolation before there is a door.
 
 Not in 12.0a: a migration, a PUT, Zahir merge, candidate
 rejects, per-owner Gmail/Apollo credentials.

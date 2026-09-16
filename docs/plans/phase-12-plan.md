@@ -1,11 +1,11 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.3)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.2a)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
-`035_operator_chat`, `20260916024816`). Packet **12.3
-carry-over applied** (catalog `036_digest_email`,
+`035_operator_chat`, `20260916024816`). Packet **12.2a
+applied** (catalog `036_digest_email`,
 `20260916030417`). WF-07 Load digest looks up
 `digest_email`. WF-01 / WF-06 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -95,9 +95,12 @@ platform `audit_log` rows only. No `bot_state`, no
 `events`, no `sender_profile`. Never a sender.
 
 The **permanent test tenant** (Q2) is a tenant. Schema in
-12.1, live second `bot_state` in 12.2. Never deleted,
-never frozen — standing cross-tenant regression harness,
-same principle as capture #9.
+12.1. Live second `bot_state` **slipped**: 12.2 did not
+insert it. Live `bot_state` count is 1. Named packet
+**12.2b**. Never deleted, never frozen — standing
+cross-tenant regression harness, same principle as
+capture #9. Do not assert a row the database does not
+have.
 
 ---
 
@@ -264,9 +267,18 @@ claim a review nobody did. Row today:
 pair. `{name_trgm}` is not a human reason. 61 pre-window
 stay pending through 12.4.
 
-### 12.5 BLOCKERS — hourly fan-out N>1 (record only, packet 12.3)
+### Packet 12.2b — permanent test tenant (slipped from 12.2)
 
-Do **not** change these nodes in this packet. The hourly
+12.2 did **not** land a second `bot_state` row. Give it
+its own packet. `auth.users` + `bot_state` + `events` +
+ceilings + settings. Never deleted. Never frozen. Needed
+before 12.5 can pass.
+
+### Packet 12.4b — hourly fan-out N>1 (E1–E3)
+
+Recorded in 12.2a. Do **not** change these nodes in
+12.2a. A second tenant is what breaks them, so they
+must be **fixed before 12.5** can pass. The hourly
 fan-out is proven for **exactly one tenant** and is
 **not** proven for N.
 
@@ -282,13 +294,18 @@ the hourly execution for ALL owners, not the one with
 no data. Mitigated today only because `List due owners`
 INNER JOINs `events`.
 
-### Packet 12.5 — login surface (after isolation)
+### Packet 12.5 — isolation proven (two real accounts)
+
+Two real `bot_state` rows. Cross-tenant proof. Depends
+on 12.2b (second tenant exists) and 12.4b (fan-out does
+not lie about the second owner). Not the login surface.
+
+### Packet 12.6 — login surface (after isolation)
 
 Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. **Dependency, not a shortcut.**
-Isolation (12.1–12.2) is proven first. Isolation before
-there is a door. N>1 fan-out blockers above are
-**also** 12.5 work.
+Isolation (12.5) is proven first. Isolation before
+there is a door.
 
 ---
 
@@ -298,11 +315,14 @@ there is a door. N>1 fan-out blockers above are
 |---|---|---|---|
 | **12.0 / 12.0a** | This plan. Docs only. Q1–Q5 locked. | none | none |
 | **12.1** | `lni_settings` + `lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` + assets composite unique + platform owner seed | **034 applied** (`20260916022806`) | none. WF-01/06 drafts untouched. |
-| **12.2** | Split self-id onto `lni_instance`. WF-07 hourly fan-out per owner local hour. Fail-closed Gmail. `operator_chat_id` seed. WF-00 platform `audit_log.owner_id`. | **035 applied** (`20260916024816`) | WF-00 / WF-07 / WF-08 only. **No unpublished-draft publish.** WF-01/02/06/09 stay. Permanent test tenant and capture_no audit are later packets. |
-| **12.3 carry-over** | `digest_email` door. WF-07 Load digest lookup. Record N>1 fan-out blockers. WF-06 Apollo ceiling cause only. | **036 applied** (`20260916030417`) | WF-07 only. **No unpublished-draft publish.** No WF-06 PUT. |
+| **12.2** | Split self-id onto `lni_instance`. WF-07 hourly fan-out per owner local hour. Fail-closed Gmail. `operator_chat_id` seed. WF-00 platform `audit_log.owner_id`. | **035 applied** (`20260916024816`) | WF-00 / WF-07 / WF-08 only. **No unpublished-draft publish.** WF-01/02/06/09 stay. Test tenant **slipped → 12.2b**. capture_no audit later. |
+| **12.2a** | `digest_email` door. WF-07 Load digest lookup. Record N>1 fan-out as 12.4b. WF-06 Apollo ceiling cause only. | **036 applied** (`20260916030417`) | WF-07 only. **No unpublished-draft publish.** No WF-06 PUT. |
+| **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | named then | none until named |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
-| **12.5** | Minimal login surface | named then | none until isolation proven |
+| **12.4b** | Fix E1–E3 hourly fan-out for N>1 | none | WF-07. **Before 12.5.** |
+| **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
+| **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
 One packet at a time. Architect verifies live SQL / live
 JSON. Implementer report is not evidence.
@@ -316,9 +336,9 @@ No `tenants` table. D-L ACCEPTED.
 
 **Q2. Second owner.** AMENDED. Permanent test tenant, not
 a throwaway. Schema in 12.1. Live second `bot_state` row
-in 12.2. Never deleted. Never frozen. Standing
-cross-tenant regression harness, same principle as
-capture #9.
+**slipped from 12.2** — packet **12.2b**. Never deleted.
+Never frozen. Standing cross-tenant regression harness,
+same principle as capture #9.
 
 **Q3. Per-owner Gmail / OpenAI / Apollo.** OVERRIDDEN.
 Stay out of Phase 12. Behaviour is **fail closed**, not
@@ -346,7 +366,7 @@ Platform errors are owned by it, inside no tenant. D-O.
 
 ## Non-goals (12.0 / 12.0a and until a packet names them)
 
-- Any migration file in this PR.
+- No migration beyond those named in an applied packet.
 - `value_text` on `lni_config`.
 - Stealing 030.
 - PUT any workflow. Do not publish drafts `e454df40` /
@@ -409,8 +429,10 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
 - Full cross-tenant isolation is **not** proven (12.5).
+  Permanent test tenant `bot_state` did **not** land
+  (12.2b).
 
-## Acceptance (12.3 carry-over — applied 16 Sep)
+## Acceptance (12.2a — applied 16 Sep)
 
 - catalog `036_digest_email` (`20260916030417`); 030 still
   absent.
@@ -420,21 +442,24 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-07 Load digest `mail` CTE LEFT JOINs `lni_settings`
   `digest_email` on `$1`. Missing key → `''` →
   `Email skipped` (fail-closed with a door).
-- WF-07 published `becd329b` (rollback `9197f7a3`).
+- WF-07 published `28754af8` (rollback `becd329b`).
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
-- 12.5 BLOCKERS E1–E3 recorded. Fan-out proven for N=1
-  only.
+- 12.4b E1–E3 recorded, not fixed. Fan-out proven for
+  N=1 only.
 - WF-06 Apollo: missing `apollo_daily_ceiling` is already
   treated as 0 (no PUT this packet).
 
 ## Acceptance (later — do not execute here)
 
-- 12.2 remainder (other packets): `capture_no` lookups
-  include `owner_id` on WF-01/02; storage path read-back;
-  permanent test tenant `bot_state` live.
+- 12.2 remainder: `capture_no` lookups include `owner_id`
+  on WF-01/02; storage path read-back.
+- 12.2b: permanent test tenant `bot_state` live. Not
+  asserted today.
 - 12.3 `person_emails`: Zahir still two people rows until
   a merge packet after `person_emails` exists.
 - 12.4: 61 pre-window candidates still `pending` unless
   a human reviewed them.
-- 12.5: login surface only after isolation is proven.
+- 12.4b: E1–E3 fixed before 12.5.
+- 12.5: isolation proven with two real accounts.
+- 12.6: login surface only after 12.5.
