@@ -1026,7 +1026,22 @@ architect approval. 12.5a C/D/E/G unstarted.
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
 
-### Packet 12.6 — Login surface (after isolation)
+### Packet 12.6 — Drain owner resolution
+
+**16 Sep. PART A only. No PUT.** Home:
+`docs/plans/packet-12-6-drain-owner.md`.
+
+WF-03 / 04 / 05 / 06 / 09 still claim from
+`events WHERE name='LEAP 2026'`. A second
+tenant’s captures would store and never
+process. Architect agrees the contract before
+PART B.
+
+The **login surface** previously numbered 12.6
+is **not this packet**. It still lands after
+isolation (below).
+
+### Packet 12.6-login — Login surface (after isolation)
 
 Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. A Phase 12 **dependency**, landing
