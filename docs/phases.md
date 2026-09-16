@@ -993,6 +993,21 @@ Map is gitignored `docs/scrub-map.local.md`. Rule **25**
 + `scripts/check-no-literals.sh` + CI. No force-push.
 No WF-01 PUT. 12.5a C/D/E/G unstarted.
 
+### Packet 12.5a-0d — amend map, narrow rule 25, merge #81 (16 Sep)
+
+Map amended: `<CONTACT_N_NAME>` aligned with
+`<CONTACT_N_EMAIL>`; company domains / identifying
+company names added; longest-first. Rule 25 now two
+lists: banned identity/infrastructure, allowed
+row-level uuids. Checker dropped the generic uuid
+scan. `git-filter-repo` **not run**. No force-push.
+No WF-01 PUT. Confirm email still off (item 11).
+12.5a C/D/E/G unstarted.
+
+Architect accepts the Phase 12 docs on live
+verification. **A2–A4 diffs waived** (architect
+decision, recorded in the #81 squash-merge).
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.

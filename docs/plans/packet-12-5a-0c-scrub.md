@@ -26,12 +26,15 @@ Token names are below so documents stay coherent after rewrite.
 | Archived `LNI-TEST-*` workflow ids | `<TEST_104B_ATTACH_WF_ID>` `<TEST_104B_DEL_WF_ID>` `<TEST_716_DRIVER_WF_ID>` plus remaining TEST ids as `<TEST_{name}_WF_ID>` |
 | ElderWise creds (do-not-bind) | `<ELDERWISE_PG_CRED_ID>` `<ELDERWISE_TAVILY_CRED_ID>` |
 | n8n version ids | `<WF{nn}_{PUBLISHED\|ROLLBACK\|DRAFT}>` — one token per distinct version uuid, stable for that uuid |
-| Capture / person / follow_up uuids | **not in the 2a identity table.** Rule 25 still bans them. Either enumerate every distinct uuid into a stable token, or the uuid CI class stays red after the identity rewrite. Flag, do not solve in this packet. |
 | Postgres / Telegram / Gmail / OpenAI creds | `<PG_CRED_ID>` `<TELEGRAM_CRED_ID>` `<GMAIL_CRED_ID>` `<OPENAI_CRED_ID>` |
 | Storage / Apollo / Tavily / NIWL header | `<STORAGE_CRED_ID>` `<APOLLO_CRED_ID>` `<TAVILY_CRED_ID>` `<NIWL_HEADER_CRED_ID>` |
 | Webhook paths | `<WF10_HISTORY_PATH>` `<WF01_INGEST_PATH>` `<NIWL_WAITLIST_PATH>` |
 | Owner / platform / test / IU emails | `<OWNER_EMAIL>` `<OWNER_GMAIL>` `<PLATFORM_EMAIL>` `<TEST_TENANT_EMAIL>` `<OWNER_IU_EMAIL>` |
 | Third-party emails | `<CONTACT_1_EMAIL>` … numbered by first git appearance, never reused |
+| Contact names | `<CONTACT_N_NAME>` — same N as that human’s email. Same-human email pairs (1+2, 3+4, 7+8) share the **lower** N for the name. Extra named people continue from 12. |
+| Contact company domains | `<CONTACT_N_DOMAIN>` (and `_REG_DOMAIN` / `_DOMAIN_NET` when a second form exists) |
+| Company names that identify a person | `<CONTACT_N_COMPANY>` / `_COMPANY_A` `_COMPANY_B` / `_WRONG_COMPANY` |
+| Capture / person / follow_up uuids | **Allowed under rule 25 (12.5a-0d).** Not in the replace-text map. Evidence keys, not operator identity. |
 
 Argue-with-the-packet notes are in the 12.5a-0c implementer
 report (version-id tokens, extra creds, extra workflow ids).

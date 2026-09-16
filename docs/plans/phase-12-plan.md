@@ -409,6 +409,7 @@ is 12.6, not the rewrite.
 | **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `226fe197`. 12.5a C/D/E/G wait. |
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
+| **12.5a-0d** | Amend scrub map (names + company domains). Narrow rule 25. Squash-merge #81. | none | **No PUT. No rewrite. No force-push.** Confirm email still owner (item 11). 12.5a C/D/E/G wait. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -648,6 +649,17 @@ Platform errors are owned by it, inside no tenant. D-O.
 - Scrub map gitignored. `git-filter-repo` **not run**.
 - Rule 25 + `scripts/check-no-literals.sh` + CI.
 - No WF-01 PUT. No force-push.
+
+## Acceptance (12.5a-0d — applied 16 Sep)
+
+- Scrub map amended (names + domains, longest-first).
+  Rewrite **not run**.
+- Rule 25: banned identity/infrastructure; allowed
+  row-level uuids. Checker no longer scans generic uuid.
+- #81 squash-merged. Branch deleted. A2–A4 diffs waived
+  (architect decision).
+- `mailer_autoconfirm` still true until Talal flips
+  Confirm email (item 11).
 
 ## Logged, do not fix in 12.5a
 
