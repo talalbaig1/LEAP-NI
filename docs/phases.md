@@ -1116,9 +1116,41 @@ defence (12.5g). That is an acceptable answer when
 it is the true one.
 
 **Measured 16 Sep** (TEST execs 486506 / 486521 /
-486532). None recovered the mix. D unreachable on
-a real stored object. Evidence pane stays the
-defence. No live PUT.
+486532). Packet **12.5j** records the numbers, not
+the conclusions alone:
+
+- **A** `whisper-1` `verbose_json`: claims **urdu**,
+  Latin **0** / Arabic **101**, `avg_logprob`
+  **-0.63**. English lost. Books ask lost.
+- **B** `whisper-1` + prompt hint: claims
+  **english**, Latin **101** / Arabic **0**,
+  `avg_logprob` **-0.30**. More confident and less
+  faithful. Invented a meeting request. Dropped
+  the books ask. Did not recover the hinted terms
+  LEAP or VirtueNetz.
+- **C** `gpt-4o-transcribe`: rejects `.oga`
+  (Telegram’s format), rejects `verbose_json`,
+  Latin **0** / Arabic **89**. English lost.
+- **D** audio chat: **not yet proven.** Blocked on
+  reading a filesystem-v2 binary from a Code node.
+  `extractFromFile` `binaryToProperty` is a node,
+  not Code, and is untested. Record as untested,
+  not impossible.
+
+Locked (reasons in
+`docs/plans/phase-15-transcription.md`): no
+`language` key; no Whisper prompt hint; no swap to
+`gpt-4o-transcribe` on the live path.
+
+Open finding, no build: transcription detects one
+language per clip. A follow-up block already
+accepts multiple audio assets. One language per
+voice note may preserve all three where one mixed
+note cannot. Owner to try on the next real
+follow-up.
+
+TEST `LNI-TEST-15.0-transcribe` **archived**, not
+deleted. No live PUT.
 
 ---
 

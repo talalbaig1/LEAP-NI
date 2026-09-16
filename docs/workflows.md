@@ -3305,10 +3305,12 @@ Last node **Report** reads A/B/C/D by name: raw text,
 detected language, segment field names, Latin/Arabic
 counts, English-survived, books-ask. Nothing is
 written to Postgres. Measured 16 Sep execs
-**486506** / **486521** / **486532**: none recovered
-trilingual speech. Evidence pane stays the defence
-(`docs/plans/phase-15-transcription.md`). Owner
-archives the TEST when done.
+**486506** / **486521** / **486532**. **Archived**
+12.5j, not deleted. D is untested
+(`extractFromFile` `binaryToProperty` not tried),
+not impossible. Locked non-goals and the
+one-language-per-clip finding:
+`docs/plans/phase-15-transcription.md`.
 
 ---
 

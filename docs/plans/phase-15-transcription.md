@@ -1,7 +1,7 @@
 # Phase 15 — Transcription quality
 
 **Date:** 16 Sep 2026
-**Status:** SPIKE. Throwaway only.
+**Status:** SPIKE recorded (12.5j). TEST archived.
 **Home:** this file. Stub in `phases.md` Phase 15.
 WF-10 contract unchanged: `docs/workflows.md` Transcribe
 (`language` absent, no `verbose_json` on the live node).
@@ -44,7 +44,8 @@ Names are not literals in this file.
 
 ## TEST workflow
 
-Name: `LNI-TEST-15.0-transcribe`.
+Name: `LNI-TEST-15.0-transcribe`. **Archived 16 Sep
+(12.5j). Do not delete.**
 
 Manual Trigger only. `active=false`. No webhook.
 `availableInMCP: true` so MCP can fire Manual Trigger.
@@ -201,37 +202,57 @@ include `gpt-4o-transcribe` (picked),
 
 ### D — audio chat
 
-- File upload `POST /v1/files` **worked**
-  (`purpose=user_data`, 51978 bytes).
-- Live `gpt-audio` is **not** supported on the
-  Responses API.
-- `gpt-4o` Responses `input_file` is document
-  stuffing: `.ogg` audio rejected (allowed list
-  is pdf/docx/txt/… — no audio).
-- Chat `input_audio` needs inline base64. Code
-  cannot read filesystem-v2. A pin would be a
-  different program (Phase 1).
-- **D cannot be proven on a real stored object
-  in n8n.** English/books: n/a.
+**Not yet proven. Untested, not impossible.**
 
-## Recommendation
+- File upload `POST /v1/files` worked
+  (`purpose=user_data`, 51978 bytes).
+- Live `gpt-audio` is not on the Responses API.
+- `gpt-4o` Responses `input_file` rejects audio
+  (document list only).
+- Chat `input_audio` wants inline base64. **Code
+  cannot read filesystem-v2.** That is the block
+  this spike hit.
+- `extractFromFile` `binaryToProperty` is a
+  **node**, not Code. It was not in the TEST
+  graph. Untested on a real stored object. Do
+  not record D as impossible until that node is
+  measured.
+
+## Locked non-goals (12.5j)
+
+- **No `language` key on Transcribe.** The owner
+  speaks three languages. Forcing one yields
+  confident garbage (trap 1).
+- **No Whisper prompt hint.** Measured: B raises
+  confidence (`-0.30` vs A `-0.63`) and lowers
+  fidelity (invented a meeting, dropped the books
+  ask, missed LEAP and the company). A clean
+  wrong transcript defeats the evidence pane —
+  worse than a visibly garbled one.
+- **No swap to `gpt-4o-transcribe` on the live
+  path.** Telegram sends `.oga`; C rejects that
+  format and loses the same English / books
+  content anyway.
+
+## Open finding (no build)
+
+Transcription detects **one language per clip**.
+A follow-up block already accepts multiple audio
+assets. One language per voice note may preserve
+all three where one mixed note cannot. Owner to
+try on the next real follow-up. If it holds, it
+becomes a product rule and an onboarding
+instruction.
+
+## Recommendation (A/B/C)
 
 None of A/B/C recovered trilingual speech on
-this clip. D is unreachable for real stored
-audio. **The evidence pane is the only
-defence.** That is the true answer, not a
-deferral.
+this clip. **The evidence pane is the only
+defence** for mixed notes until the open finding
+is tried, or D is measured with
+`extractFromFile`. That is the true answer for
+A–C, not a deferral of the locked non-goals.
 
-Do not add `language` (trap locked; B already
-shows an English prefix wiping the mix). Do
-not add a Whisper `prompt` on live Transcribe
-(it is a prefix, not a glossary). Do not PUT
-`verbose_json` or `gpt-4o-transcribe` onto
-WF-10 in this packet: verbose_json diagnosed
-`urdu` and listed segment fields, and did not
-save English or the books ask; C needs an
-`.ogg` filename remap the live Whisper node
-does not do, and still dropped the mix.
-
-Leave follow_ups `96461882` / `2fd8c529`.
-Owner may archive the TEST when done.
+TEST `LNI-TEST-15.0-transcribe` **archived**
+16 Sep (12.5j), not deleted. Follow_ups
+`96461882` / `2fd8c529` untouched. No live PUT.

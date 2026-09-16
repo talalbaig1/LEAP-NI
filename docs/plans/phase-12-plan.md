@@ -826,6 +826,14 @@ logged as **Phase 15 — transcription quality**
 (`docs/plans/phase-15-transcription.md`). No WF-10
 PUT. No Transcribe change. No `language` key.
 
+Packet **12.5j** (16 Sep, docs + archive only).
+Phase 15 measurements recorded in `phases.md`.
+Locked: no `language`, no Whisper prompt, no live
+`gpt-4o-transcribe`. D recorded as untested
+(`extractFromFile` not tried), not impossible.
+TEST `LNI-TEST-15.0-transcribe` archived, not
+deleted. 12.5b PART B still waiting.
+
 ## Test-tenant probe (12.5g D3 / 12.5h D)
 
 Permanent fixture, not a leak. People row `de10f49f`,
