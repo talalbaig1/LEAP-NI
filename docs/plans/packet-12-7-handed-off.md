@@ -44,8 +44,20 @@ PUT from published `<WF01_PUBLISHED>`, not draft
 `<WF01_DRAFT>`. The PUT **discards** `<WF01_DRAFT>`.
 Unavoidable and authorised. Guarded since Phase 10
 because it must never be published. It was not
-published. Remove `Driver ingest` and its
-Allowlist connection. Nothing else.
+published. Removed `Driver ingest` and its
+Allowlist connection. Nothing else. DIFF: exactly
+one node + one connection. TriggerCount 2 → 1.
+Still ACTIVE. Published `<WF01_PUBLISHED_12_7>`.
+No unpublished draft. POST old URL 404.
+
+E2: TEST caller `<TEST_127_HIST_CALLER_WF_ID>`
+(archived after). WF-10 **487150** History copy
+insert `574a78ba` `draft_state=handed_off`
+channel linkedin. G4 email row `03928fb8` stays
+`gmail_draft` (no backfill; unique blocked a
+second email).
+
+E1 owner phone after the PUT is owed.
 
 ## leftover_processing
 

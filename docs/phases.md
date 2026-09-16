@@ -1123,16 +1123,22 @@ insert (`gmail_draft`) and History copy insert
 
 **WF-01** PUT from published `<WF01_PUBLISHED>`
 only (not top-level draft `<WF01_DRAFT>`). The PUT
-**discards** unpublished draft `<WF01_DRAFT>`
-(`e454df40`). Unavoidable — any PUT replaces the
+**discards** unpublished draft `<WF01_DRAFT>`. Unavoidable — any PUT replaces the
 top-level draft — and **authorised**. That draft
 was guarded since Phase 10 because it must never
 be **published**, not because it must be
 preserved. It was not published. Removed `Driver
 ingest` and its connection to Allowlist. Nothing
-else. TriggerCount 2 → 1 (Telegram Trigger
-remains). POST `/activate`. POST old production
-URL 404.
+else. DIFF vs `<WF01_PUBLISHED>`: exactly one node
+removed and one connection removed. Serializer
+flags survived (`download:true` on vcard getFile,
+explicit `operation` on every node that had one;
+no remaining webhook so `responseMode` left with
+Driver ingest; zero `splitInBatches` before and
+after). TriggerCount 2 → 1 (Telegram Trigger
+remains). POST `/activate`. Still ACTIVE.
+Published `<WF01_PUBLISHED_12_7>`. No unpublished
+draft. POST old production URL 404.
 
 **E1** owner phone photo + voice + `/done` after
 the WF-01 PUT is the only proof the capture

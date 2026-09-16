@@ -735,7 +735,11 @@ unchanged). Do not PUT this in 12.5a.
   not draft `<WF01_DRAFT>`. **Draft `<WF01_DRAFT>`
   discarded by the PUT, authorised, never
   published.** `Driver ingest` removed. Nothing
-  else. New published `<WF01_PUBLISHED_12_7>`.
+  else. DIFF vs published: exactly one node and
+  one connection. TriggerCount 2 → 1. Still
+  ACTIVE. New published `<WF01_PUBLISHED_12_7>`.
+  No unpublished draft. POST old production URL
+  404.
 - `leftover_processing` capture `#217` `6bcc2fe1`
   **spent** (`needs_review`). Not replanted.
 
