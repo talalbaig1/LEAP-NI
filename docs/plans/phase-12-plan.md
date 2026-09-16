@@ -383,11 +383,13 @@ learns why nothing happens.
 OAuth tenant, while that account is still held. Not the
 permanent harness. Token `<OWNER_IU_EMAIL>`.
 
-**E4 (12.5a-0c).** Fresh-deploy owner / platform / test
-tenant seed must use the `009` `current_setting`
-pattern. 034 and 037 currently embed a literal email.
-Tokenising them is the scrub; making them re-runnable
-is 12.6, not the rewrite.
+**E4 (12.5a-0c / 12.5a-0h).** Fresh-deploy owner /
+platform / test tenant seed must use the `009`
+`current_setting` pattern (already flagged 2b).
+**12.5a-0h rewrite tokenised 034 and 037** to
+`<PLATFORM_EMAIL>` / `<TEST_TENANT_EMAIL>`. Those
+files are **no longer re-runnable**. Making them
+re-runnable is 12.6, not a re-apply of 034/037.
 
 ---
 
@@ -410,7 +412,10 @@ is 12.6, not the rewrite.
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
 | **12.5a-0d** | Amend scrub map (names + company domains). Narrow rule 25. Squash-merge #81. | none | **No PUT. No rewrite. No force-push.** Confirm email still owner (item 11). 12.5a C/D/E/G wait. |
-| **12.5a-0e** | Reconcile #81. Drop ordinary company tokens. Names as `(?i)\\b` regex. Drop github handle. | none | **No PUT. No rewrite. No force-push. No merge.** Map gitignored. Dry-run after architect approval. |
+| **12.5a-0e** | Reconcile #81. Drop ordinary company tokens. Names as `(?i)\\b` regex. Drop github handle. | none | **No PUT. No rewrite. No force-push.** Map gitignored. Merged by 12.5a-0h A2 (#82). |
+| **12.5a-0f** | Dry-run rewrite on throwaway clone. | none | **Nothing pushed.** C2=16 (8-char prefixes ate full version UUIDs). |
+| **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
+| **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -662,6 +667,21 @@ Platform errors are owned by it, inside no tenant. D-O.
 - `mailer_autoconfirm` still true until Talal flips
   Confirm email (item 11).
 
+## Acceptance (12.5a-0h — applied 16 Sep)
+
+- Pre-rewrite backup: `~/lni-preservrub-backup.git`
+  captured `6326264`. Post-#82 tip `1caf528` stored as
+  `refs/backup/pre-rewrite-tip`. Decoder next to it.
+- `#82` squash-merged. Origin heads = `main` only.
+  Then `git-filter-repo --replace-text` (all refs).
+  Force-pushed `main` `1caf528` → `ef640a320d979e8b7516adcb978ffe6d1b8a30e2`.
+- 034 / 037 now contain `<PLATFORM_EMAIL>` /
+  `<TEST_TENANT_EMAIL>`. **Not re-runnable.** 12.6
+  bootstrap uses `009` `current_setting` (E4 / 2b).
+- Rule 25 checker green on a fresh origin clone.
+  C2 eaten-uuid count = 0. 12.5a C/D/E/G unstarted.
+- No WF-01 PUT. No canvas.
+
 ## Logged, do not fix in 12.5a
 
 **WF-10 `Load callback follow_up` OR branch.**
@@ -693,4 +713,5 @@ unchanged). Do not PUT this in 12.5a.
   ceilings at tenant creation (12.6 E1 / E2). Owner IU
   Microsoft account reserved Phase 14, not the harness
   (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
-  (12.6 E4) — do not copy 034/037 literal emails.
+  (12.6 E4). 034/037 are tokenised as of 12.5a-0h and
+  are not re-runnable — do not re-apply them.
