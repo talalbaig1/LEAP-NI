@@ -127,6 +127,111 @@ Do not add `language: en` to "fix" mixed audio.
   English-survived, books-ask, and the
   recommendation. Raw contact names stay out of git.
 
-## Result (fill after the run)
+## Result (16 Sep 2026)
 
-_Pending execution._
+TEST `LNI-TEST-15.0-transcribe`, inactive, Manual only.
+Self identify `NIS`. Asset `0982a7df`, capture **#214**,
+`filesystem-v2`, HEAD `Content-Length` **51978** =
+`size_bytes` **51978**. Execs **486506** (first),
+**486521** (`.ogg` rename + D `gpt-4o`), **486532**
+(C `json`). No `language` key on A/B/C. WF-10
+published still `dfd35bfb`. Transcribe params
+unchanged. WF-01 `4836ffd8` / draft `e454df40`.
+WF-06 `356a2d1f` / draft `76840a2a`.
+
+Live `GET /v1/models` (same runs): transcribe ids
+include `gpt-4o-transcribe` (picked),
+`gpt-4o-mini-transcribe`,
+`gpt-4o-transcribe-diarize`, `gpt-transcribe`,
+`gpt-live-transcribe`. Audio-chat ids include
+`gpt-audio` (picked), `gpt-audio-mini`,
+`gpt-audio-1.5`.
+
+### A — `whisper-1` `verbose_json`
+
+- Claimed `language`: **urdu**. `duration` 13.21 s.
+  One segment.
+- Segment-level fields: `id`, `seek`, `start`,
+  `end`, `text`, `tokens`, `temperature`,
+  `avg_logprob`, `compression_ratio`,
+  `no_speech_prob`. Top-level also `task`,
+  `usage`.
+- Latin **0** / Arabic-script **101**.
+- English portion survived? **No.**
+- Books / study-together ask? **No.**
+- Card person name appeared in Urdu script
+  without a hint. Company and event names did
+  not. Body is a garbled follow-up/meeting
+  paraphrase (`avg_logprob` about **-0.63**).
+
+### B — `whisper-1` + proper-noun `prompt`
+
+- Claimed `language`: **english** (flipped).
+- Latin **101** / Arabic-script **0**.
+- English words? **Yes, but steered.** Whisper
+  `prompt` is a transcript **prefix**, not a
+  hint. An English prefix continued in English.
+  `avg_logprob` about **-0.30** (more confident,
+  less faithful).
+- Person name recovered in Latin. Company and
+  event names from the same prompt **did not**
+  appear.
+- Books / study-together ask? **No.**
+- Output is an English “create a follow-up …
+  meeting … any day available” instruction, not
+  mixed speech.
+
+### C — live `gpt-4o-transcribe`
+
+- Telegram `.oga` rejected (`unsupported_value`
+  file). Same filesystem-v2 bytes with
+  `fileName` remapped to `clip.ogg` (metadata
+  only; Code did not read bytes) accepted.
+- `verbose_json` rejected on this model
+  (“use `json` or `text`”). Exec **486532**
+  used `json`.
+- No `language` field, no `segments` (json
+  format). Latin **0** / Arabic-script **89**.
+- English portion survived? **No.**
+- Books / study-together ask? **No.**
+- Person name in Urdu. Body is a more fluent
+  Urdu meeting/follow-up paraphrase with a
+  broken English loan (“follow up”), still not
+  the spoken mix.
+
+### D — audio chat
+
+- File upload `POST /v1/files` **worked**
+  (`purpose=user_data`, 51978 bytes).
+- Live `gpt-audio` is **not** supported on the
+  Responses API.
+- `gpt-4o` Responses `input_file` is document
+  stuffing: `.ogg` audio rejected (allowed list
+  is pdf/docx/txt/… — no audio).
+- Chat `input_audio` needs inline base64. Code
+  cannot read filesystem-v2. A pin would be a
+  different program (Phase 1).
+- **D cannot be proven on a real stored object
+  in n8n.** English/books: n/a.
+
+## Recommendation
+
+None of A/B/C recovered trilingual speech on
+this clip. D is unreachable for real stored
+audio. **The evidence pane is the only
+defence.** That is the true answer, not a
+deferral.
+
+Do not add `language` (trap locked; B already
+shows an English prefix wiping the mix). Do
+not add a Whisper `prompt` on live Transcribe
+(it is a prefix, not a glossary). Do not PUT
+`verbose_json` or `gpt-4o-transcribe` onto
+WF-10 in this packet: verbose_json diagnosed
+`urdu` and listed segment fields, and did not
+save English or the books ask; C needs an
+`.ogg` filename remap the live Whisper node
+does not do, and still dropped the mix.
+
+Leave follow_ups `96461882` / `2fd8c529`.
+Owner may archive the TEST when done.

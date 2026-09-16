@@ -3285,24 +3285,30 @@ only):
    `binary.asset.data === 'filesystem-v2'`. A pin
    stops the run.
 6. Fan-out HTTP Request, multipart `formBinaryData`
-   field `asset`, **no `language` key**:
+   field `asset`, **no `language` key**. After the
+   filesystem-v2 gate a Code node copies binary
+   metadata only and sets `fileName` `clip.ogg`
+   (Telegram `.oga` is rejected by
+   `gpt-4o-transcribe`; Code does not read bytes).
    - **A** `whisper-1` `response_format=verbose_json`
    - **B** same + `prompt` naming LEAP, the loaded
      `full_name`, and the loaded company
-   - **C** Pick models transcribe id, `verbose_json`
-   - **D** `POST /v1/files` then Responses/chat with
-     that `file_id` asking for a faithful
-     language-preserving transcript **and** an English
-     rendering. Code cannot read filesystem-v2 bytes,
-     so D is file-id, never inline base64. If the live
-     chat model rejects the file, that failure is the
-     measurement.
+   - **C** Pick models transcribe id,
+     `response_format=json` (`verbose_json` is
+     rejected on `gpt-4o-transcribe`)
+   - **D** `POST /v1/files` then Responses with
+     `file_id`. Live `gpt-audio` is not on
+     Responses; `gpt-4o` `input_file` rejects
+     audio. Inline base64 is not legal here.
 
 Last node **Report** reads A/B/C/D by name: raw text,
 detected language, segment field names, Latin/Arabic
 counts, English-survived, books-ask. Nothing is
-written to Postgres. Owner archives the TEST when
-done.
+written to Postgres. Measured 16 Sep execs
+**486506** / **486521** / **486532**: none recovered
+trilingual speech. Evidence pane stays the defence
+(`docs/plans/phase-15-transcription.md`). Owner
+archives the TEST when done.
 
 ---
 

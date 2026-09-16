@@ -1115,6 +1115,11 @@ trilingual speech, the evidence pane stays the
 defence (12.5g). That is an acceptable answer when
 it is the true one.
 
+**Measured 16 Sep** (TEST execs 486506 / 486521 /
+486532). None recovered the mix. D unreachable on
+a real stored object. Evidence pane stays the
+defence. No live PUT.
+
 ---
 
 ## Field operations during LEAP
