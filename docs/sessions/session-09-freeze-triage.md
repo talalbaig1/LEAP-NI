@@ -406,8 +406,7 @@ same-capture `contact-v1` run. Existing rows immutable.
 | title, company | fill NULL only. Same as email/phone. |
 | no asset run | contact-v1 is the whole composition. S7a ER → WF-05 reads that only run. |
 
-Telegram contact names are owner labels ("Fazal From
-Bahrain…"). They become `full_name` only when they are
+Telegram contact names are owner labels ("Fazal From Bahrain Provide Discounts For Students"). They become `full_name` only when they are
 the only name. A cleaner asset-derived name is kept.
 
 #156 owner-confirmed same man: v6 keeps asset/note name
@@ -486,16 +485,16 @@ Do not PUT until authorised. Likely fix: forward
 
 **10.1 log — do not act here**
 
-- #210 minted "Zuhair 100 Ventures Jeddah"
-  (+966554936765), duplicate of "Zohair" on #174. Same
-  man, no email, no auto-link. Merge in 10.1.
+- #210 minted Telegram label "Zuhair 100 Ventures Jeddah"
+  (+966554936765), duplicate of person name "Zohair" on
+  #174. Same man, two rows, label vs name. No email, no
+  auto-link. Merge in 10.1.
 - **Do not replay #167 or #174.** Owner re-shared those
   contacts by hand today; replay would mint a third row.
 - Replay list is **seven:** #151 #156 #157 #165 #184
   #185 #203.
 - Telegram contact labels as `full_name` is correct when
-  they are the only name; clean in 10.1 (e.g. Fazal
-  From Bahrain…, Zuhair 100 Ventures Jeddah).
+  they are the only name; clean in 10.1 (e.g. "Fazal From Bahrain Provide Discounts For Students", "Zuhair 100 Ventures Jeddah").
 
 ### 10.2c-fix PUT 7 Sep (authorised)
 

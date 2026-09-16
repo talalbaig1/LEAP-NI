@@ -398,18 +398,19 @@ Merge duplicates **by suggestion only** — never auto-merge
 on name (`rules.md` §7 rule 5):
 
 - Ali Abbas ×2
-- probable أشرف = Ashraf Abu Elayyan
-- probable Imad = Imad Afyouni
-- **Zuhair 100 Ventures Jeddah** (#210, tel +966554936765)
-  = **Zohair** (#174). Same man, two rows, no email on
-  either so nothing auto-linked. Logged 7 Sep after T2.
-  Do **not** replay #174.
+- Arabic single-token name `أشرف` matched Latin full name
+  `Ashraf Abu Elayyan` (script pair, same human; the proof is
+  the pair of scripts, not string-equal)
+- Short given name `Imad` matched Latin full name `Imad Afyouni`
+  (given vs full, same human)
+- Telegram label `Zuhair 100 Ventures Jeddah` (#210, tel
+  +966554936765) = person name `Zohair` (#174). Same man, two
+  rows, label vs name. No email on either so nothing
+  auto-linked. Logged 7 Sep after T2. Do **not** replay #174.
 
 Telegram contact labels that became `people.full_name`
 because they were the only name (correct 10.2c behaviour)
-need cleaning here, not in capture: e.g. "Fazal From
-Bahrain Provide Discounts For Students", "Zuhair 100
-Ventures Jeddah".
+need cleaning here, not in capture: e.g. "Fazal From Bahrain Provide Discounts For Students", "Zuhair 100 Ventures Jeddah".
 
 **S7b replay.** 10.2c-fix PUT landed (`6fa41bc4`).
 **#151 PASS** (WF-04 `383289`, person minted). Remaining
@@ -453,7 +454,7 @@ company_id)` — two current employers are allowed.
 | 3 | Zahid `bc1a347f` | `4e51b68d` | phone | WA draft | |
 | 4 | Awais `ae02af5e` | `8ae2ea22` | phone | WA draft | dropped dup IVY link |
 | 5 | Rana `fc2ba74f` | `4ef3824c` | **phone only** | WA draft | name stays Rana Waleed |
-| 6 | Zuhair `f60aebe7` | `3be1d85e` | phone | WA + 1 interaction | renamed Zohair → **Zuhair** |
+| 6 | Zuhair `f60aebe7` | `3be1d85e` | phone | WA + 1 interaction | renamed Zohair → **Zuhair** (spelling of the same name) |
 | 7 | DES RAJ `61b14e31` | `1905fff3` | none (Aliph kept) | cancelled LI + 1 interaction | Utopian added as **second** `person_companies`; live channels stay email+WA |
 | 8 | Ashraf `10cf0540` | `39d9fffa` | SEED link | cancelled LI | one live LinkedIn remains |
 | 9 | Ali Abbas `4efe1828` | `d887ab79` | — | — | empty duplicate; dropped dup Blossom |
@@ -466,8 +467,7 @@ case. Needs `person_emails` (or equivalent). See
 packet **12.3**. Outreach already dual-To: on the haramain
 draft.
 
-Part C — rename: `"Fazal From Bahrain Provide
-Discounts For Students"` `fab486c2` → **Fazal**.
+Part C — rename: `"Fazal From Bahrain Provide Discounts For Students"` `fab486c2` → **Fazal**.
 Zuhair label handled by merge 6. Waleed Ahmad Dammam
 moot (merge 5). **Aadil Abbasi USA: not touched**
 (two test rows remain).

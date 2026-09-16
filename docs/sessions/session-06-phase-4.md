@@ -110,7 +110,7 @@ the 30-day cache only. It never bypasses `apollo_daily_ceiling` or
 
 **Match test is `name` non-empty after trim, never `person.id`.**
 
-Do not reopen Imran on `ikhalid@`, Arabic-only names, or `wf04-v5`
+Do not reopen Imran on the `…lid@` row (OCR split vs `…ld@`), Arabic-only names, or `wf04-v5`
 phone preference. Those are Phase 3 data.
 
 ---

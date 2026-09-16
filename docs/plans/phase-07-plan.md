@@ -19,8 +19,8 @@ limits are in §L, not buried in a node list.
 ## Binding rules this plan will not violate
 
 - **No auto-send.** `masterplan.md` §4 decision 12. The system
-  drafts; the owner taps Send. Same card produced `ikhaild@` and
-  `ikhalid@`.
+  drafts; the owner taps Send. Same card produced `…ld@` and
+  `…lid@`.
 - **Confirm shows recipient address, subject, body, every
   attachment filename.** The owner is approving the recipient as
   much as the text.
@@ -114,7 +114,7 @@ Stop at the first step that yields a match. Max 5 rows.
 
 Disambiguation is **Telegram buttons first** (one hand). Re-issued
 command is the fallback when the list is wrong or the email is the
-only join key (OCR-split `ikhaild@` / `ikhalid@` — the owner picks
+only join key (OCR-split `…ld@` / `…lid@` — the owner picks
 by address, which is the point of constraint 2).
 
 Do not auto-merge on name. Do not honour “just use the other

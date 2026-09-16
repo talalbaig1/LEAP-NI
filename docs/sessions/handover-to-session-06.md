@@ -159,7 +159,7 @@ backfill.
   card or a voice note instead.` Counts 55 / 59 / 61.
 - QR: #68 `other` / #69 `business_card`. Operational rule in
   `workflows.md` / `architecture.md`.
-- Locked decisions: pre-event scope; Imran on `ikhalid@`; Arabic-only
+- Locked decisions: pre-event scope; Imran on the `…lid@` row (OCR split vs `…ld@`); Arabic-only
   names accepted; `wf04-v5` phone preference.
 
 ## Overnight clocks (report, do not "fix" zeros)
