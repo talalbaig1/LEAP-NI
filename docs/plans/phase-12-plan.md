@@ -418,6 +418,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
 | **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039 applied** (`20260916090802`) | WF-10 only. Rollback `e9204581`. Published `a4d02063`. No WF-01/02/03/05/06/09 PUT. |
 | **12.5d** | WF-10 last-node contract. Stop postgres `{success:true}` swallowing compose. | none | WF-10 only. Rollback `a4d02063`. Published `cca31bc9`. `e9204581` has the same defect. No WF-01/02/03/05/06/09 PUT. Rule 26. |
+| **12.5f** | `/followup` up to history contract. English lock, garble gate, D-I signature, D-F evidence. Prompt `wf10-v3`. | none | WF-10 only. Rollback `cca31bc9`. Published `eeb9dc09`. No WF-01/02/03/05/06/09 PUT. No Transcribe `language`. No picker / Voice disambiguate? change. follow_ups `96461882` not edited. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -728,6 +729,51 @@ Platform errors are owned by it, inside no tenant. D-O.
   matches. Confirm card prove is the owner retap of
   picker message_id 1031.
 - 12.5b PART B still waiting.
+
+## Acceptance (12.5f — applied 16 Sep)
+
+- Rollback named before PUT: `cca31bc9` (12.5d).
+- New published `eeb9dc09` (12.5f). POST `/activate`.
+- `Extract draft` prompt `wf10-v3` carries the history
+  sibling English lock in the same words: `Write in
+  ENGLISH even if the transcript is Arabic, Urdu, or
+  mixed.`
+- Garble gate on Parse extract: explicit markers, or
+  neither person/company nor topic. Non-Latin is not a
+  reject. No `shahzad` special case.
+- `sender_profile.signature_block` appended as History
+  parse (HTML wrap). Load is LEFT JOIN on caller
+  `owner_id`. Gmail send `emailType=html`.
+- Compose confirm shows raw transcript beside the
+  draft (Telegram only). Garble WARNING when the gate
+  fires. Never inside the stored body (D-F).
+- `prompt_version='wf10-v3'` on Insert draft / Update
+  draft / Insert brief draft / Record script flags /
+  Record script.
+- Transcribe `language` still absent. `verbose_json`
+  still not requested. Session 08 handover-to-session-09
+  post-event item 3 still logged; not fixed here (D1).
+- follow_ups `96461882` not edited (C3).
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+- E2 (owner phone Urdu/mixed `/followup`) is the owner.
+
+## Finding (12.5f D2) — composer-fix fan-out
+
+Phase 10 composer fixes (English lock, garble
+heuristic, D-I signature, D-F evidence) were applied
+to the **history path only** (`Extract history draft`
+`wf10-hist-v4`, `History compose`, `History parse`,
+`History evidence`). Live `/followup` `Extract draft`
+stayed on `wf10-v2` and produced Urdu bodies
+(12.5e, follow_ups `96461882`).
+
+Any future compose fix must state explicitly which
+prompts it touches. A fix to one composer must name
+the other (`Extract draft` and `Extract history
+draft`). Divergent prompts are a defect unless a
+named packet chose the difference.
 
 ## Logged, do not fix in 12.5a
 

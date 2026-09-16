@@ -2762,8 +2762,14 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`cca31bc9`**
-after packet **12.5d** (last-node contract). Rollback
+Published **`eeb9dc09`**
+after packet **12.5f** (`/followup` history contract,
+prompt `wf10-v3`). Rollback **`cca31bc9`** (12.5d
+last-node). Prior **12.5d** graph **`cca31bc9`**.
+Packet
+**12.5f** brings `/followup` up to the history
+contract (English lock, garble gate, D-I signature,
+D-F evidence pane). Prompt **`wf10-v3`**. Prior rollback
 **`a4d02063`** (12.5a). `e9204581` carries the same
 swallow — do not roll back to it as a remedy.
 Prior **12.5a** graph **`a4d02063`**
@@ -2777,7 +2783,10 @@ Prior rollback **`<WF10_PUBLISHED_CH5>`**
 batch), **`<WF10_ROLLBACK_DESRAJ>`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
-in English. Every body starts with a greeting by name.
+in English (`Write in ENGLISH even if the transcript
+is Arabic, Urdu, or mixed` — same words on
+`Extract draft` `wf10-v3` and `Extract history draft`
+`wf10-hist-v4`). Every body starts with a greeting by name.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
 short plain copy on Telegram (no Gmail), with `wa.me`
 click-to-chat (Meta FAQ) or a LinkedIn people-search
@@ -3023,14 +3032,27 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     Same for **Load owner cc voice** and **Load history cc**.
     **Load history cc** also returns `mailbox_linked` `yes`/`no`
     from `lni_settings` key `mailbox_linked` (039 / D-M).
+    **Load owner cc** / **Load owner cc voice** also
+    `LEFT JOIN sender_profile` on caller `owner_id` and
+    return `signature_block` (D-I). Empty profile is
+    empty signature, not a hard fail (History load is
+    INNER JOIN — remaining difference).
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
-    OpenAI audio, `language` **absent**. False → skip.
+    OpenAI audio, `language` **absent**. No `verbose_json`
+    (session 08 post-event item 3; 12.5f D1 leaves it).
+    False → skip.
 16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
-    Responses JSON schema `wf10-v1`. Fields: `recipient_ref`,
-    `agreed`, `send_what`, `deadline`, `subject`, `body`. All
-    strings; no “return null”. System prompt: address the person
-    by the supplied `full_name`; never bracketed placeholders.
-    Do not write the transcript to `audit_log`.
+    Responses JSON schema `wf10_v2`. Fields: `recipient_ref`,
+    `agreed`, `send_what`, `deadline`, `subject`, `body`,
+    `selected_asset_ids`, `unmatched_requests`. All strings
+    except the two arrays; no “return null”. System prompt:
+    address the person by the supplied `full_name`; never
+    bracketed placeholders. **English lock (12.5f, same
+    words as `Extract history draft`):** `Write in ENGLISH
+    even if the transcript is Arabic, Urdu, or mixed.`
+    Prompt version **`wf10-v3`**. Do not write the
+    transcript to `audit_log`. Do not add `language` on
+    Transcribe.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
@@ -3041,25 +3063,54 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     bracketed placeholders; the guard is enforcement.
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
+    **Garble gate (12.5f).** Same heuristic as
+    `History compose`: unusable on explicit markers
+    (`aaa aaa` / `sulphur` / `netengine bus` /
+    `inaudible`) **or** when the transcript names
+    neither person nor company AND has no topic.
+    Non-Latin script is **not** a reject. Do **not**
+    port the history `shahzad` special case. Unusable
+    still extracts (no `/followup` template path);
+    `unusable_reason` travels to the confirm card.
+    **Signature (D-I, 12.5f).** Appends caller
+    `sender_profile.signature_block` the way
+    `History parse` does: HTML-escape the letter,
+    wrap in the Georgia div, concatenate the HTML
+    block. Stored `body` is the sendable HTML.
+    Plain `letter` + stripped signature stay on
+    the item for Telegram. `Gmail send` /
+    `Gmail send files` `emailType=html` (match
+    History Gmail draft). Owner-scoped; not
+    hardcoded.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v1'`, `title` = subject.
+    `prompt_version='wf10-v3'`, `title` = subject.
+    Same version on **Update draft**, **Insert brief draft**,
+    **Record script flags** / **Record script**.
     `due_at = NULLIF($4::text, '')::timestamptz` (empty string
     cannot be bound as timestamptz). `RETURNING id`.
     `owner_id` from **Normalize input**. `interaction_id`
     subquery is `person_id AND owner_id` (12.5a E). Same on
-    **Insert awaiting voice** and **History insert**.
+    **Insert awaiting voice**, **History insert**, and
+    **Update draft** (12.5f, was missing `owner_id`).
     **History load** LATERAL/EXISTS clauses are owner-scoped.
     **Mailbox linked?** after **History is email?**: `yes` →
     Gmail draft; `no` → **History copy insert** (Telegram
     copy-text, D-M).
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
-20. **Compose confirm** — plain text. Full `to_email`, CC,
-    subject, full body, attachment filenames or `(none)`, omitted
-    list if any. `reply_markup` buttons: `f7:s:<id>` Send,
+20. **Compose confirm** — plain text (Sweep notify flag
+    HTML-escapes). Full `to_email`, CC, subject, plain
+    letter + stripped signature, attachment filenames or
+    `(none)`, omitted list if any. **Evidence pane
+    (D-F, 12.5f):** raw transcript beside the draft on
+    this Telegram card. Never inside the stored body.
+    Garble `WARNING:` when Parse extract `unusable_reason`
+    is set. Transcript truncated at 2800. Long cards
+    split: draft + buttons on `reply_text`, transcript
+    on `reply_text_2`. `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
     → Sweep notify flag → Sweep source? (false for
     command/callback/done) → Sweep auto-done? false →
@@ -3068,6 +3119,8 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     After 9.6: `Sweep notify flag` HTML-escapes `reply_text` /
     `reply_text_2`. WF-01 followup senders and WF-10 sweep
     senders are `parse_mode: HTML`. Real newlines.
+    follow_ups `96461882` is 12.5e evidence — do not
+    retro-fix (12.5f C3).
 
 **Voice path** (`source=voice` is a non-functional stub pending 7.4)
 
