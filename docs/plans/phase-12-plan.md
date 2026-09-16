@@ -594,6 +594,13 @@ Platform errors are owned by it, inside no tenant. D-O.
 - Drop the column-only unique in **12.2 remainder** when
   WF-01 Insert asset is PUT to
   `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+- STEP 2: WF-01 **483617** success photo `57b0e023`
+  stored 91339; **483620** success voice `cdccd64e`
+  stored 16378. assets 191 → 193.
+- STEP 3: 7 published ON CONFLICT clauses, all parse
+  (rolled-back EXPLAIN). Zeros: WF-00/03/04/06/07/08/10.
+  No published graph infers the 034 composite assets
+  unique or `bot_state_telegram_user_id_key`.
 
 ## Acceptance (later — do not execute here)
 

@@ -910,6 +910,17 @@ remainder** when that packet PUTs WF-01 Insert asset to
 `ON CONFLICT (owner_id, telegram_file_unique_id)`.
 030 still absent.
 
+STEP 2 live phone (not the report): WF-01 **483617**
+success photo Insert asset `57b0e023` stored 91339;
+WF-01 **483620** success voice Insert asset `cdccd64e`
+stored 16378. assets **191 → 193**.
+
+STEP 3 ON CONFLICT audit: 7 clauses in published graphs.
+All 7 parse against a live unique today (rolled-back
+EXPLAIN). WF-00/03/04/06/07/08/10 zero. No published
+graph infers `assets_owner_id_telegram_file_unique_id_key`
+or `bot_state_telegram_user_id_key`.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
