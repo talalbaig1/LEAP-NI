@@ -164,7 +164,7 @@ merge the rows in this packet.**
 
 ## D-K — Rashid domain
 
-**Exclude** `rashid@kacaib.com`. OCR transposition of
+**Exclude** `rashid@kacaib.com` (domain transposition: one-char swap `…cai…` vs `…aci…`). OCR transposition of
 `rashid@kaacib.com` (live website, real company domain).
 One email to Rashid, not two. Filter the typo in the
 history SELECT.

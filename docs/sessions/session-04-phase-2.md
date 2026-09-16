@@ -141,7 +141,7 @@ person: same. Speech that only refers: `full_name` null, dropped,
 
 #58 and #60 are the same physical card, captured twice. Vision job
 `1564abc3` (locked, Option 3 — do not rewrite) read
-`ikhaild@sa.qatarairways.com`. The later photo read
+`ikhaild@sa.qatarairways.com` (OCR split: one-char latinisation `…ld@` vs `…lid@`). The later photo read
 `ikhalid@sa.qatarairways.com`. Exact `email_normalized` cannot merge
 them. Name similarity must not auto-merge (shared family names at this
 event would quietly corrupt the set).
@@ -160,7 +160,7 @@ Still a suggestion — never an automatic link.
 
 Live row `affab30d-…`, decision `pending`, reasons
 `same_full_name`, `same_company`,
-`emails_differ: ikhaild@sa.qatarairways.com vs ikhalid@sa.qatarairways.com`.
+`emails_differ: ikhaild@sa.qatarairways.com vs ikhalid@sa.qatarairways.com` (one-char latinisation `…ld@` vs `…lid@`).
 Awaiting owner decision. Do not auto-accept it.
 
 ### Requeue without backoff — named Phase 3 item, do not “fix” now
