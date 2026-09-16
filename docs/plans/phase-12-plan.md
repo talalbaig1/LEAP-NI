@@ -381,6 +381,9 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-07 `/digest` Load digest `$1` from caller payload.
   Hourly fan-out per owner local hour. Gmail fail-closed.
 - WF-08 Retrieve corpus `$1` still caller `owner_id`.
+- WF-00 published `be1e7b71` (rollback `5ec180fd`).
+  WF-07 published `9197f7a3` (rollback `fb9ee1c4`).
+  WF-08 published `8b835659` (rollback `b699e7d6`).
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
 - Full cross-tenant isolation is **not** proven (12.5).
