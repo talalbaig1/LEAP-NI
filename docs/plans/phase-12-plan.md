@@ -722,10 +722,10 @@ unchanged). Do not PUT this in 12.5a.
 
   | Row | What | Why it stays |
   |---|---|---|
-  | capture `#217` `6bcc2fe1` | `processing`, `close_reason=explicit`, closed 16 Sep 10:47Z, event `042e02b7` | Deliberate permanent `leftover_processing` finding. WF-09 Scan uses this owner's `event_id`. |
+  | capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted (12.7). |
   | job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h` finding. Proves skip-send when `chat_id` and `digest_email` are empty. |
   | job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. No Apollo spend. |
-  | job `b47ddee0` | `card_vision` `queued` attempt 0 on asset `ed29a4a0` | C2 unattended drain fixture. Synthetic JPEG, owner-prefixed path. |
+  | job `b47ddee0` | `card_vision` **`succeeded`** attempt 1 on asset `ed29a4a0` | C2 drain ran. Was queued at plant. |
   | asset `ed29a4a0` | `kind=photo` `stored` 8335 B HEAD, sha256 from stored GET | C2 bytes. Path first segment is the test tenant. |
   | person `de10f49f` | D3probe | C4 enrichment probe. |
   | person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
