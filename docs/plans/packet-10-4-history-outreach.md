@@ -265,6 +265,10 @@ null). Re-run cannot double-draft.
 - Gmail draft + real attachment proven before the batch:
   `LNI-TEST- 10.4b gmail draft attach` `YjgQeHvlRigRzugm`
   exec **461630**. Owner should delete that test draft.
+  **12.5a-0b:** that TEST workflow and
+  `LNI-TEST- 10.4b delete drafts` were ACTIVE
+  unauthenticated webhooks; both deactivated then
+  archived (not deleted). Production POST 404.
 - First dry run **rejected**. Martin was a pre-event
   test-card (hand-passed list; History load had no
   `created_at` / `LNI %` / example-email filter). Rashid

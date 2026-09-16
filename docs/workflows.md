@@ -275,6 +275,11 @@ do not delete, do not re-send. LNI-TEST-7.16-driver
 `iqAx0KwCsTbb32BY` inactive unless a packet activates it
 (GET after 9.8: `active=false`, version `d69aa9d0`).
 
+**12.5a-0b.** Published WF-01 `4836ffd8` still has
+webhook node `Driver ingest` (unauthenticated, wired
+into Allowlist). Cause-only; **no PUT**. Two
+`LNI-TEST- 10.4b` throwaways archived (not deleted).
+
 **Owner regression 29 Aug 11:12–11:19 Riyadh (08:12–08:19Z).**
 
 | What | Proof |

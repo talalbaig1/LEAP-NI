@@ -401,6 +401,7 @@ held. Not the permanent harness.
 | **12.4c** | Reconcile `ca2f3d35`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
 | **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
 | **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `226fe197`. 12.5a C/D/E/G wait. |
+| **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -617,6 +618,19 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-01 `4836ffd8` / draft `e454df40`. WF-06 `356a2d1f`
   / draft `76840a2a`. No other workflow PUT.
 - 12.5a C/D/E/G unstarted.
+
+## Acceptance (12.5a-0b — applied 16 Sep)
+
+- `LNI-TEST- 10.4b gmail draft attach` and
+  `LNI-TEST- 10.4b delete drafts`: `active=false`,
+  `isArchived=true`. POST production URLs 404. Not
+  deleted.
+- WF-01 unchanged: published `4836ffd8`, draft
+  `e454df40`. `Driver ingest` still on the published
+  graph (cause-only; no PUT).
+- README policy did not hold (119-commit audit). No
+  history rewrite. No force-push.
+- 12.5a C/D/E/G unstarted. PR #81 unmerged.
 
 ## Logged, do not fix in 12.5a
 

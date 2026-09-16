@@ -387,6 +387,14 @@ Jobs: `1564abc3`, `f6a1e703`. Ledger: `73fc2831`
 (Apollo confirmed / 1 for a 0-credit probe; lifetime
 over-count of 1; do not edit).
 
+**12.5a-0b (16 Sep).** Two `LNI-TEST- 10.4b` throwaways
+archived (gmail draft attach / delete drafts). Do not
+un-archive. Do not delete. WF-01 **no PUT**: published
+`4836ffd8` still has unauthenticated `Driver ingest`
+wired into Allowlist. Cause-only in this packet.
+README policy did not hold (see 12.5a-0b report). Do
+not rewrite git history.
+
 Do not PUT WF-01 unless a packet says so. Do not merge
 the two Muhammad Zahir rows. Do not set the 61 pending
 candidates to `rejected`. Do not activate WF-00b or

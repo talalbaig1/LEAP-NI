@@ -950,6 +950,32 @@ waits). Published **`e9204581`**. Rollback
 **`226fe197`**. 12.5a C/D/E/G unstarted. No other
 workflow.
 
+### Packet 12.5a-0b — close TEST webhooks; Driver ingest cause-only (16 Sep)
+
+Severity 1 first. Two ACTIVE unauthenticated
+`LNI-TEST- 10.4b` throwaways (gmail draft attach /
+delete drafts) deactivated then **archived** (session
+08 pattern: archive, do not delete). Production POST
+both 404. **No WF-01 PUT.** Published WF-01 stays
+`4836ffd8`; draft `e454df40` unpublished.
+
+Cause only on WF-01 `Driver ingest` (GET published
+`4836ffd8`): unauthenticated webhook, wired into
+Allowlist beside Telegram Trigger. Allowlist keys off
+Telegram-shaped `$json.message.from.id`. Classify
+reads `$('Telegram Trigger')`, not Driver ingest.
+Default wrapped POST fails allowlist (session-09 exec
+**273668**, now pruned). Residual: endpoint still
+registered on ACTIVE WF-01. Own PUT, not this packet.
+
+Repo literal audit (all **119** commits, not 31):
+README policy **did not hold**. Project ref, workflow
+ids, credential ids, owner uuid prefix, and emails
+are in tracked docs. n8n host, telegram_user_id,
+platform / test-tenant uuids, NIWL header cred: **zero**
+in git. No history rewrite. 12.5a C/D/E/G unstarted.
+PR #81 unmerged.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
