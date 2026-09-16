@@ -30,6 +30,8 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
+| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. Cron: every **tenant** `bot_state.owner_id` (never the platform owner). Fingerprint: `lni_instance` (12.1), **not** `events.name = 'LEAP 2026'` | Q4 locked. After 12.1 the string `LEAP 2026` is not in workflow logic. Do not hardcode `<OWNER_ID>`. Do not take owner from `$env`. Inert test tenant (037 / 12.2b-i) has `events` but **no `bot_state`**: invisible to `List due owners`, WF-01 allowlist, and every cron. `/digest` Load digest `$1` still returns a row from `events`. Missing `digest_email` → `owner_email` `''` → `Email skipped` (D2d). |
+| Credentials (Phase 12) | **Fail closed.** No linked mailbox → no Gmail draft, no digest email (Telegram copy-text, D-E). No Apollo ceiling row → ceiling 0 | Q3 / D-M. A second tenant's drafts in the live owner's mailbox is a privacy defect. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
 
@@ -273,6 +275,11 @@ do not delete, do not re-send. LNI-TEST-7.16-driver
 `<TEST_716_DRIVER_WF_ID>` inactive unless a packet activates it
 (GET after 9.8: `active=false`, version `d69aa9d0`).
 
+**12.5a-0b.** Published WF-01 `<WF01_PUBLISHED>` still has
+webhook node `Driver ingest` (unauthenticated, wired
+into Allowlist). Cause-only; **no PUT**. Two
+`LNI-TEST- 10.4b` throwaways archived (not deleted).
+
 **Owner regression 29 Aug 11:12–11:19 Riyadh (08:12–08:19Z).**
 
 | What | Proof |
@@ -369,17 +376,20 @@ Receives errors from every LNI workflow.
    committed file (the repo is public; masterplan.md §5; architecture.md
    §2 rule 2):
 
-   - `owner_id` ← parameterised
-     `SELECT owner_id FROM public.events WHERE name = $1 LIMIT 1`
-     with `$1` bound from the Code node field `event_name` (`'LEAP 2026'`,
-     the public 009 seed). `queryReplacement` is the array expression
-     `{{ [event_name, workflow_name, node_name, execution_id,
+   - `owner_id` ← `lni_instance.platform_owner_id` (D-O).
+     A tenant error is never written as that tenant's row
+     and never as the live owner's row. Packet 12.2.
+     `queryReplacement` is the array expression
+     `{{ [workflow_name, node_name, execution_id,
      redacted_message, request_id] }}` — not a CSV, not `.join()`.
-   - `chat_id` ← parameterised
-     `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
-     using the resolved owner.
+     Routing: alerts stay on the operator chat.
+     Ownership: platform `audit_log.owner_id` is the D-O
+     identity, not the live tenant. The string `LEAP 2026`
+     does not appear in this workflow.
+   - `chat_id` ← `lni_settings` key `operator_chat_id`
+     under the platform owner (035). **Not** `bot_state`.
 
-   If the events lookup returns no `owner_id`, **THROW** rather than skip
+   If the `lni_instance` lookup returns no `platform_owner_id`, **THROW** rather than skip
    the write. An error handler that silently drops errors is worse than
    no error handler.
 
@@ -404,11 +414,11 @@ Receives errors from every LNI workflow.
    change can disable it silently. The row-returned gate above is what
    must hold.
 
-   If `bot_state` returns no row, `chat_id` is empty and repeated failures
-   take the undeliverable path. Migration `012` seeds the owner `bot_state`
-   row (the same row WF-01 uses as the allowlist), so alerts should deliver
-   once it is applied. The undeliverable INSERT remains if that row is
-   missing: visible, not silent.
+   If `operator_chat_id` is empty, `chat_id` is empty and repeated failures
+   take the undeliverable path. Migration `035` seeds that key under the
+   platform owner from the live owner's `bot_state.telegram_user_id`, so
+   alerts should deliver once it is applied. The undeliverable INSERT
+   remains if that key is missing: visible, not silent.
 
    Implement the two lookups **and** the undeliverable INSERT in the
    **same** parameterised `executeQuery` as the `workflow_error` INSERT
@@ -777,7 +787,7 @@ LNI bot only and must not disturb any ElderWise webhook.
       Telegram → `stopAndError` (`Storage mismatch terminal`). Do **not**
       write the assets row. PUT `{Key, Id}` is not a size. Verified
       26 Aug 2026: this Supabase build returns `Content-Length` on HEAD.
-   g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`. Published graph still infers the column-only unique. 034 dropped it (42P10). **038 / 12.4e** restored `assets_telegram_file_unique_id_key` TEMPORARY. Packet **12.2 remainder** PUTs this clause to `ON CONFLICT (owner_id, telegram_file_unique_id)` then drops the column-only unique. No WF-01 PUT in 12.4e.
    h. **ONLY NOW** send if `reply_text` is a non-empty string. Nothing else.
       WF-02 already returned empty `reply_text` for batch and for
       non-adopted resolves. An `adopted` or `mode != batch` test here
@@ -2119,31 +2129,64 @@ only. Cache skip must not reach the provider.
 
 ## WF-07 — Digests
 
-**Phase 3** · **Triggers:** two Schedule Triggers + Execute Workflow Trigger.
+**Phase 3** · **Triggers:** one hourly Schedule Trigger + Execute Workflow Trigger.
 
-`scheduleTrigger` v1.3 has **no node-level timezone**. Both crons are
-bare expressions (`0 22 * * *`, `0 7 * * *`). Timezone is
-**`settings.timezone: Asia/Riyadh` only.** A UTC container with no
-workflow timezone fires 7 AM at 10 AM Riyadh. Proof of timezone is an
-**observed execution `startedAt`**, never the cron string.
+`scheduleTrigger` v1.3 has **no node-level timezone**. The cron is
+the bare expression `0 * * * *`. Workflow `settings.timezone` stays
+`Asia/Riyadh` (skill §6). Per-owner local hour is
+`EXTRACT(HOUR FROM (now() AT TIME ZONE events.timezone))` — not the
+cron timezone. A 22:00 / 07:00 Asia/Riyadh pair would skip a second
+tenant entirely.
 
 Workflow ID on the instance: `<WF-07_WORKFLOW_ID>`. Never commit the
 literal. Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 `executionTimeout: 300`, timezone `Asia/Riyadh`,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
 these — REST PUT after create, then read-back. Postgres credential
-**Leap-NI**. First execution self-identifies
-(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Gate
-`Row returned?`: `name` **equals** `LEAP 2026`, `typeValidation:
-strict` (same as WF-03/04/05). Wrong database → `stopAndError`
-(`Wrong database terminal`). Message: no comma, quote, or apostrophe.
-Self identify: `executeOnce: true` and `options.replaceEmptyStrings:
-false` explicit in saved JSON.
+**Leap-NI**. Fingerprint: `SELECT name FROM public.lni_instance`
+(`executeOnce: true`, `replaceEmptyStrings: false`). Gate
+`Row returned?`: `name` **equals** `NIS`, `typeValidation: strict`.
+Wrong database → `stopAndError`. Message: no comma, quote, or
+apostrophe. The string `LEAP 2026` does not appear in this workflow.
+
+**Owner_id is never re-derived on `/digest`.** Load digest `$1` is
+the caller's payload `owner_id` (`On demand digest`). The old Self
+identify `SELECT … owner_id FROM events WHERE name = 'LEAP 2026'`
+was the leak (packet 12.2 D1).
+
+**Hourly fan-out.** `List due owners` selects owners with **both** a
+`bot_state` row and an `events` row. Close digest when local hour
+is 22; briefing when 7. One item per owner, carrying that
+`owner_id`. Off-hour → NoOp `Not this hour` (not a send). Manual
+run is the proof; do not wait for 22:00. Due owners then enter
+`Each owner` (SplitInBatches v3, batchSize 1). One owner at a
+time. A failure, empty Load digest, or undeliverable state for
+owner N writes `audit_log` and continues to N+1. It does not
+`stopAndError` the hourly run. `Wait both channels` therefore
+pairs inside the current owner's iteration. `Any delivered?`
+has no `executeOnce` and reads `$json` from that Merge
+(Telegram `result.message_id` or `message_id`; Gmail `id`).
+On-demand (`source = call`) is
+unchanged: `reply_text` back to WF-01; genuine empty Load
+digest still `Empty digest terminal`. Kind on demand `source`
+is the literal `call` — a caller cannot make WF-07 send.
+
+**Gmail is fail-closed (D-M), with a door.** Mailbox linkage is
+`lni_settings` key `digest_email` scoped to Load digest `$1`
+(036, until Phase 14 per-tenant OAuth). Missing key →
+`owner_email` `''` → `Email present?` takes `Email skipped`.
+A hardcoded empty string is not that door. Telegram still
+sends. Do not send a second tenant's digest from the live
+owner's mailbox.
 
 After **Load digest** (`alwaysOutputData: true` kept): IF named Load
 `kind` equals `close` or `brief` (`typeValidation: strict`) AND
-`riyadh_date` notEmpty. False → `stopAndError`. Do not compose. Do not
-send. Do not return to WF-01.
+`riyadh_date` notEmpty. False on the **on-demand** path →
+`stopAndError` (`Empty digest terminal`). False on the
+**scheduled** path → `Record empty digest` (`audit_log.action =
+digest_undeliverable`, `after.reason = empty_digest`, no PII;
+`$execution.id` in `after`, not `correlation_id`) and the loop
+continues. Do not compose. Do not send. Do not return to WF-01.
 
 A real SQL row with captured = 0 is a valid report and SHOULD send.
 An empty item from alwaysOutputData on zero rows is NOT a report and
@@ -2154,9 +2197,8 @@ them apart. Never gate on captured > 0.
 
 | Trigger | `kind` | `source` | Sends? |
 |---|---|---|---|
-| Cron `0 22 * * *` Asia/Riyadh | `close` | `schedule` | Telegram + email |
-| Cron `0 7 * * *` Asia/Riyadh | `brief` | `schedule` | Telegram + email |
-| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text` |
+| Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if `lni_settings.digest_email` is set for that owner (036) |
+| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | literal `call` (Kind on demand). A caller `source` cannot become `schedule`. | no — return `reply_text`. `owner_id` from the caller. |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared
 self-identify node. Source every later field from the **named** node
@@ -2165,17 +2207,17 @@ that produced it, never `$json` after Postgres.
 Optional Execute Workflow inputs (call path only; production `/digest`
 omits them):
 
-- `since` — timestamptz text. Empty → `events.starts_at` for LEAP 2026
-  (read at runtime). Never hardcode a date. The 29 Aug gate test
-  passes `since` so counts are non-zero before the event window
-  opens.
+- `since` — timestamptz text. Empty → the caller's `events.starts_at`
+  (read at runtime by `owner_id`). Never hardcode a date. The 29 Aug
+  gate test passes `since` so counts are non-zero before the event
+  window opens.
 - `kind` — `close` or `brief`. Empty → hour rule above.
 
-### Day (`today`) is Riyadh
+### Day (`today`) is the owner's `events.timezone`
 
 ```sql
-(opened_at AT TIME ZONE 'Asia/Riyadh')::date
-  = (now() AT TIME ZONE 'Asia/Riyadh')::date
+(opened_at AT TIME ZONE e.timezone)::date
+  = (now() AT TIME ZONE e.timezone)::date
 ```
 
 Same pattern for `due_at`, `closed_at`. Never `::date` on timestamptz
@@ -2183,7 +2225,8 @@ without the zone (that is UTC date).
 
 ### 10:00 PM — Day close (deterministic, no model)
 
-One parameterised query, owner-scoped from the self-id `owner_id`.
+One parameterised query, owner-scoped from the caller's or fan-out
+`owner_id` (never re-derived from a fingerprint).
 **Scope lower bound** = `COALESCE($since::timestamptz, events.starts_at)`.
 Counts for **today Riyadh** that also satisfy `opened_at >= scope`:
 
@@ -2274,8 +2317,10 @@ must not copy WF-07's old serial graph.**
 2. Resolve `chat_id` and owner email in the **same** Leap-NI Postgres
    node as the counts if possible; otherwise a second Leap-NI node
    (restore-by-name — a *new* node auto-assigns ElderWise).
-   `chat_id` ← `bot_state.telegram_user_id`. Email ←
-   `auth.users.email` for `events.owner_id`. Never `$env`.
+   `chat_id` ← `bot_state.telegram_user_id` for **that**
+   owner. Email is fail-closed (D-M): no mailbox-link row
+   → skip Gmail. Never `$env`. Never the live owner's
+   mailbox for a second tenant.
 3. Fan-out from `Scheduled send?` **true**. Send in **parallel**. Merge
    **after** both attempts, never before (Telegram `retryOnFail` must
    not delay mail).
@@ -2285,19 +2330,27 @@ must not copy WF-07's old serial graph.**
      `stopAndError`).
    - `Email present?` true → Gmail (`continueOnFail: true`,
      `onError: continueRegularOutput`). False → skip email.
-4. After Merge: IF at least one delivered. Delivery is Telegram
-   `message_id` or Gmail `id` from the **named** send node via
-   `$('Node').first()` — never `.item` (the discarded Merge branch
-   is not an ancestor) and never "the node ran". Keep `isExecuted`
-   guards. A `continueOnFail` item with an `error` is not delivered.
-   True → NoOp `Scheduled done`. False → `stopAndError`
-   (both channels empty or both failed) so WF-00 runs.
+4. After Merge (`combine` / `combineByPosition`, one item
+   per channel of the **current** owner): IF at least one
+   delivered. Delivery is Telegram `result.message_id` or
+   `message_id`, or Gmail `id`, on **that merged `$json`** —
+   never `$('Node').first()` / `.last()` / `isExecuted`
+   (E1: owner 1's Gmail `id` would satisfy owner 2). A
+   `continueOnFail` item with an `error` is not delivered.
+   True → NoOp `Scheduled done` → loop `Each owner`. False
+   on the **scheduled** path → `Record undeliverable`
+   (`audit_log.action = digest_undeliverable`,
+   `after.reason = both_channels_empty`) and continue. False
+   on the **on-demand** path cannot happen (`source = call`
+   returns before send). Audit write failure still
+   `stopAndError` (`Undeliverable digest`) so WF-00 runs.
 5. Empty-item Load digest must not reach compose or send (gate on
    named Load `kind` + `riyadh_date`, not on `captured > 0`).
+   Scheduled empty is an audit row, not an abort-all.
 
 **Must not:** log emails, phones, transcripts, signed URLs; call WF-06;
 deactivate WF-01–05; send on the `call` path (WF-01 owns that send);
-deactivate WF-07 (22:00 timezone proof).
+deactivate WF-07 (hourly fan-out proof).
 
 ---
 
@@ -2317,8 +2370,12 @@ unknown extra fields if present. Empty / missing `question` →
 `ok: true`, `reply_text` = `Usage: /ask <question>` (non-empty, so
 WF-01 sends the hint).
 
-1. **Self-identify** before any read that is not the events probe.
-   Wrong database → `stopAndError`.
+1. **Self-identify** via `lni_instance` (`SELECT name FROM
+   public.lni_instance`, gate `name` equals `NIS`) before any
+   read that is not the fingerprint. Packet 12.2. Wrong
+   database → `stopAndError`. Do not gate on `events.name`.
+   `Retrieve corpus` `$1` is the caller's `owner_id` — do not
+   rebind it.
 2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
    structured filters:
    - `people.full_name % $q` OR `companies.name % $q` OR
@@ -2346,8 +2403,12 @@ WF-01 sends the hint).
    owner is waiting on, not a durable enqueue. Same for `/digest` →
    WF-07.
 
-1. **Self-identify** before any read that is not the events probe.
-   Wrong database → `stopAndError`.
+1. **Self-identify** via `lni_instance` (`SELECT name FROM
+   public.lni_instance`, gate `name` equals `NIS`) before any
+   read that is not the fingerprint. Packet 12.2. Wrong
+   database → `stopAndError`. Do not gate on `events.name`.
+   `Retrieve corpus` `$1` is the caller's `owner_id` — do not
+   rebind it.
 2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
    structured filters:
    - `people.full_name % $q` OR `companies.name % $q` OR
@@ -2700,9 +2761,10 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`<WF10_ROLLBACK>`**
-(172 nodes). Packet 10.1 skip-list PUT 14 Sep.
-Rollback **`<WF10_PUBLISHED_CH5>`**
+Published **`<WF10_PUBLISHED>`**
+(171 nodes) after packet **12.5a-0** (History webhook
+removed). Rollback **`<WF10_ROLLBACK>`**.
+Prior rollback **`<WF10_PUBLISHED_CH5>`**
 (CH1–CH5 close). Prior graphs **`<WF10_PUBLISHED_DESRAJ>`**
 (<CONTACT_14_NAME> + WA/LI dry run), **`<WF10_PUBLISHED_HIST_V4>`** (email
 batch), **`<WF10_ROLLBACK_DESRAJ>`**.
@@ -2712,8 +2774,14 @@ in English. Every body starts with a greeting by name.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
 short plain copy on Telegram (no Gmail), with `wa.me`
 click-to-chat (Meta FAQ) or a LinkedIn people-search
-link plus paste-text. Kick
-`POST /webhook/<WF10_HISTORY_PATH>` with `channel`.
+link plus paste-text. Kick is executeWorkflow
+`source=history` **with caller `owner_id`**. Packet
+**12.5a-0** removed the unauthenticated
+`POST /webhook/<WF10_HISTORY_PATH>` trigger (one-off
+Phase 10 batch tool; path was in the **public**
+LEAP-NI repo). History graph still exists behind
+`When called`. Missing caller `owner_id` is a hard
+error, never Self identify fallback.
 `second_touch` is `draft_state='sent'` only.
 `Extract history draft` is a sibling of live
 `Extract draft` (live expressions would throw).
@@ -2876,17 +2944,19 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 **Shared head**
 
 1. **Manual Trigger** and **When called** (executeWorkflow) both
-   feed **Self identify**.
+   feed **Self identify**. History webhook removed 12.5a-0.
 2. **Self identify** — Postgres
    `SELECT name, owner_id FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`.
-   `executeOnce: true`.
+   `executeOnce: true`. Still returns `owner_id` until 12.5a C1.
 3. **Row returned?** — `name` equals `LEAP 2026`, strict. False →
    **Wrong database terminal** (`stopAndError`:
    `Wrong database LEAP 2026 row missing`).
 4. **Normalize input** — Code. Named-node source. Copies
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
-   `correlation_id` from **When called** when executed, else from
-   the manual item. No backslash regex.
+   `correlation_id` from **When called** when executed.
+   **No fallback** to Self identify `owner_id`. Missing
+   caller `owner_id` throws `WF-10 missing caller owner_id`.
+   No backslash regex.
 5. **Route source** Switch: `command` \| `voice` \| `callback`.
    Fallback → **Unknown source terminal** (`stopAndError`:
    `Unknown followup source`). After any append, re-GET every

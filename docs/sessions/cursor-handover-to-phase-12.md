@@ -5,6 +5,13 @@ Phase 10. You are the implementer. Architect/verifier is Claude.
 Owner is Talal (CCIE; keep replies short).
 
 Public repo: `https://github.com/talalbaig1/LEAP-NI`.
+Public since the first commit (25 Aug 2026). NIWL is a
+separate public repo. Isolating waitlist intake from NIS
+tenants is a product fact. It does **not** keep this
+architecture private. A session-10 briefing that said NIWL
+is "deliberately isolated from LEAP-NI so the architecture
+stays private" was wrong. There is no
+`docs/sessions/session-10-*.md` in this repo to strike.
 `main` only. Phase 10 and packet 10.1 are closed and
 architect-verified.
 
@@ -21,6 +28,27 @@ Phase 12 is **multi-tenancy**. Schema work identified in
 10.1 (`person_emails`, `entity_candidates` pair storage,
 a text config column) is **deferred inside this phase**,
 not a reason to start with a migration.
+
+**12.0a (docs, this window):** `docs/plans/phase-12-plan.md`.
+Q1–Q5 **LOCKED**. D-L ACCEPTED. D-M D-N D-O locked.
+12.1 (catalog 034, not written): `lni_settings` +
+`lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` +
+assets UNIQUE `(owner_id, telegram_file_unique_id)` +
+platform owner seed. Do not write 034 in 12.0a. Do not PUT.
+
+Q1 ACCEPTED — tenant = `owner_id`. No `tenants` table.
+Q2 AMENDED — permanent test tenant. Schema 12.1. **12.2b-i
+applied** (037 inert, no `bot_state`). Live second
+`bot_state` **still slipped** (packet 12.2b).
+Never deleted, never frozen.
+Q3 OVERRIDDEN — fail closed. No mailbox → no Gmail /
+digest email (Telegram copy-text). No Apollo ceiling → 0.
+Q4 OVERRIDDEN — fingerprint is `lni_instance`, not
+`LEAP 2026`. After 12.1 that string is not in workflow
+logic.
+Q5 ROUTING ACCEPTED, OWNERSHIP OVERRIDDEN — operator
+chat for alerts; platform `audit_log` owned by
+`<PLATFORM_EMAIL>` (dotless). No `bot_state`.
 
 ---
 
@@ -42,7 +70,7 @@ changes, someone wrote again — STOP.
 
 | WF | id | active | published `activeVersionId` | draft `versionId` | rollback | nodes |
 |---|---|---|---|---|---|---|
-| 00 | `<WF00_ID>` | true | `<WF00_PUBLISHED>` | same | history-pruned (only current) | 15 |
+| 00 | `<WF00_ID>` | true | `be1e7b71-b55a-4bd8-a318-fa096ae0257d` | same | **12.2 rollback `<WF00_PUBLISHED>`** | 15 |
 | 00b | `<WF00B_ID>` | **false** | none | `<WF00B_SAVED>` | never activate | 6 |
 | **01** | `<WF01_ID>` | true | `<WF01_PUBLISHED>` | **`<WF01_DRAFT>` unpublished autosave** | named `<WF01_ROLLBACK>` (not in live history) | 137 |
 | 02 | `<WF02_ID>` | true | `eddb0f11-644a-47e2-a510-3098a090c510` | same (autosaved 10 Sep 17:40Z) | named `ce51e6f4` 10.2c (history API returns only current) | 98 |
@@ -50,10 +78,10 @@ changes, someone wrote again — STOP.
 | 04 | `<WF04_ID>` | true | `6fa41bc4-175f-4787-8b91-458e502e4a62` | same | named `dafe9b02` 10.2c-fix (history-pruned) | 29 |
 | 05 | `<WF05_ID>` | true | `<WF05_PUBLISHED>` | same | named `<WF05_ROLLBACK>` (history-pruned) | 29 |
 | **06** | `<WF06_ID>` | true | `<WF06_PUBLISHED>` | **`<WF06_DRAFT>` unpublished autosave** | named `<WF06_ROLLBACK>` | 53 |
-| 07 | `<WF07_ID>` | true | `<WF07_PUBLISHED_9_14>` | same | history-pruned | 25 |
-| 08 | `<WF08_ID>` | true | `<WF08_PUBLISHED>` | same | history-pruned | 19 |
+| 07 | `<WF07_ID>` | true | `<WF07_PUBLISHED>` | same | **12.4b packet restore `<WF07_ROLLBACK>`** (named **before** first 12.4b PUT). Immediate predecessor of `<WF07_PUBLISHED>` is `feb5f066` (named before that PUT). Chain `9197f7a3` (12.2) → `becd329b` (12.2a) → `<WF07_ROLLBACK>` (12.3b) → `<WF07_PUBLISHED>` (12.4b). Intermediates `353f649a` → `feb5f066` recorded 12.4c after the fact. `<WF07_ROLLBACK>` is not 12.2a. | 34 |
+| 08 | `<WF08_ID>` | true | `8b835659-6179-4472-9f78-f096bdaba841` | same | **12.2 rollback `<WF08_PUBLISHED>`** | 19 |
 | 09 | `<WF09_ID>` | true | `<WF09_PUBLISHED>` | same | named `<WF09_ROLLBACK>` | 43 |
-| 10 | `<WF10_ID>` | true | `<WF10_ROLLBACK>` | same | **`<WF10_PUBLISHED_CH5>` (live history)** | 172 |
+| 10 | `<WF10_ID>` | true | `<WF10_PUBLISHED>` | same | **12.5a-0 rollback `<WF10_ROLLBACK>`** | 171 |
 | NIWL-01 | `<NIWL01_ID>` | true | `93dccd28-cb98-4862-8c92-e43260d471f2` | same | history-pruned | 16 |
 | NIWL-00 | `<NIWL00_ID>` | **false** | none | `fc46433a-ee1b-4b1c-8e1d-22290d7a8fff` | never activate | 6 |
 
@@ -72,8 +100,9 @@ WF-10 History skip after 10.1: UUID skip is <CONTACT_3_NAME> <CONTACT_2_COMPANY>
 
 ## 2. Migration catalogue (live `list_migrations` 14 Sep)
 
-Highest applied: **`033_sender_profile_channel_signatures`**
-catalog `20260914083604`.
+Highest applied: **`038_restore_assets_single_unique`**
+catalog `20260916043514`. 030 still reserved Phase 6.
+Next LNI schema number is **039**.
 
 | Catalog name | Version | Notes |
 |---|---|---|
@@ -85,10 +114,13 @@ catalog `20260914083604`.
 | 031 | `20260914060746` | `031_sender_profile_history` — `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)` |
 | 032 | `20260914074931` | `032_sender_profile_signature_html` — HTML `signature_block` typography. No new columns. |
 | 033 | `20260914083604` | `033_sender_profile_channel_signatures` — `signature_whatsapp` + `signature_linkedin` |
+| 034 | `20260916022806` | `034_multitenancy_foundation` — packet 12.1 |
+| 035 | `20260916024816` | `035_operator_chat` — packet 12.2. `operator_chat_id` + `lni_settings` updated_at trigger |
+| 036 | `20260916030417` | `036_digest_email` — packet 12.2a. `digest_email` for live owner only from `auth.users.email` |
+| 037 | `20260916033502` | `037_test_tenant` — packet 12.3c / 12.2b-i. Inert test tenant. Exact email. No `bot_state`. No `digest_email`. |
+| 038 | `20260916043514` | `038_restore_assets_single_unique` — packet 12.4e. TEMPORARY column-only assets unique restored. Composite unique kept. Drop in 12.2 remainder WF-01 PUT. STEP 3: 7 published ON CONFLICT parse; no other bind on 034/038 uniques. Rule 24 in `rules.md`. |
 
-Next LNI schema number is **034** (10.1 explicitly did
-**not** write it). Phase 12 multi-tenancy must not steal
-030.
+Next LNI schema number is **039**. Phase 12 must not steal 030.
 
 ---
 
@@ -320,8 +352,9 @@ Phase 10 added, same rank:
 - `wa.me` is Meta click-to-chat. Country code **996 is
   Kyrgyzstan**; do not auto-correct to 966.
 - MCP `execute_workflow` cannot run an
-  Execute-Workflow-only graph. History kick is
-  `POST /webhook/<WF10_HISTORY_PATH>`.
+  Execute-Workflow-only graph. History kick was
+  `POST /webhook/<WF10_HISTORY_PATH>` — **removed 12.5a-0**.
+  Use executeWorkflow with caller `owner_id`.
 - MCP `create_workflow_from_code` binds the **first**
   credential of each type on the instance (ElderWise
   Postgres, random Telegram, **Serper Header Auth** on
@@ -360,6 +393,14 @@ touch), `c52a10e9` LNI Test Contact (`vcard`).
 Jobs: `1564abc3`, `f6a1e703`. Ledger: `73fc2831`
 (Apollo confirmed / 1 for a 0-credit probe; lifetime
 over-count of 1; do not edit).
+
+**12.5a-0b (16 Sep).** Two `LNI-TEST- 10.4b` throwaways
+archived (gmail draft attach / delete drafts). Do not
+un-archive. Do not delete. WF-01 **no PUT**: published
+`<WF01_PUBLISHED>` still has unauthenticated `Driver ingest`
+wired into Allowlist. Cause-only in this packet.
+README policy did not hold (see 12.5a-0b report). Do
+not rewrite git history.
 
 Do not PUT WF-01 unless a packet says so. Do not merge
 the two <CONTACT_3_NAME> rows. Do not set the 61 pending

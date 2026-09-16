@@ -28,7 +28,7 @@ Supabase Postgres  ── source of truth
         ├─► WF-04 Structured extraction   strict JSON schema, temp 0
         ├─► WF-05 Entity resolution       suggest, never silently merge
         ├─► WF-06 Enrichment (Phase 4)    Apollo person-by-email · org from same response · Tavily website fallback
-        ├─► WF-07 Digests                 10 PM close · 7 AM briefing · /digest
+        ├─► WF-07 Digests                 hourly fan-out (local 22 close · local 7 brief) · /digest
         ├─► WF-08 /ask                    natural-language query
         ├─► WF-09 Watchdog                stuck-job detector
         └─► WF-10 Follow-up               voice/deferred confirm-then-send
@@ -55,8 +55,10 @@ These are invariants. Violating one is a defect regardless of test results.
 5. **Nothing is silently discarded.** Every capture reaches a visible terminal
    state: `ready`, `needs_review`, or `failed`.
 6. **User corrections are canonical** and are never overwritten by a re-run.
-7. **All cron schedules explicitly pinned to `Asia/Riyadh`.** Never inherit the
-   container default.
+7. **All cron schedules explicitly pinned.** WF-07 hourly uses
+   `events.timezone` for local hour, not a Saudi-only 22:00/07:00
+   pair. Other crons stay `Asia/Riyadh` via `settings.timezone`.
+   Never inherit the container default.
 8. **Telegram send paths are enumerated, not implied.** Inbound chat replies
    are WF-01 only — **except the recorded WF-10 exception:** when
    `source` is `sweep` or `deferred`, WF-10 sends the confirm card
@@ -64,9 +66,10 @@ These are invariants. Violating one is a defect regardless of test results.
    WF-01. WF-00 alerts on repeated errors. Scheduled WF-07 / WF-09
    send operational messages because a cron tick has no parent WF-01
    execution. WF-02 never sends. On-demand `/digest` and `/ask` return
-   `reply_text`; WF-01 sends. `chat_id` always from `bot_state`, never
-   `$env`. Email copy is scheduled-only; recipient is `auth.users.email`
-   for the events owner, never committed.
+   `reply_text`; WF-01 sends. Inbound `chat_id` always from `bot_state`,
+   never `$env`. WF-00 operator alert `chat_id` from
+   `lni_settings.operator_chat_id` under the platform owner (035).
+   Email copy is scheduled-only and fail-closed (D-M).
 
 ---
 
@@ -91,7 +94,14 @@ These are invariants. Violating one is a defect regardless of test results.
 ## 4. Data model
 
 UUID primary keys. `timestamptz` throughout. `owner_id` and RLS on every
-user-owned table — single owner at launch, designed for multi-user.
+user-owned table. Launch is one owner (`<OWNER_ID>`). **Phase 12 (D-L
+ACCEPTED): tenant = `owner_id`.** No `tenants` table. No parallel
+`tenant_id`. Isolation is already the column; n8n still resolves the
+owner from `events.name = 'LEAP 2026'` until packet 12.2. Instance
+fingerprint after 12.1 is `lni_instance` (034 live, not owner-scoped), not a
+tenant's event row. Text config home is `lni_settings` (034). Product
+name is NIS; `LNI` is the legacy internal code prefix (D-N). Design:
+`docs/plans/phase-12-plan.md`.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
 on 27 August 2026, plus packet 4.1 migrations `018`–`021`.** Every column
@@ -104,6 +114,11 @@ application nicknames.
 Purpose, then every live column (`NULL` = nullable, no default unless shown).
 
 **`events`** — LEAP 2026 and future events. UNIQUE `(owner_id, name)`.
+Live rows: `LEAP 2026` (`Asia/Riyadh`, live owner) and
+`NIS test tenant` (`Pacific/Auckland`, permanent inert
+test tenant, 037 / 12.2b-i). The inert row is never
+`LEAP 2026`. No `bot_state` on that owner. Never deleted,
+never frozen (Q2).
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -124,7 +139,11 @@ seed guessed sectors. `companies.industry` is filled by enrichment
 (Phase 4); until then the mix is `unknown`.
 
 **`bot_state`** — which capture is open; batch mode; **WF-01 allowlist**.
-UNIQUE `(owner_id, telegram_user_id)`.
+Live UNIQUE `(owner_id, telegram_user_id)` **and**
+`UNIQUE (telegram_user_id)` (`bot_state_telegram_user_id_key`, 034).
+Live count is **1** (live owner). The permanent inert test
+tenant has **no** row (037 / 12.2b-i) — that is the
+fixture. Full second allowlist row is still 12.2b.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -197,7 +216,19 @@ DISTINCT FROM …)` clause is that guard. The asset trigger's
 change that receipt in this packet. WF-09 reconciles the missing
 job within 15 minutes.
 
-**`assets`** — immutable raw media. UNIQUE `telegram_file_unique_id`.
+**`assets`** — immutable raw media. Packet **12.1** replaced
+column-only `assets_telegram_file_unique_id_key` with UNIQUE
+`(owner_id, telegram_file_unique_id)`
+(`assets_owner_id_telegram_file_unique_id_key`, catalog 034,
+16 Sep). That drop made published WF-01 Insert asset
+`ON CONFLICT (telegram_file_unique_id)` raise 42P10.
+Packet **12.4e** (038, `20260916043514`) restored the
+column-only unique **TEMPORARY**. Both uniques coexist.
+Drop `assets_telegram_file_unique_id_key` in **packet 12.2
+remainder** when WF-01 Insert asset is PUT to
+`ON CONFLICT (owner_id, telegram_file_unique_id)`.
+NULL `telegram_file_unique_id` stays legal (multiple NULLs).
+Standing check before any future drop: `rules.md` rule 24.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -206,7 +237,7 @@ job within 15 minutes.
 | `capture_id` | uuid → `captures` | — | NO |
 | `kind` | text | — | NO |
 | `storage_path` | text | — | YES |
-| `telegram_file_unique_id` | text UNIQUE | — | YES |
+| `telegram_file_unique_id` | text UNIQUE with `owner_id` (`assets_owner_id_telegram_file_unique_id_key`, 034) **and** column-only UNIQUE (`assets_telegram_file_unique_id_key`, 038 TEMPORARY until 12.2 remainder WF-01 PUT) | — | YES |
 | `sha256` | text | — | YES |
 | `mime_type` | text | — | YES |
 | `size_bytes` | bigint | — | YES |
@@ -294,10 +325,11 @@ write this table.
 `email_normalized IS NOT NULL`. Two employers with two
 emails is a normal networking case, not an edge case
 (<CONTACT_3_NAME>, Packet 10.1 — both rows kept).
-**Phase 12 requirement:** `person_emails` (or equivalent)
+**Phase 12.3 (deferred):** `person_emails` (or equivalent)
 so one human can hold several emails, phones, titles
-and employers. Not designed under 10.1. Do not merge
-<CONTACT_3_NAME> until that exists. Outreach already dual-To: him.
+and employers. Not designed under 10.1. Not 12.0 / 12.1.
+Do not merge <CONTACT_3_NAME> until that exists. Outreach already
+dual-To: him.
 
 **`companies`** — canonical company.
 
@@ -451,12 +483,15 @@ confirm time.
 | `decision` | text | `'pending'` | NO |
 | `created_at` | timestamptz | `now()` | NO |
 
-**Packet 10.1 / Phase 12.** 61 pre-window pending rows
+**Packet 10.1 / Phase 12.4.** 61 pre-window pending rows
 (`created_at < 2026-08-30 21:00Z`) were **not** set to
 `rejected` — that would claim a review nobody did. No
-migration 034. Table is reworked in Phase 12. Scoring
-record (not a 10.1 fix): 37 hardcoded score=1, 40
-computed `name_trgm` 0.3–0.6875.
+migration in 12.0. Table is reworked in packet 12.4
+(stored pair + human-readable reasons). Scoring record
+(not a 10.1 fix): 37 hardcoded score=1, 40 computed
+`name_trgm` 0.3–0.6875. 034 is packet 12.1
+(`lni_settings` + `lni_instance` + uniques + platform
+owner, applied 16 Sep), not this table.
 
 **`field_corrections`** — user edits, never overwritten.
 
@@ -528,12 +563,60 @@ mechanism, not a second. UNIQUE `(owner_id, key)`.
 Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 `apollo_lifetime_ceiling` = 2200, `tavily_lifetime_ceiling` = 1000.
 
-**`value` is integer.** It cannot hold the D-I signature.
-Do not add a text column here. Home is `sender_profile`
-(031 live, 032 HTML email, 033 WhatsApp/LinkedIn plain).
-030 is reserved for Phase 6 embeddings. One row per
-owner. RLS same shape as this table. See
-`docs/plans/packet-10-4-history-outreach.md`.
+**`lni_settings` (034 live, 16 Sep).** Owner-scoped text
+key/value. UNIQUE `(owner_id, key)` as
+`lni_settings_owner_key_uniq`. RLS `lni_settings_owner_all`,
+same shape as this table. Seeded keys: `display_name` for the live owner only
+(034). `operator_chat_id` under the platform owner
+(035, packet 12.2) — value is the live owner's
+`bot_state.telegram_user_id`, resolved not hardcoded.
+Not a `bot_state` row on the platform owner (D-O).
+`digest_email` under the live owner only (036, packet
+12.2a) — value is that owner's `auth.users.email`,
+resolved not hardcoded. Not seeded for the platform
+owner (D-O). **Mailbox linkage is keyed on this setting
+until per-tenant OAuth lands (Phase 14).** A tenant
+without the key yields empty `owner_email`; WF-07
+`Email present?` takes `Email skipped` (D-M, fail-closed
+with a door). BEFORE UPDATE trigger
+`lni_settings_set_updated_at` sets `updated_at`.
+Signatures stay on `sender_profile`. Ceilings stay on
+`lni_config`.
+
+| Column | Type | Default | Null |
+|---|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` | NO |
+| `owner_id` | uuid → `auth.users` | — | NO |
+| `key` | text | — | NO |
+| `value` | text | — | NO |
+| `created_at` | timestamptz | `now()` | NO |
+| `updated_at` | timestamptz | `now()` | NO |
+
+**`lni_instance` (034 live, 16 Sep).** Instance fingerprint.
+**Not owner-scoped.** Singleton enforced structurally
+(`singleton boolean PK CHECK true`). Name `NIS`.
+`platform_owner_id` resolved by exact email match on
+`<PLATFORM_EMAIL>` (009 RAISE: no match / multiple /
+unconfirmed). Same class as `lni_public_suffixes`: SELECT
+policy `lni_instance_select` for `authenticated`; writes are
+owner migrations / table-owner. After 12.2 the string
+`LEAP 2026` appears nowhere in workflow logic — only in
+one tenant's `events` row (Q4). Do not put the fingerprint
+on `events`.
+
+| Column | Type | Default | Null |
+|---|---|---|---|
+| `singleton` | boolean PK | `true` | NO |
+| `name` | text | — | NO |
+| `platform_owner_id` | uuid → `auth.users` | — | NO |
+
+**`value` is integer.** It cannot hold the D-I signature
+or a tenant display name. Do **not** add `value_text`
+here. Signature home is `sender_profile` (031 live, 032
+HTML email, 033 WhatsApp/LinkedIn plain). Tenant display
+name (and any other prose setting) home is `lni_settings`
+(034 live). 030 is reserved for Phase 6 embeddings. See
+`docs/plans/phase-12-plan.md`.
 
 **`lni_public_suffixes`** — reference list for `lni_normalize_domain`.
 Not owner-scoped. RLS enabled; `SELECT` for `authenticated`; writes are
@@ -616,6 +699,25 @@ this table. Migration `012` **never applied** (GUC without `missing_ok`,
 26 Aug). The live allowlist row exists uncatalogued. Migration `014`
 repairs the catalog without disturbing that row.
 
+**Phase 12.1 (applied 16 Sep, catalog 034).** Two uniques
+plus the fingerprint and the platform owner:
+
+1. `bot_state`: existing UNIQUE `(owner_id,
+   telegram_user_id)` stays. 034 added
+   `UNIQUE (telegram_user_id)`
+   (`bot_state_telegram_user_id_key`). WF-01 looks up by
+   `telegram_user_id` alone, so two owners must not share
+   a chat id.
+2. `assets`: UNIQUE is now `(owner_id,
+   telegram_file_unique_id)`. See the assets table note.
+
+WF-00 Telegram alerts stay on the operator chat (Q5
+routing). Platform `audit_log.owner_id` is the D-O
+identity (`<PLATFORM_EMAIL>`), not a tenant.
+That identity gets **no** `bot_state` row. Alert
+`chat_id` is `lni_settings` key `operator_chat_id`
+under the platform owner (035). Not `bot_state`.
+
 **`captures.flags` is a jsonb OBJECT.** Default `'{}'::jsonb`. CHECK
 `jsonb_typeof(flags) = 'object'` (migration `015`). Reserved keys only:
 
@@ -645,9 +747,10 @@ so the post-event build does not invent a second buffer.
 
 | Constraint | Reason |
 |---|---|
-| `captures.capture_no` **UNIQUE**, `bigint GENERATED BY DEFAULT AS IDENTITY` | Human-facing number for receipts and `/fix`, `/flag`. Global identity, not per-owner: a per-owner counter would serialise ~30 concurrent `/batch` inserts on one row lock, on the write path that must never fail (`rules.md` §8). Identity gaps on rollback are acceptable; lock contention on capture is not. |
+| `captures.capture_no` **UNIQUE**, `bigint GENERATED BY DEFAULT AS IDENTITY` | Human-facing number for receipts and `/fix`, `/flag`. Global identity, not per-owner: a per-owner counter would serialise ~30 concurrent `/batch` inserts on one row lock, on the write path that must never fail (`rules.md` §8). Identity gaps on rollback are acceptable; lock contention on capture is not. **12.2 audit:** every query that resolves a capture **by number** is `WHERE capture_no = $n AND owner_id = $owner`. Number alone is a cross-tenant vector. |
 | Partial unique index `captures_owner_media_group_uniq` on `(owner_id, (flags->>'media_group_id'))` `WHERE flags ? 'media_group_id'` | Concurrent Telegram album members are twenty separate WF-01 executions with no shared memory. The first INSERT wins; losers re-select. Partial, so non-album rows (`flags = '{}'` after 015; 003's `'[]'` was an array and never matched `?`) are unaffected. |
-| `assets.telegram_file_unique_id` **UNIQUE** | Telegram's native dedup key — the ElderWise `media_id` pattern |
+| `assets.telegram_file_unique_id` UNIQUE `(owner_id, telegram_file_unique_id)` (`assets_owner_id_telegram_file_unique_id_key`) **and** column-only UNIQUE (`assets_telegram_file_unique_id_key`) | Composite 034 live. Column-only **restored TEMPORARY 12.4e** (038 `20260916043514`) so published WF-01 `ON CONFLICT (telegram_file_unique_id)` can infer. Drop the column-only unique in 12.2 remainder WF-01 PUT. Counts 191/191 at restore. |
+| `bot_state` UNIQUE `(owner_id, telegram_user_id)` **and** UNIQUE `(telegram_user_id)` | 034 live. Global unique so two owners cannot share a chat id. |
 | Partial unique index on non-null normalized email per owner | Allows duplicates pending review |
 | Trigram indexes on `people.full_name`, `companies.name`, `interactions.summary` | Search. **Requires `pg_trgm`.** |
 | Partial unique index `processing_jobs_asset_job_uniq` on `(asset_id, job_type)` `WHERE asset_id IS NOT NULL` | Natural key for WF-02 `/done` enqueue. `ON CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO NOTHING` makes a re-run enqueue nothing twice. This uniqueness is a **partial unique index**, not a table constraint — `ON CONFLICT ON CONSTRAINT processing_jobs_asset_job_uniq` will not run. Partial because capture-scoped jobs (`extraction`, `entity_resolution`) carry `asset_id` NULL. Created by migration `016`. |
@@ -817,7 +920,7 @@ n8n's `service_role` must continue to bypass RLS.
 ## 5. Storage design
 
 - Private bucket `lni-assets`. Never public.
-- Path convention: `{owner_id}/{capture_id}/{asset_id}-{name}`.
+- Path convention (documented): `{owner_id}/{capture_id}/{asset_id}-{name}`.
 - `{name}` is **not** an original filename. Telegram photos carry none.
   `{name} = {telegram_file_unique_id}.{ext}` where `ext` derives from the
   Telegram media type / `mime_type` (`jpg`, `oga`, `mp4`, `pdf`, `bin` as
@@ -831,7 +934,11 @@ n8n's `service_role` must continue to bypass RLS.
   **mint → upload → insert**. That is what makes "storage first"
   implementable. Implied until 26 Aug 2026; now explicit.
 - Storage policy: an authenticated user may access only objects whose first path
-  segment equals `auth.uid()`.
+  segment equals `auth.uid()` (`foldername(name)[1] = auth.uid()`).
+  **n8n writes over REST and bypasses that policy.** Whether WF-01
+  actually writes an owner-prefixed path is **unverified** and is a
+  **12.2 read-back**, not an assumption. Do not treat the convention
+  as proven isolation.
 - Upload via raw REST with `httpHeaderAuth` and `x-upsert: true` — the pattern
   already proven in the owner's n8n instance.
 - Downloads: WF-03 fetches the private object with authenticated HTTP GET
@@ -1224,12 +1331,20 @@ No staging Supabase project. Given the timeline, the isolation that matters is
 LNI-from-ElderWise, not prod-from-staging. Migrations are forward-only and are
 proven against an empty project before production application.
 
+**This repository is public.** First commit on GitHub
+2026-08-25T10:10:54Z, `visibility=public` from create. NIWL
+is a **separate public repo**. Isolating waitlist intake from
+NIS tenants is a product fact. It does **not** keep this
+architecture private. A session-10 briefing that said
+otherwise was wrong. There is no `docs/sessions/session-10-*.md`
+in this repo to strike; this paragraph is the correction.
+
 ### Production project configuration — created 25 Aug 2026
 
 | Setting | Value | Reason |
 |---|---|---|
 | Project name | `LEAP-NI` | — |
-| Project ref | see `docs/environment.local.md` | Public repo; never committed |
+| Project ref | see `docs/environment.local.md` | Policy: never commit. 12.5a-0b: it **was** committed (handover). 12.5a-0c plans the rewrite; do not run it until the architect approves the map. |
 | Region | **Central EU (Frankfurt), `eu-central-1`** | Chosen for proximity to the **n8n host**, not to Riyadh. The phone talks to Telegram; n8n does every database round-trip. Latency that matters is n8n→Postgres. |
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |
@@ -1274,6 +1389,11 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 031 | `031_sender_profile_history` | `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)`. Applied 14 Sep 2026. |
 | 032 | `032_sender_profile_signature_html` | HTML `signature_block` typography. Does not add columns. |
 | 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
+| 034 | `034_multitenancy_foundation` | Packet 12.1 applied 16 Sep 2026 (`20260916022806`). `lni_settings` + `lni_instance` + `bot_state.telegram_user_id` UNIQUE + assets UNIQUE `(owner_id, telegram_file_unique_id)` + platform owner on `lni_instance` via exact email `<PLATFORM_EMAIL>`. 030 stays Phase 6. `lni_config` gained nothing. |
+| 035 | `035_operator_chat` | Packet 12.2 applied 16 Sep 2026 (`20260916024816`). Seeds `lni_settings` key `operator_chat_id` under `lni_instance.platform_owner_id`; value resolved from the live owner's `bot_state.telegram_user_id` (RAISE if `bot_state` empty). BEFORE UPDATE trigger `lni_settings_set_updated_at`. Not a `bot_state` row — D-O holds. 030 stays Phase 6. |
+| 036 | `036_digest_email` | Packet 12.2a applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
+| 037 | `037_test_tenant` | Packet 12.3c / 12.2b-i applied 16 Sep 2026 (`20260916033502`). Permanent **inert** test tenant. Owner resolved by exact email `<TEST_TENANT_EMAIL>` (009 RAISE: 0 / many / unconfirmed). Never a hardcoded uuid. Seeds `events` name `NIS test tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`), `lni_config` apollo daily + lifetime ceilings, `sender_profile`. **No `bot_state`.** **No `digest_email`** (D2d fixture). Never deleted, never frozen (Q2). 030 stays Phase 6. |
+| 038 | `038_restore_assets_single_unique` | Packet 12.4e applied 16 Sep 2026 (`20260916043514`). Restores UNIQUE `(telegram_file_unique_id)` as `assets_telegram_file_unique_id_key` TEMPORARY. Keeps `assets_owner_id_telegram_file_unique_id_key`. Zero duplicates asserted. Phone proof: WF-01 483617 photo + 483620 voice, assets 191→193. Drop in packet 12.2 remainder (WF-01 Insert asset ON CONFLICT PUT). 12.4e STEP 3: no other published bind or live FK depends on the 034/038 uniques. Rule 24 (`rules.md`) is the standing check before any future constraint drop. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 

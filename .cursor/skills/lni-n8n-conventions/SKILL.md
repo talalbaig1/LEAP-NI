@@ -71,8 +71,9 @@ Self-identify is what caught it — keep that node on every workflow
 that reads Postgres.
 
 Binding is proven **only** by a self-identifying execution
-(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`), never by
-the creation response (`workflows.md` §1; `rules.md` §7 rules 15–16).
+(`SELECT name FROM public.lni_instance`, gate `name` equals `NIS`),
+never by the creation response (`workflows.md` §1; `rules.md` §7
+rules 15–16). Do not fingerprint via `events.name = 'LEAP 2026'`.
 
 ## 9. Explicit gate before any send node
 

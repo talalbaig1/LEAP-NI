@@ -29,7 +29,8 @@ start, not by sliding the gate.
 | 31 Aug – 2 Sep | Event operations (owner attended) |
 | 3 Sep | Official last day. Owner skipped — health. Zero-capture day closed. |
 | **5 Sep** | Phase 10 documented (not built). Freeze lifted. |
-| Sep onward | Phase 10 packets 10.1–10.4a–10.4, then Phases 5–8 |
+| **14 Sep** | Phase 10 closed. Packet 12.0 docs (multi-tenancy). No migration. |
+| Sep onward | Phase 12 packets after Q1–Q5 lock, then Phases 5–8 |
 
 **Honest schedule, 27 Aug 2026.** Phase 0 complete. Phase 1 complete. Phase
 2 complete. Phase 3 closed (WF-07/08/09 ACTIVE). Owner opened Phase 4
@@ -460,7 +461,7 @@ company_id)` — two current employers are allowed.
 (<CONTACT_4_COMPANY>) and `ba037ac0` (<CONTACT_2_COMPANY>) both kept. Two
 employers with two emails is a normal networking
 case. Needs `person_emails` (or equivalent). See
-Phase 12. Outreach already dual-To: on the <CONTACT_4_COMPANY>
+packet **12.3**. Outreach already dual-To: on the <CONTACT_4_COMPANY>
 draft.
 
 Part C — rename: `"<CONTACT_38_NAME>"` `fab486c2` → **<CONTACT_38_NAME>**.
@@ -472,8 +473,11 @@ Part D — **do nothing** to 61 pre-window pending
 candidates (`created_at < 2026-08-30 21:00Z`: 2 on
 27 Aug, 57 on 28 Aug, 2 on 29 Aug).
 `decision='rejected'` would claim a review nobody
-did. No migration 034. 16 in-window pending also
-left pending (table reworked in Phase 12).
+did. 10.1 wrote no 034. 16 in-window pending also
+left pending (table reworked in packet **12.4**).
+034 is packet 12.1 (`lni_settings` +
+`lni_instance` + uniques + platform owner, applied
+16 Sep), not this table.
 
 Live counts (SQL 14 Sep):
 
@@ -720,28 +724,343 @@ real contacts and real failure patterns, rather than assumptions.
 
 ---
 
-## Phase 12 — Multi-value contact keys
+## Phase 12 — Multi-tenancy
 
-**Timing:** post-Phase 10. Not designed. Logged 14 Sep
-from Packet 10.1.
+**Timing:** post-Phase 10. Docs 14 Sep (`docs/plans/phase-12-plan.md`).
+Packet **12.0a** locked Q1–Q5. No migration in 12.0 / 12.0a.
+030 stays Phase 6. Product name **NIS**; `LNI` is the
+legacy internal prefix (D-N).
 
-`people.email` is one column with UNIQUE
-`(owner_id, email_normalized)` where not null. That
-forced <CONTACT_3_NAME> into two people rows (<CONTACT_4_COMPANY>
-Companion + <CONTACT_2_COMPANY>). Owner refused a schema change
-under time pressure for one contact.
+Launch used one owner. Every user-owned table already
+has `owner_id` + RLS. Workflows still resolve that owner
+from `events.name = 'LEAP 2026'`. Cron therefore serves
+one person. `lni_config.value` is integer — no display
+name. **Tenant = `owner_id` (D-L ACCEPTED).** No
+`tenants` table. No `tenant_id` column. No `value_text`
+on `lni_config`.
 
-**Requirement:** `person_emails` (or equivalent) so one
-human can hold several emails, phones, titles, and
-employers. Outreach already handles <CONTACT_3_NAME> correctly
-(one compose, two To:). Do not merge those rows until
-this exists.
+`person_emails` and `entity_candidates` rework stay
+**inside this phase**, deferred to 12.3 / 12.4. They are
+not a reason to start with a migration. Isolation proven
+with two real accounts is **12.5**. Login surface is
+**12.6**, after that. Permanent test tenant **inert** row is **12.2b-i**
+(037, no `bot_state`). Full `bot_state` is still
+**12.2b**. Fan-out N>1 is **12.4b**, before 12.5.
 
-Also in this phase: rework `entity_candidates` (61
-pre-window pending left untouched in 10.1 — a false
-`rejected` is worse than clutter). Queue needs a stored
-pair + human-readable reasons, not trigram-only
-`{name_trgm}`.
+### Packet 12.0 / 12.0a — Docs
+
+Plan, D-L…D-O, Q1–Q5 LOCKED. No SQL file. No PUT.
+
+**Acceptance**
+
+- Q1–Q5 locked in the plan. D-L ACCEPTED. D-M D-N D-O
+  in `masterplan.md`.
+- 034 named, not written. 030 untouched.
+
+### Packet 12.1 — Isolation schema (applied 16 Sep)
+
+Catalog **034_multitenancy_foundation**
+(`20260916022806`). 030 still absent. No PUT.
+
+- `lni_settings` live. UNIQUE `(owner_id, key)`. RLS
+  `lni_settings_owner_all`. Seed `display_name` for the
+  live owner only. Not the platform owner (D-O).
+- `lni_instance` live. Not owner-scoped. Singleton
+  boolean PK. `name` = NIS. `platform_owner_id` resolved
+  by exact email `<PLATFORM_EMAIL>` (009 RAISE
+  pattern). SELECT policy `lni_instance_select`.
+- `UNIQUE (telegram_user_id)` on `bot_state` added.
+  Existing `(owner_id, telegram_user_id)` unique stays.
+- assets UNIQUE `(owner_id, telegram_file_unique_id)`
+  replaced `assets_telegram_file_unique_id_key`. Counts
+  191/191 unchanged. No FK/index dependents on the
+  dropped constraint (internal backing index only).
+- `lni_config` untouched (integer-only).
+
+WF-01 still `ON CONFLICT (telegram_file_unique_id)`
+until 12.2. Do not publish unpublished drafts.
+
+### Packet 12.2 — Owner resolution (applied 16 Sep)
+
+Catalog **035_operator_chat** (`20260916024816`).
+WF-00 / WF-07 / WF-08 PUT. WF-01 published still
+`<WF01_PUBLISHED>` / draft `<WF01_DRAFT>`. WF-06 published still
+`<WF06_PUBLISHED>` / draft `<WF06_DRAFT>`. WF-00 `be1e7b71` (rollback
+`<WF00_PUBLISHED>`). WF-07 `9197f7a3` (rollback `<WF07_PUBLISHED_9_14>`).
+WF-08 `8b835659` (rollback `<WF08_PUBLISHED>`). Full cross-tenant
+isolation is **not** proven (12.5, two real accounts).
+Permanent test tenant `bot_state` **did not land** —
+packet **12.2b**.
+
+- Fingerprint is `lni_instance` name `NIS`. The string
+  `LEAP 2026` is gone from WF-00 / WF-07 / WF-08.
+- WF-00 `audit_log.owner_id` = `lni_instance.platform_owner_id`.
+  Alert `chat_id` from `lni_settings.operator_chat_id`
+  under the platform owner. Not `bot_state`.
+- WF-07 `/digest` Load digest `$1` is the **caller**
+  `owner_id`. Hourly fan-out lists owners with both
+  `bot_state` and `events`; local hour 22 = close, 7 =
+  brief. Gmail fail-closed (D-M): mailbox linkage is
+  `lni_settings.digest_email` (036). Missing key →
+  Telegram only.
+- WF-08 Self-identify gates `lni_instance`. Retrieve
+  corpus `$1` still the caller `owner_id`.
+
+WF-01 / 02 / 03 / 05 / 06 / 09 / 10 unchanged.
+`capture_no` audit stays later.
+
+### Packet 12.2a — `digest_email` (applied 16 Sep)
+
+Catalog **036_digest_email** (`20260916030417`). WF-07
+PUT `becd329b` (rollback `9197f7a3`). Load digest looks
+up `digest_email` for `$1`. Live owner seeded from
+`auth.users.email`. Platform owner not seeded (D-O).
+Mailbox linkage until Phase 14 OAuth. N>1 hourly
+fan-out blockers filed as **12.4b**. WF-06
+Apollo missing-ceiling is already 0; no PUT. WF-01
+draft still `<WF01_DRAFT>`. WF-06 draft still `<WF06_DRAFT>`.
+`<WF07_ROLLBACK>` is **12.3b**, not 12.2a (71b4049 label smear).
+
+### Packet 12.2b-i — inert test tenant (applied 16 Sep)
+
+Catalog **037_test_tenant** (`20260916033502`). Auth user
+`<TEST_TENANT_EMAIL>` resolved by exact email
+(009 RAISE). `events` + ceilings + `sender_profile`.
+**No `bot_state`.** **No `digest_email`.** Invisible to
+`List due owners`, WF-01 allowlist, and every cron. D2d
+fixture. Never deleted, never frozen (Q2).
+
+### Packet 12.2b — permanent test tenant `bot_state` (still slipped)
+
+12.2 did not insert a second `bot_state`. Live count
+is still 1. 12.2b-i is the inert fixture only. Do not
+assert a second allowlist row.
+
+### Packet 12.3 — `person_emails` (deferred)
+
+One human, several emails/phones/titles. <CONTACT_3_NAME>
+`d2335783` + `ba037ac0` stay two rows until this
+exists. Do not merge.
+
+### Packet 12.4 — `entity_candidates` pair storage (deferred)
+
+Stored pair + human-readable reasons. 61 pre-window
+pending stay pending. No false `rejected`.
+
+### Packet 12.3b — Kind on demand test affordance (superseded)
+
+WF-07 PUT `<WF07_ROLLBACK>` (rollback `becd329b`). Kind on
+demand `source` passed through a caller `schedule` so the
+TEST caller could reach Gmail. Hourly tick exec **483097**
+proved the scheduled branch without that affordance.
+Reverted in 12.4b to literal `call`.
+
+Version chain: `9197f7a3` (12.2) → `becd329b` (12.2a) →
+`<WF07_ROLLBACK>` (12.3b) → `<WF07_PUBLISHED>` (12.4b).
+
+### Packet 12.4b — hourly fan-out N>1 (applied 16 Sep)
+
+E1 / E2 / E3 **fixed in 12.4b**. WF-07 PUT `<WF07_PUBLISHED>`
+(named rollback `<WF07_ROLLBACK>` before the first 12.4b PUT).
+Kind on demand `source` is literal `call`. Scheduled
+path processes owners one at a time (`Each owner`
+SplitInBatches v3: output 0 done, output 1 loop,
+batchSize 1). `Wait both channels` is
+`combine` / `combineByPosition` so `Any delivered?`
+reads the **current** owner's Telegram
+`result.message_id` and Gmail `id` from `$json`.
+Scheduled empty / undeliverable writes `audit_log`
+(`digest_undeliverable`) and continues. On-demand still
+`stopAndError`. N=2 failure isolation proven Hourly
+tick exec **483257**. N=2 successful delivery to two
+real chats is **not** this packet — that is 12.5.
+
+Same-packet intermediates: `353f649a` (03:49:23) →
+`feb5f066` (03:51:57) → `<WF07_PUBLISHED>` (03:53:25). Packet
+restore `<WF07_ROLLBACK>` named before the first 12.4b PUT.
+
+### Packet 12.4c — reconcile `<WF07_PUBLISHED>` (docs only)
+
+No PUT. `<WF07_PUBLISHED>` is 12.4b. 04:00Z tick **483309** ran
+on it. Packet restore `<WF07_ROLLBACK>` was named before the
+first 12.4b PUT; immediate predecessor `feb5f066` was
+named before the PUT that created `<WF07_PUBLISHED>`.
+Intermediates recorded in docs after the fact.
+D3 **483257** status success.
+
+### Packet 12.4e — restore capture unique (applied 16 Sep)
+
+Catalog **038_restore_assets_single_unique**
+(`20260916043514`). No PUT. No canvas. Drafts
+`<WF01_DRAFT>` / `<WF06_DRAFT>` unpublished.
+
+034 dropped `assets_telegram_file_unique_id_key`.
+Published WF-01 Insert asset still infers
+`ON CONFLICT (telegram_file_unique_id)` → 42P10.
+Capture down since 02:28Z. Architect-caused.
+
+038 re-CREATEs UNIQUE `(telegram_file_unique_id)`
+and **keeps** `assets_owner_id_telegram_file_unique_id_key`.
+Zero duplicate `telegram_file_unique_id` first (191/191).
+Constraint comment: TEMPORARY. Drop in **packet 12.2
+remainder** when that packet PUTs WF-01 Insert asset to
+`ON CONFLICT (owner_id, telegram_file_unique_id)`.
+030 still absent.
+
+STEP 2 live phone (not the report): WF-01 **483617**
+success photo Insert asset `57b0e023` stored 91339;
+WF-01 **483620** success voice Insert asset `cdccd64e`
+stored 16378. assets **191 → 193**.
+
+STEP 3 ON CONFLICT audit (re-released with additions):
+7 clauses in published graphs. All 7 parse against a
+live unique (rolled-back `EXPLAIN`). Arbiters:
+`assets_telegram_file_unique_id_key` (WF-01 Insert
+asset), `processing_jobs_enrichment_person_uniq`
+(WF-01 Flag enqueue, WF-05 Enqueue enrichment),
+`processing_jobs_asset_job_uniq` (WF-02 Enqueue asset
+jobs / sweep / closed standard, WF-09 Enqueue orphan
+jobs). Zeros: WF-00/03/04/06/07/08/10 plus active
+LNI-TEST 10.4b ×2 and NIWL-01. No published
+`ON CONSTRAINT`. No SQL naming an index/constraint.
+No published graph infers
+`assets_owner_id_telegram_file_unique_id_key` or
+`bot_state_telegram_user_id_key` (both would parse).
+`pg_depend` non-internal on assets/bot_state uniques:
+empty. Only FK onto those tables:
+`processing_jobs_asset_id_fkey` → `assets(id)` PK.
+Unapplied repo file: **012** only —
+`ON CONFLICT (owner_id, telegram_user_id)` infers
+`bot_state_owner_id_telegram_user_id_key` (034 kept
+it). Rule **24** added to `rules.md`. No PUT.
+
+### Packet 12.5a-0 — close WF-10 History webhook (16 Sep)
+
+Severity 1. Rollback **`<WF10_ROLLBACK>`** named before PUT.
+Removed unauthenticated `History webhook`
+(`POST /webhook/<WF10_HISTORY_PATH>`). One-off Phase 10
+kick; no live caller. Path was in **public** LEAP-NI
+(not only NIWL). Normalize input no longer falls back
+to Self identify `owner_id`. Missing caller `owner_id`
+errors. Self identify still returns `owner_id` (C1
+waits). Published **`<WF10_PUBLISHED>`**. Rollback
+**`<WF10_ROLLBACK>`**. 12.5a C/D/E/G unstarted. No other
+workflow.
+
+### Packet 12.5a-0b — close TEST webhooks; Driver ingest cause-only (16 Sep)
+
+Severity 1 first. Two ACTIVE unauthenticated
+`LNI-TEST- 10.4b` throwaways (gmail draft attach /
+delete drafts) deactivated then **archived** (session
+08 pattern: archive, do not delete). Production POST
+both 404. **No WF-01 PUT.** Published WF-01 stays
+`<WF01_PUBLISHED>`; draft `<WF01_DRAFT>` unpublished.
+
+Cause only on WF-01 `Driver ingest` (GET published
+`<WF01_PUBLISHED>`): unauthenticated webhook, wired into
+Allowlist beside Telegram Trigger. Allowlist keys off
+Telegram-shaped `$json.message.from.id`. Classify
+reads `$('Telegram Trigger')`, not Driver ingest.
+Default wrapped POST fails allowlist (session-09 exec
+**273668**, now pruned). Residual: endpoint still
+registered on ACTIVE WF-01. Own PUT, not this packet.
+
+Repo literal audit (all **119** commits, not 31):
+README policy **did not hold**. Project ref, workflow
+ids, credential ids, owner uuid prefix, and emails
+are in tracked docs. n8n host, telegram_user_id,
+platform / test-tenant uuids, NIWL header cred: **zero**
+in git. No history rewrite. 12.5a C/D/E/G unstarted.
+PR #81 unmerged.
+
+### Packet 12.5a-0c — repo scrub plan + close signup (16 Sep)
+
+Signup already disabled (Auth `disable_signup=true`;
+anon POST `/auth/v1/signup` → `422 signup_disabled`).
+Confirm email still off (`mailer_autoconfirm=true`) —
+item 11 remains owner. Do not delete the stray Auth
+user (item 10). Public NIWL repo: **zero** n8n host /
+webhook base URL in any commit; Vercel function reads
+`N8N_WAITLIST_WEBHOOK_URL` from env, browser posts
+`/api/waitlist` only. Driver ingest urgency is
+instance-local, not NIWL-repo-local.
+
+Scrub: `git-filter-repo --replace-text` **not run**.
+Map is gitignored `docs/scrub-map.local.md`. Rule **25**
++ `scripts/check-no-literals.sh` + CI. No force-push.
+No WF-01 PUT. 12.5a C/D/E/G unstarted.
+
+### Packet 12.5a-0d — amend map, narrow rule 25, merge #81 (16 Sep)
+
+Map amended: `<CONTACT_N_NAME>` aligned with
+`<CONTACT_N_EMAIL>`; company domains / identifying
+company names added; longest-first. Rule 25 now two
+lists: banned identity/infrastructure, allowed
+row-level uuids. Checker dropped the generic uuid
+scan. `git-filter-repo` **not run**. No force-push.
+No WF-01 PUT. Confirm email still off (item 11).
+12.5a C/D/E/G unstarted.
+
+Architect accepts the Phase 12 docs on live
+verification. **A2–A4 diffs waived** (architect
+decision, recorded in the #81 squash-merge).
+
+### Packet 12.5 — Isolation proven (two real accounts)
+
+Two real `bot_state` rows. Depends on 12.2b and 12.4b.
+
+### Packet 12.6 — Login surface (after isolation)
+
+Minimal login: Supabase Auth, Google/Microsoft,
+Telegram-ID capture. A Phase 12 **dependency**, landing
+**after** 12.5. Isolation before there is a door.
+Onboarding must seed `events` (exec 482941) and
+ceilings. Owner IU account reserved Phase 14, not
+the harness. See phase-12-plan 12.6 E1–E4.
+
+---
+
+## Phase 13 — Enrichment read path
+
+**Timing:** after packet **12.2**, never before. Logged
+15 Sep. Architect-owned defect. No SELECT written in
+this packet. No PUT.
+
+`enrichment_records` is written by WF-06 and read by
+nothing. Verified 15 Sep: **85** rows, **40** real Apollo
+person reveals carrying title / seniority / headline /
+employment_history, **35** company records. Of **85**
+follow-up bodies belonging to an enriched person,
+Apollo's title differs from the card title in **75** and
+appears in the body in **2**; Apollo's headline appears
+in **0**. **18** people carry an Apollo-sourced
+`linkedin_url`; overlap with the 10 LinkedIn-channel
+draft recipients is **0**.
+
+`/ask` exclusion was **DELIBERATE**
+(`docs/plans/phase-06-plan.md`). WF-10 was an
+**OMISSION** — no doc line decides it.
+
+Any enrichment SELECT written now would hardcode
+single-owner assumptions and become another 12.4 audit
+item. `enrichment_records` without an `owner_id`
+predicate leaks one tenant's contact intelligence into
+another's draft.
+
+Two design rules, locked (also `masterplan.md` §4):
+
+- **D-P** Card is truth; enrichment is context. What the
+  draft ASSERTS about a person comes from their card.
+  Apollo may be stale or wrong — <CONTACT_33_NAME>'s card
+  reads "Solution Specialist", Apollo reads "Connectivity
+  Consultant, seniority entry". Enrichment informs the
+  composer's brief; it never becomes a sentence claiming
+  their title.
+- **D-Q** Enrichment surfaces as evidence beside the
+  draft in Telegram (D-F), never silently inside a body.
+
+**Out of this log.** Do not write the read path until
+12.2 isolation is live.
 
 ---
 

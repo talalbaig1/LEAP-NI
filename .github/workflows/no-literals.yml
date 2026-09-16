@@ -1,0 +1,13 @@
+name: rule-25-no-literals
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Fail on literal identifiers (rule 25)
+        run: bash scripts/check-no-literals.sh

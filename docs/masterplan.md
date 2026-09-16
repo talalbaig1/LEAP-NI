@@ -4,6 +4,9 @@
 Version 2.0 · 26 August 2026 · Owner: <OWNER_NAME>
 Architect/verifier: Claude · Implementer: Cursor
 
+Product name: **Networking Intelligence System (NIS)**.
+`LNI` is the legacy internal code prefix (D-N).
+
 **Document set:** `masterplan.md` (this) · `architecture.md` · `phases.md` ·
 `prd.md` · `workflows.md` · `rules.md`
 
@@ -100,6 +103,12 @@ reason and a document update first.**
 | D-I | Signature | Identical block in all three channels. Ionicx was pitched; SilaCares was not | Owner 7 Sep. Text in `sender_profile` (031 live), not `lni_config`. |
 | D-J | <CONTACT_3_NAME> | One man, two ventures, two cards. One email to both addresses. Same WhatsApp text to both numbers. Do not merge the person rows | Owner 7 Sep. `<CONTACT_3_EMAIL>` + `<CONTACT_4_EMAIL>`. |
 | D-K | <CONTACT_1_NAME> domain | Exclude `<CONTACT_1_EMAIL>`. One email to `<CONTACT_2_EMAIL>` | Owner 7 Sep. OCR transposition; <CONTACT_2_DOMAIN> is the live company domain. |
+| D-L | Tenant identity | **ACCEPTED.** Tenant = `owner_id`. No `tenants` table. No `tenant_id` column. No `value_text` on `lni_config`. Text config = `lni_settings` (034 live). 030 stays Phase 6 | Architect 14 Sep (Q1). `docs/plans/phase-12-plan.md`. |
+| D-M | Credential isolation | **Fail closed.** No tenant without a linked mailbox receives a Gmail draft or a digest email. No tenant without a ceiling row spends Apollo credits. Copy-text on Telegram instead (D-E). A second tenant's drafts in the live owner's mailbox is a privacy defect | Architect 14 Sep (Q3 overridden). |
+| D-N | Product rename | Product name is **Networking Intelligence System (NIS)**. Internal identifiers do **not** change: `lni_config`, `lni_settings`, `lni_public_suffixes`, `lni_free_email_domains`, `lni_normalize_domain`, bucket `lni-assets`, all `*_owner_all` policies, catalogued migration names, the `LNI ` / `LNI-TEST-` workflow-name prefix, the repo path. That prefix is the safety rule that keeps n8n API calls off ElderWise. `LNI` is the legacy internal code prefix | Owner 14 Sep, scoped by architect. |
+| D-O | Platform owner | A dedicated `auth.users` row owns platform-level `audit_log` rows. It is an **identity, never a sender**: no `bot_state`, no `events`, no `sender_profile`, must not later be promoted to the system mail sender. Canonical, dotless: `<PLATFORM_EMAIL>` (Gmail ignores dots) | Architect 14 Sep (Q5). |
+| D-P | Card is truth; enrichment is context | What the draft ASSERTS about a person comes from their card. Apollo may be stale or wrong — <CONTACT_33_NAME>'s card reads "Solution Specialist", Apollo reads "Connectivity Consultant, seniority entry". Enrichment informs the composer's brief; it never becomes a sentence claiming their title | Architect 15 Sep (Phase 13). After 12.2. |
+| D-Q | Enrichment as evidence | Enrichment surfaces as evidence beside the draft in Telegram (D-F), never silently inside a body | Architect 15 Sep (Phase 13). After 12.2. |
 
 ### Where the owner overrode the recommendation
 
@@ -228,12 +237,12 @@ fallback.
 | 3 | Owner `telegram_user_id` for the WF-01 allowlist | Talal | **CLOSED 26 Aug 2026** — held in gitignored `docs/environment.local.md` (never committed). Migration `012` seeded `bot_state`. Live allowlist proven. | — |
 | 4 | Photograph 8–10 representative cards + 2 code-switched voice notes | Talal | **CUT to post-event** (packet 2.5). Benchmark will not run before LEAP. GPT-4o ships. | post-event |
 | 5 | Top up Apollo to ~750 credits (add ~575) | Talal | **CLOSED 28 Aug 2026** — Apollo Basic 2,500 credits/month. Phase 4 ran on that budget. | — |
-| 6 | Confirm whether anyone else needs access | Talal | **MOOT** — WF-01 allowlist **is** `bot_state`. Only a seeded row is admitted; extra access is another `bot_state` row, not a schema change. Launch remains single-owner. | — |
+| 6 | Confirm whether anyone else needs access | Talal | **REOPENED Phase 12.** Q2 LOCKED: permanent test tenant (not throwaway). **12.2b-i applied** (037 inert: `events` + ceilings + `sender_profile`, no `bot_state`). Live second `bot_state` **still slipped** — packet **12.2b**. Never deleted. Plan: `docs/plans/phase-12-plan.md`. | 12.1 / 12.2 / 12.2b-i / 12.2b |
 | 7 | Create owner Auth user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — confirmed Auth user; `009` bound seed via `lni.owner_email`. | — |
 | 8 | Create second authenticated test user on LEAP-NI | Talal | **CLOSED 26 Aug 2026** — throwaway test user for P3. | — |
-| 9 | Disable public signup on LEAP-NI | Talal | Open | Post-gate hardening. LNI has one human user. Signup window was opened temporarily on 26 Aug for bootstrap. With signup open and email confirmation off, any stranger with the project URL and anon key gets a confirmed account instantly. RLS yields zero rows (Data API currently 403 because auto-expose is off), but the `lni-assets` policy is FOR ALL on their own `auth.uid()` folder, so they could write. Confirmed by the STEP 6 upload probe. |
-| 10 | Delete stray unconfirmed Auth user `<STRAY_AUTH_USER_ID>` | Talal | Open | Bootstrap artefact. Needs service_role or dashboard. Harmless. |
-| 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | Turned off to unblock Phase 0 provisioning. |
+| 9 | Disable public signup on LEAP-NI | Talal | **CLOSED 16 Sep 12.5a-0c** — Auth `disable_signup=true`. Anon POST `/signup` returns `422 signup_disabled`. | — |
+| 10 | Delete stray unconfirmed Auth user `<STRAY_AUTH_USER_ID>` | Talal | Open | Bootstrap artefact. Needs service_role or dashboard. Harmless. **Not this packet.** Reference count first. |
+| 11 | Re-enable "Confirm email" after bootstrap | Talal | Open | `mailer_autoconfirm` still **true** (16 Sep GET `/auth/v1/settings`). Signup is already closed so no new confirmed stranger. Still turn Confirm email on. |
 | 12 | Re-run the second-user RLS proof when Phase 5 grants SELECT to authenticated | Talal / implementer | Open | The 16 policies are verified correct by inspection but have never been exercised. PostgREST denies on GRANT before RLS is evaluated; `service_role` and `authenticated` both lack table privileges. RLS becomes load-bearing for the first time when the dashboard needs grants. Prove it then. |
 | 13 | `/done` receipt counts captures rather than enqueued jobs | — | Open — cosmetic, post-event. Do not fix pre-event. | Capture #77, exec 270954: "4 cards received" while 3 enqueued. WF-09 reconciler makes the data correct within 15 minutes. |
 
