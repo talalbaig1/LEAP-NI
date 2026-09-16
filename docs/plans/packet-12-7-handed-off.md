@@ -63,3 +63,28 @@ E1 owner phone after the PUT is owed.
 
 Capture `#217` `6bcc2fe1` **spent** (`needs_review`).
 Not replanted.
+
+## 12.7b — destination-less WF-09 kick (no PUT)
+
+Planted a second `#217` `card_vision` fixture the
+same way as 12.6 C2 (synthetic bytes, owner-prefixed
+path, `queued`, `attempt_count` 0). Then nothing:
+no `/done`, no MCP execute, no TEST caller. Two
+WF-09 ticks waited.
+
+**PASS. Not a 12.8 blocker.** Kick and alert are
+independent. Destination-less did not skip the kick.
+
+| What | Live |
+|---|---|
+| Plant | 12:02:41Z. Job `af6c0217` `queued` 0. Asset `daabf581` `kind=photo` `stored` 7111 B. TEST `<TEST_127B_PUT_WF_ID>` exec **487227** archived. |
+| WF-09 **487322** | 12:15:00Z Watchdog schedule. Test-tenant Compose: `finding_count=2` (`failed_24h` `7c72371f` + `stuck_queued` `af6c0217`), `kick_needed=true`, `call_wf03=true`, `chat_id=''`, `owner_email=''`. **Kick needed?** TRUE. **Call WF-03** subExecution **487324**. Then **Any destination?** FALSE → **Alert no destination**. |
+| WF-03 **487324** | When called. Parent WF-09 **487322** (Watchdog schedule), **not** WF-02. `Claim queued jobs` `af6c0217` owner `<TEST_TENANT_ID>`. lastNode `Siblings still running`. `image_type=other` — no extraction. |
+| WF-02 **487325** | 12:15:02Z, after the kick 12:15:00.891Z. Did not claim this job. |
+| WF-09 **487437** | 12:30:00Z second tick. `stuck_queued` 0, `kick_needed=false`, no Call WF-03. **Alert no destination** still (`failed_24h` only). |
+| Rows | Inserts: asset `daabf581` + job `af6c0217`, both `<TEST_TENANT_ID>`. Job then `succeeded` attempt 1 at 12:15:05Z. No extraction / ER / people / interactions / follow_ups / audit_log. Live owner **0** new rows. |
+| Live owner | Unchanged 199 / 540 / 74 / 128 / 153 / 83 / 111. |
+| Test tenant | `bot_state` 0. `lni_settings` 0. |
+
+E1 owner phone after the WF-01 PUT is still owed.
+C1 still owed. No test-tenant `bot_state`.

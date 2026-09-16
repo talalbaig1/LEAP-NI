@@ -2616,6 +2616,14 @@ Input contract matches the workers: `owner_id`, `correlation_id`
 `onError: continueRegularOutput` explicit. Workers claim from
 Postgres. One call per worker, not per job.
 
+**Kick is independent of destination.** `Kick needed?` runs
+**before** `Any destination?`. Empty `chat_id` and empty
+`digest_email` still Call WF-03. The alert NoOp (`Alert no
+destination`) does not skip the kick. Proven packet 12.7b:
+WF-09 **487322** Kick needed? TRUE then Alert no destination
+on the same test-tenant item; WF-03 **487324** parent was
+that tick, not a WF-02 dispatch.
+
 Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 
 ### Alert (independent of digest)

@@ -1148,3 +1148,19 @@ router survived. Inspection is not proof.
 `6bcc2fe1`) **spent**. Capture left `processing`
 and is `needs_review` (12.6 C2 drain consumed
 it). Not replanted. Do not claim it exists.
+
+### Packet 12.7b — destination-less WF-09 kick (16 Sep)
+
+**No PUT.** Second `#217` `card_vision` fixture
+`af6c0217` / asset `daabf581`. No `/done`, no MCP
+execute, no TEST caller. Two ticks waited.
+
+**PASS.** WF-09 **487322** Kick needed? TRUE and
+Alert no destination on the same test-tenant item
+(`chat_id` empty, `digest_email` empty). WF-03
+**487324** When called, parent **487322** (not
+WF-02), claimed `af6c0217`. Job `succeeded`
+`image_type=other`. Second tick **487437** no
+kick. Live-owner counts unchanged. Not a 12.8
+blocker. E1 / C1 still owed. No test-tenant
+`bot_state`.
