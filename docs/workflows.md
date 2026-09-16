@@ -2155,9 +2155,12 @@ is 22; briefing when 7. One item per owner, carrying that
 `owner_id`. Off-hour → NoOp `Not this hour` (not a send). Manual
 run is the proof; do not wait for 22:00.
 
-**Gmail is fail-closed (D-M).** No mailbox-link row exists yet, so
-`owner_email` is empty and Email present? skips Gmail. Telegram
-still sends. Do not send a second tenant's digest from the live
+**Gmail is fail-closed (D-M), with a door.** Mailbox linkage is
+`lni_settings` key `digest_email` scoped to Load digest `$1`
+(036, until Phase 14 per-tenant OAuth). Missing key →
+`owner_email` `''` → `Email present?` takes `Email skipped`.
+A hardcoded empty string is not that door. Telegram still
+sends. Do not send a second tenant's digest from the live
 owner's mailbox.
 
 After **Load digest** (`alwaysOutputData: true` kept): IF named Load
@@ -2174,7 +2177,7 @@ them apart. Never gate on captured > 0.
 
 | Trigger | `kind` | `source` | Sends? |
 |---|---|---|---|
-| Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if a mailbox-link exists (none yet, D-M) |
+| Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if `lni_settings.digest_email` is set for that owner (036) |
 | Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text`. `owner_id` from the caller. |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared

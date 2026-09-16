@@ -798,13 +798,26 @@ isolation is **not** proven (12.5, two real accounts).
 - WF-07 `/digest` Load digest `$1` is the **caller**
   `owner_id`. Hourly fan-out lists owners with both
   `bot_state` and `events`; local hour 22 = close, 7 =
-  brief. Gmail fail-closed (D-M): no mailbox-link row
-  → Telegram only.
+  brief. Gmail fail-closed (D-M): mailbox linkage is
+  `lni_settings.digest_email` (036). Missing key →
+  Telegram only.
 - WF-08 Self-identify gates `lni_instance`. Retrieve
   corpus `$1` still the caller `owner_id`.
 
 WF-01 / 02 / 03 / 05 / 06 / 09 / 10 unchanged.
 Permanent test tenant and `capture_no` audit stay later.
+
+### Packet 12.3 carry-over — `digest_email` (applied 16 Sep)
+
+Catalog **036_digest_email** (`20260916030417`). WF-07
+PUT `becd329b` (rollback `9197f7a3`). Load digest looks
+up `digest_email` for `$1`. Live owner seeded from
+`auth.users.email`. Platform owner not seeded (D-O).
+Mailbox linkage until Phase 14 OAuth. N>1 hourly
+fan-out blockers recorded in the plan (E1–E3); not
+fixed. WF-06 Apollo missing-ceiling is already 0; no
+PUT. WF-01 draft still `e454df40`. WF-06 draft still
+`76840a2a`.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

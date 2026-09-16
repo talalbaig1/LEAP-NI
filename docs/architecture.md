@@ -558,9 +558,17 @@ same shape as this table. Seeded keys: `display_name` for the live owner only
 (035, packet 12.2) — value is the live owner's
 `bot_state.telegram_user_id`, resolved not hardcoded.
 Not a `bot_state` row on the platform owner (D-O).
-BEFORE UPDATE trigger `lni_settings_set_updated_at`
-sets `updated_at`. Signatures stay on `sender_profile`.
-Ceilings stay on `lni_config`.
+`digest_email` under the live owner only (036, packet
+12.3) — value is that owner's `auth.users.email`,
+resolved not hardcoded. Not seeded for the platform
+owner (D-O). **Mailbox linkage is keyed on this setting
+until per-tenant OAuth lands (Phase 14).** A tenant
+without the key yields empty `owner_email`; WF-07
+`Email present?` takes `Email skipped` (D-M, fail-closed
+with a door). BEFORE UPDATE trigger
+`lni_settings_set_updated_at` sets `updated_at`.
+Signatures stay on `sender_profile`. Ceilings stay on
+`lni_config`.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -1362,6 +1370,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
 | 034 | `034_multitenancy_foundation` | Packet 12.1 applied 16 Sep 2026 (`20260916022806`). `lni_settings` + `lni_instance` + `bot_state.telegram_user_id` UNIQUE + assets UNIQUE `(owner_id, telegram_file_unique_id)` + platform owner on `lni_instance` via exact email `donotreplynis@gmail.com`. 030 stays Phase 6. `lni_config` gained nothing. |
 | 035 | `035_operator_chat` | Packet 12.2 applied 16 Sep 2026 (`20260916024816`). Seeds `lni_settings` key `operator_chat_id` under `lni_instance.platform_owner_id`; value resolved from the live owner's `bot_state.telegram_user_id` (RAISE if `bot_state` empty). BEFORE UPDATE trigger `lni_settings_set_updated_at`. Not a `bot_state` row — D-O holds. 030 stays Phase 6. |
+| 036 | `036_digest_email` | Packet 12.3 applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 
