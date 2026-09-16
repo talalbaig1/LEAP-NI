@@ -417,6 +417,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
 | **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039 applied** (`20260916090802`) | WF-10 only. Rollback `e9204581`. Published `a4d02063`. No WF-01/02/03/05/06/09 PUT. |
+| **12.5d** | WF-10 last-node contract. Stop postgres `{success:true}` swallowing compose. | none | WF-10 only. Rollback `a4d02063`. Published `cca31bc9`. `e9204581` has the same defect. No WF-01/02/03/05/06/09 PUT. Rule 26. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -702,6 +703,31 @@ Platform errors are owned by it, inside no tenant. D-O.
   draft `76840a2a`. Untouched.
 - G3 (phone `/followup` → Gmail draft) still on the owner.
 - WF-05 deferred kick still events owner (C5). Not fixed.
+
+## Acceptance (12.5d — applied 16 Sep)
+
+- Rollback named before PUT: `a4d02063`. `e9204581`
+  carries the same swallow — not a remedy.
+- New published `cca31bc9` (12.5d). POST
+  `/activate`.
+- `Return to caller` is a Set. Re-sources
+  `$('Sweep notify flag')` (`ok`, `reply_text`,
+  `reply_text_2`, `reply_markup`). Does not inherit
+  the previous item.
+- `Gate: followup status written` both outputs →
+  `Return to caller`. Status write is a side effect.
+- `History done` Set from `$('History evidence')`.
+  `History skipped` / `Deferred already complete`
+  Set `{ok:true, reply_text:''}`.
+- `Voice disambiguate?` unchanged.
+- Rule 26.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- Capture #214: follow_ups `96461882` recovered to
+  `draft_state='draft'` so `f7:p:` `Update draft`
+  matches. Confirm card prove is the owner retap of
+  picker message_id 1031.
+- 12.5b PART B still waiting.
 
 ## Logged, do not fix in 12.5a
 

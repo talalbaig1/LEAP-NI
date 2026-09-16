@@ -184,6 +184,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 23 | **State that must survive a follow-up belongs in a Postgres row, never in an expression that depends on which nodes ran.** Read the row. | Session 28–29 Aug: six losses from `$('Node').isExecuted` / missing payload fields. See below. |
 | 24 | **A migration that drops, renames or replaces a constraint MUST first enumerate every ON CONFLICT clause, foreign key and query in every workflow that depends on it, and prove each still parses against the post-migration schema.** Schema and workflows are one system; verifying them separately verifies neither. | 034 dropped `assets_telegram_file_unique_id_key` while WF-01 Insert asset inferred on it. Catalog, index, policy, grant and row-count read-back all passed. Capture down 02:28Z–04:41Z. Architect verification could not have caught it. Architect error, 16 Sep. Restored by 038. |
 | 25 | **Banned identity / infrastructure in any committed file** (session logs and packet plans included): owner / platform / test / stray / probe Auth uuids; owner and contact emails; contact names (`<CONTACT_N_NAME>` numbered with the matching `<CONTACT_N_EMAIL>`); company-as-person strings only (`<CONTACT_4_COMPANY>`, `<CONTACT_1_COMPANY>`, `<CONTACT_2_COMPANY>`); Telegram user id; n8n host; Supabase project ref and pooler host; webhook paths; n8n workflow ids and credential ids. Ordinary company names (Huawei, BTGroup, …) stay in the record. Session logs cite tokens. Real values live only in gitignored `docs/environment.local.md` and `docs/scrub-map.local.md`. **Allowed:** row-level uuids (people, captures, assets, follow_ups, jobs, ledger, entity_candidates, extraction_runs), their 8-char prefixes, n8n execution ids, Gmail draft/message ids. Those are evidence keys, not operator identity or a third party’s mailbox. | 12.5a-0e: names in the rewrite map are `regex:(?i)\b…\b`. CI still matches email / webhook / host / supabase URL / pooler. History rewrite is a later packet. |
+| 26 | **A workflow called by `executeWorkflow` must end on a node that re-sources the reply from the node that produced it.** Do not inherit the previous item. A Postgres zero-row UPDATE is `{success:true}` and will become the caller’s payload if it is last. A gate that detects an empty result and then routes to a NoOp which forwards that empty result is not a gate. | Capture #214. WF-10 **485773** composed the confirm card; last node `Return to caller` (NoOp) forwarded `Set followup capture ready` `{success:true}`. WF-01 **485772** `Followup has reply?` false → fail text. Packet 12.5d. |
 
 ### Traps already proven
 
@@ -217,6 +218,13 @@ are required. Proven WF-00 Telegram owner alert, packet 4.11: 0 real
 newlines / 4 literal `\n` before the PUT; after, 4 real newlines /
 0 literal `\n`. `timeSavedMode` is an additional property — strip it
 from any public PUT the same way as `binaryMode`.
+
+**executeWorkflow returns the last node, not the composer.** A
+Postgres status write or a NoOp after a zero-row UPDATE becomes
+the caller payload. WF-01 then treats missing `ok`/`reply_text`
+as failure and sends "Follow-up failed. Nothing was sent. Try
+again." Proven capture #214, WF-10 485773 / WF-01 485772.
+This is rule 26. Packet 12.5d.
 
 **n8n Telegram v1.2: `inlineKeyboard.rows` must be FIXED collection entries with scalar expressions.** A whole-array expression saves successfully and sends no keyboard. Node config saving is not proof; read the `sendMessage` API result.
 

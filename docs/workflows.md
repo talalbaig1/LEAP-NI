@@ -27,6 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
+| `executeWorkflow` last node | Re-source `{ok, reply_text, …}` from the named composer | The callee’s last node **is** what the caller waits on. A NoOp after a Postgres status write forwards `{success:true}` / a capture row and WF-01 takes the fail send. Rule 26. WF-10 `Return to caller` is a Set from `$('Sweep notify flag')` (HTML-escaped composer). `Set followup capture ready` may still run as a side effect; it must not be the return. |
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
@@ -2761,10 +2762,13 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`a4d02063`**
-(172 nodes) after packet **12.5a** (caller owner,
-`mailbox_linked`, Class B inner `owner_id`). Rollback
-**`e9204581`**.
+Published **`cca31bc9`**
+after packet **12.5d** (last-node contract). Rollback
+**`a4d02063`** (12.5a). `e9204581` carries the same
+swallow — do not roll back to it as a remedy.
+Prior **12.5a** graph **`a4d02063`**
+(172 nodes; caller owner, `mailbox_linked`, Class B).
+Prior rollback **`e9204581`**.
 Prior **12.5a-0** graph **`e9204581`** (History webhook
 removed). Prior rollback **`<WF10_ROLLBACK>`**.
 Prior rollback **`<WF10_PUBLISHED_CH5>`**
@@ -2923,7 +2927,17 @@ Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
 `source` (`command` \| `voice` \| `callback`), `text` (command),
 `callback_data` (callback, `f7:` prefix), `file_id` (voice).
 **Return contract:** `{ ok, reply_text, reply_text_2?, reply_markup? }`.
-Empty `reply_text` is a defect.
+Empty `reply_text` is a defect. Last node is **Return to
+caller**, a Set that re-sources `$('Sweep notify flag')`
+(the HTML-escaped composer: Compose confirm / many /
+usage / …). It does **not** inherit the previous item.
+`Set followup capture ready` stays a side effect on the
+done/deferred/sweep tail; both gate outputs wire to
+Return to caller. `Followup status written` /
+`Followup status skipped` NoOps are off the path
+(12.5d, capture #214, execs 485773 / 485772).
+`Voice disambiguate?` is unchanged: `hit_count>1` OR
+`step=3` (trgm floor never auto-picks).
 
 **Does not Call WF-03.** Whisper (language **absent**) lives on
 WF-10 so a follow-up brief never claims a capture transcription
@@ -3047,7 +3061,10 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     subject, full body, attachment filenames or `(none)`, omitted
     list if any. `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
-    → **Return to caller**.
+    → Sweep notify flag → Sweep source? (false for
+    command/callback/done) → Sweep auto-done? false →
+    Set followup capture ready (side effect) →
+    **Return to caller** (Set from Sweep notify flag).
     After 9.6: `Sweep notify flag` HTML-escapes `reply_text` /
     `reply_text_2`. WF-01 followup senders and WF-10 sweep
     senders are `parse_mode: HTML`. Real newlines.
