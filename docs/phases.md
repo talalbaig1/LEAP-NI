@@ -1092,3 +1092,53 @@ Two design rules, locked (also `masterplan.md` §4):
 - Check the 10 PM close for `failed` and `stuck`. Non-zero on day one is
   investigated that night, not on day four
 - No schema refactors or provider swaps during event days
+
+### Packet 12.7 — `handed_off` + Driver ingest (16 Sep)
+
+Order: migration 040, then WF-10, then WF-01 last
+alone. Lowest blast radius last is wrong here —
+WF-01 is the capture router.
+
+**040** `040_follow_ups_handed_off`
+(`20260916114531`). Adds `handed_off` to
+`follow_ups_draft_state_check`. Keeps every
+existing value. **No backfill** of the 61
+`gmail_draft` rows. Unique
+`follow_ups_person_channel_live_uniq` unchanged
+(`draft_state <> 'cancelled'` already treats
+`handed_off` as live). 030 stays embeddings.
+`mailbox_linked` catalog `20260916090802` already
+existed (not 039-prefixed).
+
+**WF-10** PUT from `activeVersion`
+`<WF10_ROLLBACK_12_7>`. `History copy insert`
+writes `handed_off` (WA, LinkedIn, mailbox-unlinked
+email). `History insert` keeps `gmail_draft` (real
+Gmail Draft id). Published
+`<WF10_PUBLISHED_12_7>`. No unpublished draft.
+Reader sweep after PUT: WF-00…WF-09 equal
+`gmail_draft` **zero**. Only writers: History
+insert (`gmail_draft`) and History copy insert
+(`handed_off`).
+
+**WF-01** PUT from published `<WF01_PUBLISHED>`
+only (not top-level draft `<WF01_DRAFT>`). The PUT
+**discards** unpublished draft `<WF01_DRAFT>`
+(`e454df40`). Unavoidable — any PUT replaces the
+top-level draft — and **authorised**. That draft
+was guarded since Phase 10 because it must never
+be **published**, not because it must be
+preserved. It was not published. Removed `Driver
+ingest` and its connection to Allowlist. Nothing
+else. TriggerCount 2 → 1 (Telegram Trigger
+remains). POST `/activate`. POST old production
+URL 404.
+
+**E1** owner phone photo + voice + `/done` after
+the WF-01 PUT is the only proof the capture
+router survived. Inspection is not proof.
+
+**leftover_processing** fixture (capture `#217`
+`6bcc2fe1`) **spent**. Capture left `processing`
+and is `needs_review` (12.6 C2 drain consumed
+it). Not replanted. Do not claim it exists.

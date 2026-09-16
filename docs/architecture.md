@@ -430,13 +430,18 @@ Measured 7 Sep: 37 reachable; 20 email (all also phone);
 transcript; 12 get the general letter (D-G). Transcripts
 are unreliable — D-F.
 
-WF-10 `Extract draft` writes `subject` / `body`. Terminals:
+WF-10 `Extract draft` writes `subject` / `body`. Terminals
+(packet **12.7**, 040 live):
 
-- email → Gmail Draft (`draft_state=gmail_draft`).
-  LNI does not send. Owner sends from Gmail.
-- whatsapp / linkedin → Telegram copy-text
-  (`draft_state=gmail_draft` until a later `handed_off`
-  value is added). Owner pastes.
+- email **and mailbox linked** → Gmail Draft
+  (`draft_state=gmail_draft`). A real Gmail Draft with
+  `gmail_message_id` exists. LNI does not send. Owner
+  sends from Gmail. **History insert**.
+- whatsapp / linkedin / email **mailbox unlinked** →
+  composed-and-handed-to-the-owner
+  (`draft_state=handed_off`). Channel-agnostic. No
+  Gmail Draft. **History copy insert**. Owner pastes
+  (Telegram) or otherwise sends themselves.
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
@@ -456,13 +461,19 @@ from `status`. `status` stays `open` \| `done` \| `cancelled` —
 cancel = `cancelled` on both `status` and `draft_state` (025);
 Gmail or attachment fail stays `open` with `draft_state='failed'`.
 
-**Phase 10 (031 live).** `gmail_draft` = a Gmail Draft exists
-and has **not** been sent by LNI. `status` stays `open`.
-`gmail_message_id` stores the Gmail draft id. `channel` is
+**Phase 10 (031 live) + packet 12.7 (040 live).**
+`gmail_draft` = a Gmail Draft exists (a real
+`gmail_message_id`) and has **not** been sent by LNI.
+`handed_off` = composed and handed to the owner. No
+Gmail Draft. Channel-agnostic: WhatsApp copy-text,
+LinkedIn copy-text, and mailbox-unlinked email all
+write this. `status` stays `open`. `channel` is
 `email | whatsapp | linkedin`. Partial unique
-`(person_id, channel) WHERE draft_state <> 'cancelled'`.
+`(person_id, channel) WHERE draft_state <> 'cancelled'`
+— `handed_off` is live; the index did not change.
 No `awaiting_confirm` on this path (D-C). Voice path
-unchanged.
+unchanged. No backfill of the 61 existing
+`gmail_draft` rows.
 
 **`follow_ups_person_id_confirm_check` (PARTIAL).**
 `person_id IS NOT NULL` only when `draft_state = 'awaiting_confirm'`.
@@ -852,7 +863,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031). `handed_off` not added |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031, real Gmail Draft id) \| `handed_off` (040, composed-and-handed-to-the-owner, channel-agnostic) |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1394,6 +1405,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 036 | `036_digest_email` | Packet 12.2a applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
 | 037 | `037_test_tenant` | Packet 12.3c / 12.2b-i applied 16 Sep 2026 (`20260916033502`). Permanent **inert** test tenant. Owner resolved by exact email `<TEST_TENANT_EMAIL>` (009 RAISE: 0 / many / unconfirmed). Never a hardcoded uuid. Seeds `events` name `NIS test tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`), `lni_config` apollo daily + lifetime ceilings, `sender_profile`. **No `bot_state`.** **No `digest_email`** (D2d fixture). Never deleted, never frozen (Q2). 030 stays Phase 6. |
 | 038 | `038_restore_assets_single_unique` | Packet 12.4e applied 16 Sep 2026 (`20260916043514`). Restores UNIQUE `(telegram_file_unique_id)` as `assets_telegram_file_unique_id_key` TEMPORARY. Keeps `assets_owner_id_telegram_file_unique_id_key`. Zero duplicates asserted. Phone proof: WF-01 483617 photo + 483620 voice, assets 191→193. Drop in packet 12.2 remainder (WF-01 Insert asset ON CONFLICT PUT). 12.4e STEP 3: no other published bind or live FK depends on the 034/038 uniques. Rule 24 (`rules.md`) is the standing check before any future constraint drop. 030 stays Phase 6. |
+| — | `mailbox_linked` | Live catalog `20260916090802`. Not 039-prefixed. Same class as 023 / 029. Do not re-apply. 030 stays Phase 6 embeddings. |
+| 040 | `040_follow_ups_handed_off` | Packet 12.7 applied 16 Sep 2026 (`20260916114531`). Adds `handed_off` to `follow_ups_draft_state_check`. Keeps every existing value. No backfill. Does not alter `follow_ups_status_check`. Does not alter `follow_ups_person_channel_live_uniq` (`draft_state <> 'cancelled'` already treats `handed_off` as live). 030 stays Phase 6 embeddings. |
 
 ### Connection policy — verified 25 Aug 2026
 

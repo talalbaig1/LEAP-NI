@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4e)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.7)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -14,6 +14,10 @@ applied** (catalog `038_restore_assets_single_unique`,
 `20260916043514`) — column-only assets unique restored
 TEMPORARY so published WF-01 Insert asset can infer.
 No WF-01 PUT. E1–E3 fixed.
+Packet **12.7 applied** (catalog `040_follow_ups_handed_off`,
+`20260916114531`) — `handed_off` on
+`follow_ups_draft_state_check`; WF-10 History copy
+insert writes it; WF-01 Driver ingest PUT last.
 Kind on demand `source` literal `call`. WF-01 / WF-06
 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -21,8 +25,10 @@ cross-tenant isolation is **not** proven here (12.5).
 `architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
 `workflows.md` §1 owner-resolution.
 
-Packet 10.1 closed. Highest applied migration is
-`038_restore_assets_single_unique` (catalog `20260916043514`).
+Packet 10.1 closed. Highest applied numbered
+migration is `040_follow_ups_handed_off` (catalog
+`20260916114531`). `mailbox_linked` is live as
+catalog `20260916090802` (not 039-prefixed).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
@@ -715,3 +721,36 @@ unchanged). Do not PUT this in 12.5a.
   (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
   (12.6 E4). 034/037 are tokenised as of 12.5a-0h and
   are not re-runnable — do not re-apply them.
+
+## Acceptance (12.7 — applied 16 Sep)
+
+- catalog `040_follow_ups_handed_off` (`20260916114531`);
+  030 still absent. No backfill. Unique
+  `follow_ups_person_channel_live_uniq` unchanged.
+- WF-10 published `<WF10_PUBLISHED_12_7>` (172 nodes).
+  Rollback `<WF10_ROLLBACK_12_7>` named before PUT.
+  `History copy insert` writes `handed_off`.
+  `History insert` keeps `gmail_draft`.
+- WF-01 PUT last, from published `<WF01_PUBLISHED>`
+  not draft `<WF01_DRAFT>`. **Draft `<WF01_DRAFT>`
+  discarded by the PUT, authorised, never
+  published.** `Driver ingest` removed. Nothing
+  else. New published `<WF01_PUBLISHED_12_7>`.
+- `leftover_processing` capture `#217` `6bcc2fe1`
+  **spent** (`needs_review`). Not replanted.
+
+**Test tenant fixtures — permanent.** Tenant
+`<TEST_TENANT_ID>` is **never deleted**. Every row
+in it stays. Do not clean up.
+
+| Row | What | Why it stays |
+|---|---|---|
+| capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after 12.6 C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted. |
+| job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h`. |
+| job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. |
+| asset `ed29a4a0` | `kind=photo` `stored` | C2 bytes. Path first segment is the test tenant. |
+| person `de10f49f` | D3probe | C4 enrichment probe. |
+| person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
+
+No test-tenant `bot_state`. That is the next
+packet and it is the irreversible one.
