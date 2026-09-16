@@ -712,9 +712,9 @@ unchanged). Do not PUT this in 12.5a.
 - **12.6 drain (applied):** owner resolution on
   WF-03/04/05/06/09. Home
   `docs/plans/packet-12-6-drain-owner.md`.
-  C2 fixture planted (asset `ed29a4a0`,
-  job `b47ddee0`); unattended WF-09 drain
-  waiting. Do not MCP-execute WF-03.
+  C2 drained 16 Sep 11:40Z (asset `ed29a4a0`,
+  job `b47ddee0` succeeded). leftover_processing
+  `#217` spent. C1 owner phone still owed.
 - **Test tenant fixtures — permanent.**
   Tenant `<TEST_TENANT_ID>` (`2678f157`) is
   **never deleted**. Every row in it stays.
@@ -725,7 +725,10 @@ unchanged). Do not PUT this in 12.5a.
   | capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted (12.7). |
   | job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h` finding. Proves skip-send when `chat_id` and `digest_email` are empty. |
   | job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. No Apollo spend. |
-  | job `b47ddee0` | `card_vision` **`succeeded`** attempt 1 on asset `ed29a4a0` | C2 drain ran. Was queued at plant. |
+  | job `b47ddee0` | `card_vision` **`succeeded`** attempt 1 on asset `ed29a4a0` | C2 drain. `image_type=other`. Permanent. |
+  | job `446fd76c` | `extraction` `succeeded` | C2 chain. Capture `#217`. Test-tenant owner. |
+  | job `44093639` | `entity_resolution` `needs_review` | C2 chain. Capture `#217`. |
+  | extraction_run `82ffa9c8` | capture `#217` | C2 chain. Test-tenant owner. |
   | asset `ed29a4a0` | `kind=photo` `stored` 8335 B HEAD, sha256 from stored GET | C2 bytes. Path first segment is the test tenant. |
   | person `de10f49f` | D3probe | C4 enrichment probe. |
   | person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |

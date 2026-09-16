@@ -277,11 +277,10 @@ do not delete, do not re-send. LNI-TEST-7.16-driver
 
 **12.6 drain.** WF-03/04/05/06/09 PUT 16 Sep. Actual
 `LEAP 2026` count **0** on those five published graphs.
-WF-01 draft `<WF01_DRAFT>` still the unpublished
-tip (guard still applies). WF-06 `<WF06_DRAFT>`
-discarded as the tip by that PUT, never
-published. Storage paths are owner-prefixed
-(12.4d / C2). See packet-12-6-drain-owner C5.
+C2 drain 11:40Z: WF-03 **487040** `When called`
+(parent WF-02 **487039** `wf02_done`). Job
+`b47ddee0` succeeded `image_type=other`.
+Not Manual. See packet-12-6-drain-owner C2.
 
 **12.5a-0b.** Published WF-01 `<WF01_PUBLISHED>` still has
 webhook node `Driver ingest` (unauthenticated, wired

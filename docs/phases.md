@@ -1035,9 +1035,9 @@ WF-09 / 06 / 04 / 03 / 05 PUT from A6
 published graphs. Actual `LEAP 2026` count
 **0** on all five. C3 exec **486765** skip
 send. C4 exec **486781** ceiling 0, no
-Apollo spend. C2 fixture planted (asset
-`ed29a4a0`, job `b47ddee0`); unattended
-drain waiting — do not MCP-execute WF-03.
+Apollo spend. C2 drained 11:40Z (job
+`b47ddee0` succeeded, `image_type=other`).
+Capture `#217` leftover_processing spent.
 C1 owner phone still owed.
 
 The **login surface** previously numbered 12.6

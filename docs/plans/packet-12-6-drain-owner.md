@@ -1,10 +1,8 @@
 # Packet 12.6 — Drain owner resolution
 
 **Date:** 16 Sep 2026
-**Status:** PART B applied. PART C: C3 C4 C5
-done. C2 fixture planted 16 Sep 11:29Z,
-waiting unattended WF-09 `*/15` drain.
-C1 owner phone still owed.
+**Status:** PART B applied. PART C: C1 owed.
+C2 C3 C4 C5 done. C2 drained 16 Sep 11:40Z.
 **Home:** this file. Stub in `phases.md` Phase 12.
 Login surface previously numbered 12.6 stays
 **after isolation**; it is not this packet.
@@ -437,9 +435,47 @@ PUT to Storage with credential
 Live-owner snapshot at plant: assets 197,
 jobs 536, people 74, interactions 127,
 extraction_runs 152, entity_candidates 83,
-follow_ups 111. Drain report (next tick)
-must show those counts unchanged except
-the test-tenant writes.
+follow_ups 111.
+
+**C2 drain (16 Sep 11:40Z). Not MCP.**
+WF-09 `*/15` 11:30 **486939** started
+11:30:00Z — job eligible only after
+11:30:03Z (stuck_queued 1 min). Missed.
+11:45 **487086** ran after the job was
+already `succeeded`. leftover_processing
+0. Did not kick WF-03.
+
+Claim was WF-03 **487040** `When called`
+(not Manual). Parent WF-02 **487039**
+`source=wf02_done` from live-owner
+Telegram **487038** (`/done` on capture
+`#218`). Global claim picked the test
+tenant job. Writes stayed on
+`<TEST_TENANT_ID>`.
+
+- job `b47ddee0` `succeeded` attempt 1
+  11:40:15Z. Envelope `provider=openai`
+  `job_type=card_vision`
+  `image_type=other` (PASS). Asset
+  `ed29a4a0` `kind` stays `photo`.
+- Chain: WF-04 **487042** extraction
+  `446fd76c` succeeded. extraction_run
+  `82ffa9c8` owner test tenant. WF-05
+  **487044** entity_resolution
+  `44093639` `needs_review`. Capture
+  `#217` `needs_review`. leftover_processing
+  fixture **spent**, not replanted.
+- Same WF-03 run also dispatched live
+  owner capture `#218` (WF-04 **487043**
+  / WF-05 **487045**). That is the
+  owner's own `/done`, not a C2 write
+  onto the live owner.
+- Live-owner counts vs plant: assets
+  197→199, jobs 536→540, interactions
+  127→128, extraction_runs 152→153,
+  people 74, entity_candidates 83,
+  follow_ups 111. Delta = capture `#218`
+  only.
 
 **C3.** Exec **486765** (WF-09, success).
 Test-tenant Scan: `finding_count=2`
