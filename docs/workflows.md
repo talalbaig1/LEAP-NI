@@ -2159,9 +2159,9 @@ time. A failure, empty Load digest, or undeliverable state for
 owner N writes `audit_log` and continues to N+1. It does not
 `stopAndError` the hourly run. `Wait both channels` therefore
 pairs inside the current owner's iteration. `Any delivered?`
-has no `executeOnce` and reads `.last()` of the named send
-nodes for **that** owner (Telegram `result.message_id` or
-`message_id`; Gmail `id`). On-demand (`source = call`) is
+has no `executeOnce` and reads `$json` from that Merge
+(Telegram `result.message_id` or `message_id`; Gmail `id`).
+On-demand (`source = call`) is
 unchanged: `reply_text` back to WF-01; genuine empty Load
 digest still `Empty digest terminal`. Kind on demand `source`
 is the literal `call` — a caller cannot make WF-07 send.
@@ -2325,16 +2325,16 @@ must not copy WF-07's old serial graph.**
      `stopAndError`).
    - `Email present?` true → Gmail (`continueOnFail: true`,
      `onError: continueRegularOutput`). False → skip email.
-4. After Merge: IF at least one delivered. Delivery is Telegram
-   `result.message_id` or `message_id`, or Gmail `id`, from the
-   **named** send node via `$('Node').last()` for the current
-   owner — never `.first()` (that was E1: owner 1 for every
-   owner) and never "the node ran". Keep `isExecuted` guards.
-   `.item` is still unsafe after `chooseBranch` (discarded Merge
-   branch is not an ancestor). A `continueOnFail` item with an
-   `error` is not delivered. True → NoOp `Scheduled done` → loop
-   `Each owner`. False on the **scheduled** path → `Record
-   undeliverable` (`audit_log.action = digest_undeliverable`,
+4. After Merge (`combine` / `combineByPosition`, one item
+   per channel of the **current** owner): IF at least one
+   delivered. Delivery is Telegram `result.message_id` or
+   `message_id`, or Gmail `id`, on **that merged `$json`** —
+   never `$('Node').first()` / `.last()` / `isExecuted`
+   (E1: owner 1's Gmail `id` would satisfy owner 2). A
+   `continueOnFail` item with an `error` is not delivered.
+   True → NoOp `Scheduled done` → loop `Each owner`. False
+   on the **scheduled** path → `Record undeliverable`
+   (`audit_log.action = digest_undeliverable`,
    `after.reason = both_channels_empty`) and continue. False
    on the **on-demand** path cannot happen (`source = call`
    returns before send). Audit write failure still

@@ -9,7 +9,7 @@ applied** (catalog `036_digest_email`,
 `20260916030417`). Packet **12.3c / 12.2b-i applied**
 (catalog `037_test_tenant`, `20260916033502`) — inert
 test tenant, **no `bot_state`**. Packet **12.4b applied**
-(WF-07 `353f649a`, rollback `28754af8`). E1–E3 fixed.
+(WF-07 `ca2f3d35`, rollback `28754af8`). E1–E3 fixed.
 Kind on demand `source` literal `call`. WF-01 / WF-06
 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -289,23 +289,26 @@ own packet. Needed before 12.5 can pass.
 
 ### Packet 12.4b — hourly fan-out N>1 (E1–E3)
 
-**Fixed in 12.4b.** WF-07 PUT `353f649a` (named rollback
-`28754af8` before PUT). Chain: `9197f7a3` (12.2) →
-`becd329b` (12.2a) → `28754af8` (12.3b) → `353f649a`
-(12.4b). Self identify, Load digest (mail CTE), Compose
-digest, and List due owners were not changed.
+**Fixed in 12.4b.** WF-07 PUT `ca2f3d35` (named rollback
+`28754af8` before the first 12.4b PUT). Chain:
+`9197f7a3` (12.2) → `becd329b` (12.2a) → `28754af8`
+(12.3b) → `ca2f3d35` (12.4b). Self identify, Load digest
+(mail CTE), Compose digest, and List due owners were not
+changed.
 
 **E1. `Any delivered?`** — `executeOnce` removed. Delivery
-reads `$('Telegram digest').last()` /
-`$('Gmail digest').last()` for the **current** owner
-(Telegram `result.message_id` or `message_id`; Gmail
-`id`). N=1 `.first()` lie is gone.
+reads the **current** merged item: Telegram
+`result.message_id` or `message_id`, Gmail `id`. Named
+`.first()` / `.last()` / `isExecuted` across the whole
+run would still report owner 1's Gmail for owner 2.
 
-**E2. `Wait both channels`** — still `chooseBranch` /
-`waitForAll` / `useDataOfInput: 1`. Pairing is per owner
-because `Each owner` (SplitInBatches v3, batchSize 1)
-serializes the scheduled path. Loop output → Load digest;
-done → `Fan-out done`. `Scheduled done` loops back.
+**E2. `Wait both channels`** — `combine` /
+`combineByPosition` pairs Telegram + Gmail (or skip)
+inside the current owner's iteration. `Each owner`
+(SplitInBatches v3, batchSize 1; output 0 done, output 1
+loop) serializes the scheduled path. Loop → Load digest;
+done → `Fan-out done`. `Scheduled done` / audit-recorded
+loop back.
 
 **E3. Empty / undeliverable on the scheduled path** —
 `stopAndError` no longer aborts owners N+1..M. Empty
@@ -320,9 +323,9 @@ one owner). Audit write failure still throws.
 Kind on demand `source` is the literal `call`. A caller
 cannot make WF-07 send.
 
-N=2 **failure isolation** is the D3 proof (guaranteed-
-failing second owner). N=2 **successful** delivery to
-two real chats is **not** proven — that is 12.5.
+N=2 **failure isolation** proven Hourly tick exec
+**483257**. N=2 **successful** delivery to two real
+chats is **not** proven — that is 12.5.
 
 ### Packet 12.5 — isolation proven (two real accounts)
 
@@ -367,7 +370,7 @@ held. Not the permanent harness.
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | named then | none until named |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
-| **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `353f649a` (rollback `28754af8`). **Before 12.5.** |
+| **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `ca2f3d35` (rollback `28754af8`). **Before 12.5.** |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -515,17 +518,22 @@ Platform errors are owned by it, inside no tenant. D-O.
 
 ## Acceptance (12.4b — applied 16 Sep)
 
-- WF-07 published `353f649a` (named rollback `28754af8`
-  before PUT). Chain: `9197f7a3` (12.2) → `becd329b`
-  (12.2a) → `28754af8` (12.3b) → `353f649a` (12.4b).
+- WF-07 published `ca2f3d35` (named rollback `28754af8`
+  before the first 12.4b PUT). Chain: `9197f7a3` (12.2) →
+  `becd329b` (12.2a) → `28754af8` (12.3b) → `ca2f3d35`
+  (12.4b).
 - Kind on demand `source` is the literal `call`.
-- Scheduled path: `Each owner` SplitInBatches batchSize 1.
-  Owner N empty / undeliverable writes `audit_log` and
-  continues to N+1. On-demand still `stopAndError`.
-- E1–E3 **fixed in 12.4b**. N=2 failure isolation is the
-  D3 Hourly tick proof (exec id recorded after D3).
-  N=2 successful delivery to two real chats is **not**
-  proven — that is 12.5.
+- Scheduled path: `Each owner` SplitInBatches batchSize 1
+  (v3 output 0 done, output 1 loop). Owner N empty /
+  undeliverable writes `audit_log` and continues to N+1.
+  On-demand still `stopAndError`.
+- E1–E3 **fixed in 12.4b**. N=2 failure isolation proven
+  Hourly tick exec **483257** (live owner Telegram 1017 +
+  Gmail `1a0a8592df6c384c`; tenant 2 `audit_log`
+  `08c94fa6` `digest_undeliverable` /
+  `both_channels_empty`; execution **success**, not
+  errored). N=2 successful delivery to two real chats is
+  **not** proven — that is 12.5.
 - Self identify, Load digest (mail CTE), Compose digest,
   List due owners unchanged.
 - WF-01 published `4836ffd8` / draft `e454df40`.
@@ -542,10 +550,10 @@ Platform errors are owned by it, inside no tenant. D-O.
   a merge packet after `person_emails` exists.
 - 12.4: 61 pre-window candidates still `pending` unless
   a human reviewed them.
-- 12.4b: E1–E3 **fixed in 12.4b** (WF-07 `353f649a`,
-  rollback `28754af8`). N=2 failure isolation is the D3
-  proof. N=2 successful delivery to two real chats is
-  **not** proven — that is 12.5.
+- 12.4b: E1–E3 **fixed in 12.4b** (WF-07 `ca2f3d35`,
+  rollback `28754af8`). N=2 failure isolation proven
+  exec **483257**. N=2 successful delivery to two real
+  chats is **not** proven — that is 12.5.
 - 12.5: isolation proven with two real accounts.
 - 12.6: login surface only after 12.5. Seed `events` and
   ceilings at tenant creation (12.6 E1 / E2).

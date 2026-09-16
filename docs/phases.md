@@ -859,19 +859,24 @@ proved the scheduled branch without that affordance.
 Reverted in 12.4b to literal `call`.
 
 Version chain: `9197f7a3` (12.2) → `becd329b` (12.2a) →
-`28754af8` (12.3b) → `353f649a` (12.4b).
+`28754af8` (12.3b) → `ca2f3d35` (12.4b).
 
 ### Packet 12.4b — hourly fan-out N>1 (applied 16 Sep)
 
-E1 / E2 / E3 **fixed in 12.4b**. WF-07 PUT `353f649a`
-(named rollback `28754af8` before PUT). Kind on demand
-`source` is literal `call`. Scheduled path processes
-owners one at a time (`Each owner` SplitInBatches
-batchSize 1). Scheduled empty / undeliverable writes
-`audit_log` (`digest_undeliverable`) and continues.
-On-demand still `stopAndError`. N=2 failure isolation
-is the D3 proof; N=2 successful delivery to two real
-chats is **not** this packet — that is 12.5.
+E1 / E2 / E3 **fixed in 12.4b**. WF-07 PUT `ca2f3d35`
+(named rollback `28754af8` before the first 12.4b PUT).
+Kind on demand `source` is literal `call`. Scheduled
+path processes owners one at a time (`Each owner`
+SplitInBatches v3: output 0 done, output 1 loop,
+batchSize 1). `Wait both channels` is
+`combine` / `combineByPosition` so `Any delivered?`
+reads the **current** owner's Telegram
+`result.message_id` and Gmail `id` from `$json`.
+Scheduled empty / undeliverable writes `audit_log`
+(`digest_undeliverable`) and continues. On-demand still
+`stopAndError`. N=2 failure isolation proven Hourly
+tick exec **483257**. N=2 successful delivery to two
+real chats is **not** this packet — that is 12.5.
 
 ### Packet 12.5 — Isolation proven (two real accounts)
 
