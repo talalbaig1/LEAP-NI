@@ -420,6 +420,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5d** | WF-10 last-node contract. Stop postgres `{success:true}` swallowing compose. | none | WF-10 only. Rollback `a4d02063`. Published `cca31bc9`. `e9204581` has the same defect. No WF-01/02/03/05/06/09 PUT. Rule 26. |
 | **12.5f** | `/followup` up to history contract. English lock, garble gate, D-I signature, D-F evidence. Prompt `wf10-v3`. | none | WF-10 only. Rollback `cca31bc9`. Published `eeb9dc09`. No WF-01/02/03/05/06/09 PUT. No Transcribe `language`. No picker / Voice disambiguate? change. follow_ups `96461882` not edited. |
 | **12.5g** | Sign-off rule on Extract draft. Caller sender name on both composers. Prompt `wf10-v4`. Garble gate cause-only. | none | WF-10 only. Rollback `eeb9dc09`. Published `844e1858`. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
+| **12.5h** | Omit-incoherent on both composers. Prompt `wf10-v5`. | none | WF-10 only. Rollback `844e1858`. Published `dfd35bfb`. No gate. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -805,6 +806,35 @@ applied sender identity to both composers.
   `356a2d1f` / draft `76840a2a`. Untouched.
 - 12.5b PART B still waiting.
 - D2 (owner phone, one sign-off) is the owner.
+
+## Acceptance (12.5h — applied 16 Sep)
+
+- Rollback named before PUT: `844e1858` (12.5g).
+- New published `dfd35bfb` (12.5h). POST `/activate`.
+- Both composers `wf10-v5`. Same omit-incoherent
+  words on `Extract draft` and `Extract history
+  draft`. No gate change. No Transcribe `language`.
+- Phone prove (C1–C4) is the owner: one `/followup`
+  with a mixed or partly unintelligible voice note.
+- `2fd8c529` and `96461882` not edited.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+
+## Test-tenant probe (12.5g D3 / 12.5h D)
+
+Permanent fixture, not a leak. People row `de10f49f`,
+full_name `D3probe`, email `example.invalid`, on the
+037 inert test tenant. Inserted 12.5g so
+executeWorkflow can prove caller `sender_name` is
+not the live owner's without minting a person at
+run time. MCP `execute_workflow` can only fire
+`Manual Trigger`; `When called` is executeWorkflow-
+only; that tenant has no `bot_state`, so no Telegram
+path. Standing harness input, same principle as
+capture #9. Do not treat as a real contact. Do not
+copy onto the live owner. Own packet if it should
+be deleted after a successful executeWorkflow prove.
 
 ## Logged, do not fix in 12.5a
 

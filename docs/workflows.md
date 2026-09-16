@@ -2762,9 +2762,11 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`844e1858`**
-after packet **12.5g** (sign-off + caller sender name,
-prompt `wf10-v4`). Rollback **`eeb9dc09`** (12.5f).
+Published **`dfd35bfb`**
+after packet **12.5h** (omit-incoherent, prompt
+`wf10-v5`). Rollback **`844e1858`** (12.5g).
+Prior **12.5g** graph **`844e1858`**.
+Prior rollback **`eeb9dc09`** (12.5f).
 Prior **12.5f** graph **`eeb9dc09`**.
 Prior rollback **`cca31bc9`** (12.5d last-node).
 Prior **12.5d** graph **`cca31bc9`**.
@@ -2788,7 +2790,12 @@ Non-Latin is not garbled. Unusable uses `History template`
 in English (`Write in ENGLISH even if the transcript
 is Arabic, Urdu, or mixed` — same words on
 `Extract draft` and `Extract history draft`, both
-`wf10-v4` after 12.5g). Every body starts with a greeting by name.
+`wf10-v5` after 12.5h). Every body starts with a greeting by name.
+**Omit-incoherent (12.5h, same words on both composers):**
+if a phrase in the transcript is incoherent or cannot
+be understood, omit it; do not guess or smooth; if
+that leaves no ask, use the no-specific-next-step
+sentinel.
 Sender identity is the caller `lni_settings` key
 `display_name`, else the first line of
 `sender_profile.signature_block`. Not a prompt literal.
@@ -3062,10 +3069,17 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     **Sign-off (12.5g, same words as history):** `Do not
     append a bio or signature. The channel signature is
     appended from sender_profile after you.`
+    **Omit-incoherent (12.5h, same words on both
+    composers):** `If a phrase in the transcript is
+    incoherent or cannot be understood, omit it. Do
+    not guess its meaning and do not smooth it into
+    a plausible alternative. If omitting it leaves
+    no ask, use the no-specific-next-step sentinel.`
     **Sender (12.5g):** system + user `Owner name:` inject
     caller `sender_name`. Same change on **Extract
-    history draft**. Prompt version **`wf10-v4`** on
-    both composers. Do not write the
+    history draft**. Prompt version **`wf10-v5`** on
+    both composers.
+    Do not write the
     transcript to `audit_log`. Do not add `language` on
     Transcribe.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
@@ -3101,7 +3115,7 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v4'`, `title` = subject.
+    `prompt_version='wf10-v5'`, `title` = subject.
     Same version on **Update draft**, **Insert brief draft**,
     **Record script flags** / **Record script**,
     **History insert**, **History copy insert**.
