@@ -1331,12 +1331,20 @@ No staging Supabase project. Given the timeline, the isolation that matters is
 LNI-from-ElderWise, not prod-from-staging. Migrations are forward-only and are
 proven against an empty project before production application.
 
+**This repository is public.** First commit on GitHub
+2026-08-25T10:10:54Z, `visibility=public` from create. NIWL
+is a **separate public repo**. Isolating waitlist intake from
+NIS tenants is a product fact. It does **not** keep this
+architecture private. A session-10 briefing that said
+otherwise was wrong. There is no `docs/sessions/session-10-*.md`
+in this repo to strike; this paragraph is the correction.
+
 ### Production project configuration — created 25 Aug 2026
 
 | Setting | Value | Reason |
 |---|---|---|
 | Project name | `LEAP-NI` | — |
-| Project ref | see `docs/environment.local.md` | Public repo; never committed |
+| Project ref | see `docs/environment.local.md` | Policy: never commit. 12.5a-0b: it **was** committed (handover). 12.5a-0c plans the rewrite; do not run it until the architect approves the map. |
 | Region | **Central EU (Frankfurt), `eu-central-1`** | Chosen for proximity to the **n8n host**, not to Riyadh. The phone talks to Telegram; n8n does every database round-trip. Latency that matters is n8n→Postgres. |
 | Compute | **Micro (`t3a.micro`)** | Workload is one user and a few hundred rows. Compute is not the constraint; connections are. Changeable later with a restart. |
 | Plan | Pro organisation | ~2 GB storage need exceeds free allowance |

@@ -73,3 +73,16 @@ account IDs appear as `<PLACEHOLDERS>`. Real values belong in
 `docs/environment.local.md`, which is gitignored.
 
 **Never commit a literal identifier, key, token, or connection string.**
+Rule 25 (`docs/rules.md`). Session logs cite tokens. Real values
+only in gitignored `docs/environment.local.md`.
+
+CI: `.github/workflows/no-literals.yml` runs
+`scripts/check-no-literals.sh`. Enable locally:
+
+```
+git config core.hooksPath .githooks
+```
+
+The check will fail on current history until the later
+rewrite packet (architect reads the 12.5a-0c map first).
+That is the control, not a broken build.

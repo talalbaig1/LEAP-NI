@@ -5,6 +5,13 @@ Phase 10. You are the implementer. Architect/verifier is Claude.
 Owner is Talal (CCIE; keep replies short).
 
 Public repo: `https://github.com/talalbaig1/LEAP-NI`.
+Public since the first commit (25 Aug 2026). NIWL is a
+separate public repo. Isolating waitlist intake from NIS
+tenants is a product fact. It does **not** keep this
+architecture private. A session-10 briefing that said NIWL
+is "deliberately isolated from LEAP-NI so the architecture
+stays private" was wrong. There is no
+`docs/sessions/session-10-*.md` in this repo to strike.
 `main` only. Phase 10 and packet 10.1 are closed and
 architect-verified.
 

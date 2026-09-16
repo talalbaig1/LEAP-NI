@@ -976,6 +976,23 @@ platform / test-tenant uuids, NIWL header cred: **zero**
 in git. No history rewrite. 12.5a C/D/E/G unstarted.
 PR #81 unmerged.
 
+### Packet 12.5a-0c — repo scrub plan + close signup (16 Sep)
+
+Signup already disabled (Auth `disable_signup=true`;
+anon POST `/auth/v1/signup` → `422 signup_disabled`).
+Confirm email still off (`mailer_autoconfirm=true`) —
+item 11 remains owner. Do not delete the stray Auth
+user (item 10). Public NIWL repo: **zero** n8n host /
+webhook base URL in any commit; Vercel function reads
+`N8N_WAITLIST_WEBHOOK_URL` from env, browser posts
+`/api/waitlist` only. Driver ingest urgency is
+instance-local, not NIWL-repo-local.
+
+Scrub: `git-filter-repo --replace-text` **not run**.
+Map is gitignored `docs/scrub-map.local.md`. Rule **25**
++ `scripts/check-no-literals.sh` + CI. No force-push.
+No WF-01 PUT. 12.5a C/D/E/G unstarted.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
@@ -986,8 +1003,8 @@ Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. A Phase 12 **dependency**, landing
 **after** 12.5. Isolation before there is a door.
 Onboarding must seed `events` (exec 482941) and
-ceilings. `talalbaig@iu.edu.sa` reserved Phase 14, not
-the harness. See phase-12-plan 12.6 E1–E3.
+ceilings. Owner IU account reserved Phase 14, not
+the harness. See phase-12-plan 12.6 E1–E4.
 
 ---
 

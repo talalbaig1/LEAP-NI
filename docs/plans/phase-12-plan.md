@@ -379,9 +379,15 @@ Found by exec **482941**.
 tenant creation must seed ceilings or the tenant never
 learns why nothing happens.
 
-**E3.** `talalbaig@iu.edu.sa` reserved as a Phase 14
-Microsoft-OAuth tenant, while that account is still
-held. Not the permanent harness.
+**E3.** Owner IU Microsoft account reserved as a Phase 14
+OAuth tenant, while that account is still held. Not the
+permanent harness. Token `<OWNER_IU_EMAIL>`.
+
+**E4 (12.5a-0c).** Fresh-deploy owner / platform / test
+tenant seed must use the `009` `current_setting`
+pattern. 034 and 037 currently embed a literal email.
+Tokenising them is the scrub; making them re-runnable
+is 12.6, not the rewrite.
 
 ---
 
@@ -402,6 +408,7 @@ held. Not the permanent harness.
 | **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
 | **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `226fe197`. 12.5a C/D/E/G wait. |
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
+| **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -632,6 +639,16 @@ Platform errors are owned by it, inside no tenant. D-O.
   history rewrite. No force-push.
 - 12.5a C/D/E/G unstarted. PR #81 unmerged.
 
+## Acceptance (12.5a-0c — applied 16 Sep)
+
+- Auth `disable_signup=true`. Anon signup `422`.
+- `mailer_autoconfirm` still true (item 11). Stray Auth
+  user not deleted (item 10).
+- NIWL public repo: zero n8n host / webhook base URL.
+- Scrub map gitignored. `git-filter-repo` **not run**.
+- Rule 25 + `scripts/check-no-literals.sh` + CI.
+- No WF-01 PUT. No force-push.
+
 ## Logged, do not fix in 12.5a
 
 **WF-10 `Load callback follow_up` OR branch.**
@@ -660,6 +677,7 @@ unchanged). Do not PUT this in 12.5a.
   chats is **not** proven — that is 12.5.
 - 12.5: isolation proven with two real accounts.
 - 12.6: login surface only after 12.5. Seed `events` and
-  ceilings at tenant creation (12.6 E1 / E2).
-  `talalbaig@iu.edu.sa` reserved Phase 14, not the harness
-  (12.6 E3).
+  ceilings at tenant creation (12.6 E1 / E2). Owner IU
+  Microsoft account reserved Phase 14, not the harness
+  (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
+  (12.6 E4) — do not copy 034/037 literal emails.
