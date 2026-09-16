@@ -821,6 +821,11 @@ applied sender identity to both composers.
   `356a2d1f` / draft `76840a2a`. Untouched.
 - 12.5b PART B still waiting.
 
+Packet **12.5i** is **not** a Phase 12 packet. It is
+logged as **Phase 15 — transcription quality**
+(`docs/plans/phase-15-transcription.md`). No WF-10
+PUT. No Transcribe change. No `language` key.
+
 ## Test-tenant probe (12.5g D3 / 12.5h D)
 
 Permanent fixture, not a leak. People row `de10f49f`,

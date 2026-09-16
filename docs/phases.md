@@ -1081,6 +1081,42 @@ Two design rules, locked (also `masterplan.md` §4):
 
 ---
 
+## Phase 15 — Transcription quality
+
+**Timing:** 16 Sep 2026. **Not a Phase 12 packet.**
+Home: `docs/plans/phase-15-transcription.md`.
+
+Throwaway `LNI-TEST-15.0-transcribe`. One real stored
+audio object (capture **#214** re-run). HTTP Request to
+OpenAI, **not** the Whisper node. No `language` key.
+Nothing live is PUT: WF-10 Transcribe stays
+`{resource:audio, operation:transcribe,
+binaryPropertyName:asset}` with language absent.
+No `verbose_json` on the live node.
+
+Four comparisons on that one clip:
+
+- **A** `whisper-1` `verbose_json` — detected language
+  and segment-level fields
+- **B** same + a prompt hint naming the expected
+  person, company, and event from the card
+- **C** live transcribe model from `GET /v1/models`
+  (do not trust a remembered id)
+- **D** audio-capable chat model, faithful transcript
+  **and** English rendering
+
+Input is a Storage GET (`responseFormat: file`,
+filesystem-v2). A pin is a different program
+(Phase 1). HEAD `Content-Length` must match
+`assets.size_bytes`.
+
+Recommend from the measurement. If none recover
+trilingual speech, the evidence pane stays the
+defence (12.5g). That is an acceptable answer when
+it is the true one.
+
+---
+
 ## Field operations during LEAP
 
 - Verify Telegram permissions and bot responsiveness before leaving each day

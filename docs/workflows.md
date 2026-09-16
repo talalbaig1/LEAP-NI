@@ -3249,6 +3249,63 @@ log PII; alter `follow_ups_status_check`.
 
 ---
 
+## LNI-TEST-15.0-transcribe (Phase 15, throwaway)
+
+Inactive. Manual Trigger only. No webhook. `availableInMCP:
+true`. `errorWorkflow` = WF-00. Timezone `Asia/Riyadh`.
+`executionTimeout` 300. REST-created with Leap-NI Postgres,
+Supabase_Leap-NI HTTP, OpenAi account — never MCP
+`create_workflow_from_code` (ElderWise auto-bind).
+
+Does **not** Call WF-10. Does not PUT WF-10. Does not
+touch the live Transcribe node. Does not send
+`language`.
+
+Graph (named-node sourcing; binary from `GET audio`
+only):
+
+1. **Self identify** `SELECT name FROM public.lni_instance`
+   — gate `NIS` else `stopAndError`.
+2. **Load asset** capture_no **214**, `kind='audio'`,
+   `upload_status='stored'`. Person/company from the
+   card join (hint B is an expression, not a literal).
+3. **HEAD object** then **Check size** — header
+   `Content-Length` equals `assets.size_bytes`. Mismatch
+   is `stopAndError`.
+4. **GET models** `GET /v1/models` via HTTP Request,
+   `predefinedCredentialType` `openAiApi`. Not a
+   transcribe call.
+   **Pick models** keeps transcribe ids and audio-chat
+   ids only. Preferred transcribe:
+   `gpt-4o-transcribe` else `gpt-4o-mini-transcribe`
+   else first `*transcribe*`. Preferred chat: first
+   live `*audio*` that is not transcribe, else `gpt-4o`.
+5. **GET audio** Storage GET, `responseFormat: file`,
+   `outputPropertyName: asset`. Gate
+   `binary.asset.data === 'filesystem-v2'`. A pin
+   stops the run.
+6. Fan-out HTTP Request, multipart `formBinaryData`
+   field `asset`, **no `language` key**:
+   - **A** `whisper-1` `response_format=verbose_json`
+   - **B** same + `prompt` naming LEAP, the loaded
+     `full_name`, and the loaded company
+   - **C** Pick models transcribe id, `verbose_json`
+   - **D** `POST /v1/files` then Responses/chat with
+     that `file_id` asking for a faithful
+     language-preserving transcript **and** an English
+     rendering. Code cannot read filesystem-v2 bytes,
+     so D is file-id, never inline base64. If the live
+     chat model rejects the file, that failure is the
+     measurement.
+
+Last node **Report** reads A/B/C/D by name: raw text,
+detected language, segment field names, Latin/Arabic
+counts, English-survived, books-ask. Nothing is
+written to Postgres. Owner archives the TEST when
+done.
+
+---
+
 ## 3. Build and verification order
 
 | Order | Workflow | Verify by |
