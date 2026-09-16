@@ -410,6 +410,7 @@ is 12.6, not the rewrite.
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
 | **12.5a-0d** | Amend scrub map (names + company domains). Narrow rule 25. Squash-merge #81. | none | **No PUT. No rewrite. No force-push.** Confirm email still owner (item 11). 12.5a C/D/E/G wait. |
+| **12.5a-0e** | Reconcile #81. Drop ordinary company tokens. Names as `(?i)\\b` regex. Drop github handle. | none | **No PUT. No rewrite. No force-push. No merge.** Map gitignored. Dry-run after architect approval. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 

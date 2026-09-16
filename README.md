@@ -74,10 +74,10 @@ account IDs appear as `<PLACEHOLDERS>`. Real values belong in
 
 **Never commit banned identity / infrastructure literals.**
 Rule 25 (`docs/rules.md`): emails, hosts, project ref, webhook
-paths, workflow / credential ids, contact names and company
-domains. Row-level uuids (people, captures, follow_ups) are
-allowed. Session logs cite tokens. Real values only in
-gitignored `docs/environment.local.md`.
+paths, workflow / credential ids, contact names. Ordinary
+company names stay. Row-level uuids (people, captures,
+follow_ups) are allowed. Session logs cite tokens. Real values
+only in gitignored `docs/environment.local.md`.
 
 CI: `.github/workflows/no-literals.yml` runs
 `scripts/check-no-literals.sh`. Enable locally:

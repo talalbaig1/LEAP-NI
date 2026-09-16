@@ -32,9 +32,8 @@ Token names are below so documents stay coherent after rewrite.
 | Webhook paths | `<WF10_HISTORY_PATH>` `<WF01_INGEST_PATH>` `<NIWL_WAITLIST_PATH>` |
 | Owner / platform / test / IU emails | `<OWNER_EMAIL>` `<OWNER_GMAIL>` `<PLATFORM_EMAIL>` `<TEST_TENANT_EMAIL>` `<OWNER_IU_EMAIL>` |
 | Third-party emails | `<CONTACT_1_EMAIL>` … numbered by first git appearance, never reused |
-| Contact names | `<CONTACT_N_NAME>` — same N as that human’s email. Same-human email pairs (1+2, 3+4, 7+8) share the **lower** N for the name. Extra named people continue from 12. |
-| Contact company domains | `<CONTACT_N_DOMAIN>` (and `_REG_DOMAIN` / `_DOMAIN_NET` when a second form exists) |
-| Company names that identify a person | `<CONTACT_N_COMPANY>` / `_COMPANY_A` `_COMPANY_B` / `_WRONG_COMPANY` |
+| Contact names | `<CONTACT_N_NAME>` — same N as that human’s email. Same-human email pairs (1+2, 3+4, 7+8) share the **lower** N. Extra named people continue from 12. Rewrite map uses `regex:(?i)\b…\b`, not literals (so `<CONTACT_19_NAME>` cannot eat `American`). Arabic/CJK stay literal. |
+| Company-as-person only | `<CONTACT_4_COMPANY>`, `<CONTACT_1_COMPANY>`, `<CONTACT_2_COMPANY>` (and their `.com`). Ordinary company names stay. |
 | Capture / person / follow_up uuids | **Allowed under rule 25 (12.5a-0d).** Not in the replace-text map. Evidence keys, not operator identity. |
 
 Argue-with-the-packet notes are in the 12.5a-0c implementer

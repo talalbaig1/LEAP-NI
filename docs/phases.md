@@ -1008,6 +1008,20 @@ Architect accepts the Phase 12 docs on live
 verification. **A2–A4 diffs waived** (architect
 decision, recorded in the #81 squash-merge).
 
+### Packet 12.5a-0e — reconcile #81, amend map (16 Sep)
+
+#81 **is merged** (`cd060e1` on `talalbaig1/LEAP-NI`
+`main`). Head ref deleted. Open PRs: 0. GitHub still
+stores `headRefName=cursor/phase-12-docs-c69e` and the
+pre-squash commit list (first two `830b0ea`, `e02bbf0`);
+those SHAs are **not** ancestors of `origin/main`.
+
+Map: drop ordinary company-name tokens. Names are
+`regex:(?i)\b…\b`. Drop `talalbaig1`. Keep
+<CONTACT_4_COMPANY> / <CONTACT_1_COMPANY> / <CONTACT_2_COMPANY>. Count 212.
+`git-filter-repo` **not run**. Dry-run is after
+architect approval. 12.5a C/D/E/G unstarted.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
