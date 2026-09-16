@@ -419,6 +419,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039 applied** (`20260916090802`) | WF-10 only. Rollback `e9204581`. Published `a4d02063`. No WF-01/02/03/05/06/09 PUT. |
 | **12.5d** | WF-10 last-node contract. Stop postgres `{success:true}` swallowing compose. | none | WF-10 only. Rollback `a4d02063`. Published `cca31bc9`. `e9204581` has the same defect. No WF-01/02/03/05/06/09 PUT. Rule 26. |
 | **12.5f** | `/followup` up to history contract. English lock, garble gate, D-I signature, D-F evidence. Prompt `wf10-v3`. | none | WF-10 only. Rollback `cca31bc9`. Published `eeb9dc09`. No WF-01/02/03/05/06/09 PUT. No Transcribe `language`. No picker / Voice disambiguate? change. follow_ups `96461882` not edited. |
+| **12.5g** | Sign-off rule on Extract draft. Caller sender name on both composers. Prompt `wf10-v4`. Garble gate cause-only. | none | WF-10 only. Rollback `eeb9dc09`. Published `844e1858`. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -773,7 +774,37 @@ Any future compose fix must state explicitly which
 prompts it touches. A fix to one composer must name
 the other (`Extract draft` and `Extract history
 draft`). Divergent prompts are a defect unless a
-named packet chose the difference.
+named packet chose the difference. Packet **12.5g**
+applied sender identity to both composers.
+
+## Acceptance (12.5g — applied 16 Sep)
+
+- Rollback named before PUT: `eeb9dc09` (12.5f).
+- New published `844e1858` (12.5g). POST `/activate`.
+- `Extract draft` carries history's sign-off rule in
+  the same words: `Do not append a bio or signature.
+  The channel signature is appended from sender_profile
+  after you.`
+- Both composers `wf10-v4`. Caller `sender_name` from
+  `lni_settings` `display_name`, else first line of
+  `sender_profile.signature_block`. No prompt literal
+  for the sender.
+- Garble gate **not changed**. Cause-only on
+  follow_ups `2fd8c529`: explicit markers are English
+  strings; second arm is neither-name-nor-topic.
+  `hasTopic` treats any 4+ letter including non-Latin
+  as a topic, so a substantial non-Latin transcript
+  always passes. Whisper has no language and no
+  confidence (`verbose_json` absent). No reliable
+  non-Latin garble signal exists. Evidence pane is
+  the only defence. Composer has no omit-over-smooth
+  rule for incoherent phrases.
+- `2fd8c529` and `96461882` not edited.
+- Transcribe `language` still absent.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+- D2 (owner phone, one sign-off) is the owner.
 
 ## Logged, do not fix in 12.5a
 

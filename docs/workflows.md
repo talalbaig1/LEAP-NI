@@ -2762,14 +2762,16 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`eeb9dc09`**
-after packet **12.5f** (`/followup` history contract,
-prompt `wf10-v3`). Rollback **`cca31bc9`** (12.5d
-last-node). Prior **12.5d** graph **`cca31bc9`**.
+Published **`844e1858`**
+after packet **12.5g** (sign-off + caller sender name,
+prompt `wf10-v4`). Rollback **`eeb9dc09`** (12.5f).
+Prior **12.5f** graph **`eeb9dc09`**.
+Prior rollback **`cca31bc9`** (12.5d last-node).
+Prior **12.5d** graph **`cca31bc9`**.
 Packet
 **12.5f** brings `/followup` up to the history
 contract (English lock, garble gate, D-I signature,
-D-F evidence pane). Prompt **`wf10-v3`**. Prior rollback
+D-F evidence pane). Prior rollback
 **`a4d02063`** (12.5a). `e9204581` carries the same
 swallow — do not roll back to it as a remedy.
 Prior **12.5a** graph **`a4d02063`**
@@ -2785,8 +2787,11 @@ Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
 in English (`Write in ENGLISH even if the transcript
 is Arabic, Urdu, or mixed` — same words on
-`Extract draft` `wf10-v3` and `Extract history draft`
-`wf10-hist-v4`). Every body starts with a greeting by name.
+`Extract draft` and `Extract history draft`, both
+`wf10-v4` after 12.5g). Every body starts with a greeting by name.
+Sender identity is the caller `lni_settings` key
+`display_name`, else the first line of
+`sender_profile.signature_block`. Not a prompt literal.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
 short plain copy on Telegram (no Gmail), with `wa.me`
 click-to-chat (Meta FAQ) or a LinkedIn people-search
@@ -3034,9 +3039,13 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     from `lni_settings` key `mailbox_linked` (039 / D-M).
     **Load owner cc** / **Load owner cc voice** also
     `LEFT JOIN sender_profile` on caller `owner_id` and
-    return `signature_block` (D-I). Empty profile is
+    return `signature_block` (D-I) plus `sender_name`
+    (`lni_settings` `display_name`, else first line of
+    `signature_block`). Empty profile is
     empty signature, not a hard fail (History load is
     INNER JOIN — remaining difference).
+    **History load** returns the same `sender_name`
+    (12.5g).
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
     OpenAI audio, `language` **absent**. No `verbose_json`
     (session 08 post-event item 3; 12.5f D1 leaves it).
@@ -3050,7 +3059,13 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     bracketed placeholders. **English lock (12.5f, same
     words as `Extract history draft`):** `Write in ENGLISH
     even if the transcript is Arabic, Urdu, or mixed.`
-    Prompt version **`wf10-v3`**. Do not write the
+    **Sign-off (12.5g, same words as history):** `Do not
+    append a bio or signature. The channel signature is
+    appended from sender_profile after you.`
+    **Sender (12.5g):** system + user `Owner name:` inject
+    caller `sender_name`. Same change on **Extract
+    history draft**. Prompt version **`wf10-v4`** on
+    both composers. Do not write the
     transcript to `audit_log`. Do not add `language` on
     Transcribe.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
@@ -3086,9 +3101,10 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v3'`, `title` = subject.
+    `prompt_version='wf10-v4'`, `title` = subject.
     Same version on **Update draft**, **Insert brief draft**,
-    **Record script flags** / **Record script**.
+    **Record script flags** / **Record script**,
+    **History insert**, **History copy insert**.
     `due_at = NULLIF($4::text, '')::timestamptz` (empty string
     cannot be bound as timestamptz). `RETURNING id`.
     `owner_id` from **Normalize input**. `interaction_id`
