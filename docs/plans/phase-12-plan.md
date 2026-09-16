@@ -71,10 +71,10 @@ workflows to NIWL credentials.
 | `assets_telegram_file_unique_id_key` | **restored 16 Sep 12.4e** (038 `20260916043514`). TEMPORARY. Coexists with UNIQUE `(owner_id, telegram_file_unique_id)`. Drop in 12.2 remainder WF-01 PUT. |
 | `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
 | WF-01 published | `<WF01_PUBLISHED>` · draft still `<WF01_DRAFT>` (30 Aug autosave) |
-| WF-06 published | `<WF06_PUBLISHED>` · draft still `<WF06_DRAFT>` (30 Aug autosave) |
+| WF-06 published | `<WF06_PUBLISHED>` · `<WF06_DRAFT>` discarded as the unpublished tip by the 12.6 PUT, never published |
 
-If either unpublished draft id changes, someone wrote
-the canvas — STOP.
+If WF-01 unpublished draft id `<WF01_DRAFT>` changes, someone wrote
+the canvas — STOP. WF-06 tip is now the published graph.
 
 ---
 
@@ -245,7 +245,7 @@ the instance Gmail credential.
 | `assets.telegram_file_unique_id` | **Changes in 12.1** | Live unique is the column alone (`assets_telegram_file_unique_id_key`). Becomes `(owner_id, telegram_file_unique_id)`. Capture loss otherwise. |
 | `bot_state.telegram_user_id` | **Changes in 12.1** | Adds global UNIQUE. Live unique is `(owner_id, telegram_user_id)` only. |
 | `lni_public_suffixes` | Not owner-scoped | Reference list. `lni_instance` sits in the same class. |
-| Storage path `{owner_id}/…` | **Unverified** | Bucket policy is `foldername(name)[1] = auth.uid()`. n8n writes over REST and bypasses it. Whether WF-01 actually writes an owner-prefixed path is a **12.2 read-back**, not an assumption. |
+| Storage path `{owner_id}/…` | **Proven 16 Sep (12.4d / C2)** | Bucket policy is `foldername(name)[1] = auth.uid()`. n8n writes over REST and bypasses it. Live GET: every sampled `assets.storage_path` is `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}`. C2 fixture used the same layout under the test tenant (`2678f157` prefix, not the live owner). |
 
 Owner-scoped uniques already: `events (owner_id, name)`,
 `people (owner_id, email_normalized)`,
@@ -712,8 +712,26 @@ unchanged). Do not PUT this in 12.5a.
 - **12.6 drain (applied):** owner resolution on
   WF-03/04/05/06/09. Home
   `docs/plans/packet-12-6-drain-owner.md`.
-  C2 unattended drain waiting on a stored
-  test-tenant asset.
+  C2 fixture planted (asset `ed29a4a0`,
+  job `b47ddee0`); unattended WF-09 drain
+  waiting. Do not MCP-execute WF-03.
+- **Test tenant fixtures — permanent.**
+  Tenant `<TEST_TENANT_ID>` (`2678f157`) is
+  **never deleted**. Every row in it stays.
+  Do not clean up.
+
+  | Row | What | Why it stays |
+  |---|---|---|
+  | capture `#217` `6bcc2fe1` | `processing`, `close_reason=explicit`, closed 16 Sep 10:47Z, event `042e02b7` | Deliberate permanent `leftover_processing` finding. WF-09 Scan uses this owner's `event_id`. |
+  | job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h` finding. Proves skip-send when `chat_id` and `digest_email` are empty. |
+  | job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. No Apollo spend. |
+  | job `b47ddee0` | `card_vision` `queued` attempt 0 on asset `ed29a4a0` | C2 unattended drain fixture. Synthetic JPEG, owner-prefixed path. |
+  | asset `ed29a4a0` | `kind=photo` `stored` 8335 B HEAD, sha256 from stored GET | C2 bytes. Path first segment is the test tenant. |
+  | person `de10f49f` | D3probe | C4 enrichment probe. |
+  | person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
+
+  No test-tenant `bot_state`. Empty chat /
+  digest → skip send, never fall back.
 - 12.6-login: login surface only after 12.5.
   Seed `events` and
   ceilings at tenant creation (12.6 E1 / E2). Owner IU

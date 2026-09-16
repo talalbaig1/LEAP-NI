@@ -935,10 +935,12 @@ n8n's `service_role` must continue to bypass RLS.
   implementable. Implied until 26 Aug 2026; now explicit.
 - Storage policy: an authenticated user may access only objects whose first path
   segment equals `auth.uid()` (`foldername(name)[1] = auth.uid()`).
-  **n8n writes over REST and bypasses that policy.** Whether WF-01
-  actually writes an owner-prefixed path is **unverified** and is a
-  **12.2 read-back**, not an assumption. Do not treat the convention
-  as proven isolation.
+  **n8n writes over REST and bypasses that policy.** WF-01 **does**
+  write owner-prefixed paths (proven 16 Sep, packet 12.6 C2 / 12.4d):
+  live `assets.storage_path` values are
+  `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}`.
+  The convention is the write layout. Isolation for dashboard users
+  is still the folder policy; n8n `service_role` bypasses it.
 - Upload via raw REST with `httpHeaderAuth` and `x-upsert: true` — the pattern
   already proven in the owner's n8n instance.
 - Downloads: WF-03 fetches the private object with authenticated HTTP GET

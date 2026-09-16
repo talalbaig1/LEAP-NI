@@ -2,8 +2,9 @@
 
 **Date:** 16 Sep 2026
 **Status:** PART B applied. PART C: C3 C4 C5
-done. C1 owner phone. C2 stopped — no
-test-tenant asset.
+done. C2 fixture planted 16 Sep 11:29Z,
+waiting unattended WF-09 `*/15` drain.
+C1 owner phone still owed.
 **Home:** this file. Stub in `phases.md` Phase 12.
 Login surface previously numbered 12.6 stays
 **after isolation**; it is not this packet.
@@ -15,8 +16,11 @@ processed. Today all five resolve the tenant from
 `owner_id`. A second tenant stores and starves.
 
 Live read 16 Sep: processing_jobs one owner, zero
-queued, zero running. WF-01 / WF-06 drafts
-unchanged (`e454df40` / `76840a2a`). No WF-01,
+queued, zero running (before C2 plant). WF-01
+draft `<WF01_DRAFT>` still the unpublished tip;
+guard still applies. WF-06 `<WF06_DRAFT>` is
+**not** the tip — discarded as current version
+by the 12.6 PUT, never published. No WF-01,
 WF-02, WF-07, WF-08, WF-10 change in this packet.
 No test-tenant `bot_state`. 12.5b PART B waiting.
 
@@ -372,12 +376,17 @@ destination`, `Silent clean`, `Owners
 done`). Rule 26.
 
 WF-06 top-level draft `<WF06_DRAFT>` was
-**not** published. PUT from published
-`<WF06_ROLLBACK_A6>` created a new
-current version; GET now shows
+**not** published. Architect ordered the
+12.6 PUT without naming that draft's fate.
+PUT from published `<WF06_ROLLBACK_A6>`
+created `<WF06_PUBLISHED>`; GET now shows
 `versionId` = `activeVersionId`. The old
-draft id is no longer the top version.
-WF-01 draft `<WF01_DRAFT>` untouched.
+draft is no longer the unpublished tip
+(history still lists the 30 Aug autosave
+as a past version). WF-01 draft
+`<WF01_DRAFT>` still exists as the
+unpublished tip; the canvas guard still
+applies **there**.
 
 No WF-01/02/07/08/10 PUT. No test-tenant
 `bot_state`. No canvas.
@@ -389,26 +398,48 @@ No WF-01/02/07/08/10 PUT. No test-tenant
 **C1.** Owner phone photo + voice + `/done`.
 Not run this turn.
 
-**C2. STOPPED.** Test tenant `2678f157`:
-assets **0**, captures were **0** before
-C3, jobs **0**, no stored object. Smallest
-honest remaining fixture (not applied):
+**C2. Fixture planted 16 Sep 11:29Z.
+Waiting unattended drain.** Do **not**
+MCP-execute WF-03. WF-03 has no schedule;
+WF-09 `*/15` kicks on `stuck_queued`
+(attempt 0, `last_transition_at` older
+than 1 minute).
 
-1. Reuse capture `#217` (`6bcc2fe1`, already
-   owned by `2678f157` from C3).
-2. One **stored** JPEG in Storage (new path,
-   not a live-owner path).
-3. `assets` row: that owner, that capture,
-   `kind=photo`, `upload_status=stored`.
-4. `processing_jobs` `card_vision` `queued`
-   `attempt_count=0` on that asset.
+Honest synthetic JPEG (ffmpeg, text
+`NIS TEST TENANT FIXTURE`, 960×240,
+8335 bytes). Not a live-owner clone.
+Throwaway `LNI-TEST-12.6-c2-put` REST
+PUT to Storage with credential
+`<STORAGE_CRED_ID>`, then archived
+(not deleted). TEST exec **486924**.
 
-Then leave WF-03 cron to drain unattended.
-Do **not** MCP-execute WF-03 for C2.
+- Path:
+  `<TEST_TENANT_ID>/6bcc2fe1-…/ed29a4a0-…-c2synth126ed29a4a0ad53.jpg`
+  First segment is the test tenant, not
+  the live owner. **12.4d / 12.2
+  read-back: WF-01 does write
+  owner-prefixed paths.** Live sample
+  16 Sep: every stored `storage_path`
+  starts `{owner_id}/{capture_id}/{asset_id}-{file_unique_id}.{ext}`.
+  C2 used that same layout under the
+  test tenant.
+- `assets` `ed29a4a0` owner `2678f157`
+  capture `#217` (`6bcc2fe1`) `kind=photo`
+  `upload_status=stored`. `size_bytes=8335`
+  from HEAD `Content-Length` of the stored
+  object (status 200). `sha256=f7e7e7e3…1621b88`
+  from GET of those stored bytes (never
+  item metadata).
+- `processing_jobs` `b47ddee0`
+  `card_vision` `queued` `attempt_count=0`
+  `last_transition_at` 11:29:03Z.
 
-Need Talal: name an existing stored asset
-to clone, or drop a tiny JPEG. Will not
-invent bytes.
+Live-owner snapshot at plant: assets 197,
+jobs 536, people 74, interactions 127,
+extraction_runs 152, entity_candidates 83,
+follow_ups 111. Drain report (next tick)
+must show those counts unchanged except
+the test-tenant writes.
 
 **C3.** Exec **486765** (WF-09, success).
 Test-tenant Scan: `finding_count=2`
@@ -435,10 +466,17 @@ match** did not run. Test-tenant Apollo
 `credit_ledger` count **0**. Missing-key
 `COALESCE` SQL returns **0**.
 
-**C5.** Re-GET:
+**C5.** Re-GET 16 Sep after PUT:
 
 - WF-01 `activeVersionId` `<WF01_PUBLISHED>`
   `versionId` `<WF01_DRAFT>` (unchanged).
+  The canvas guard still applies here.
 - WF-06 `activeVersionId` =
   `versionId` = `<WF06_PUBLISHED>`.
-  `<WF06_DRAFT>` is not the top version.
+  `<WF06_DRAFT>` is not the unpublished
+  tip. Never published. Architect
+  ordered the 12.6 PUT without naming
+  that draft's fate — PUT discarded it
+  as the current version. History still
+  lists the 30 Aug autosave as a past
+  version. Do not roll WF-06 to it.
