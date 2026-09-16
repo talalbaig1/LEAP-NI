@@ -2914,7 +2914,7 @@ Credentials (REST PUT, never ElderWise): Postgres **Leap-NI**,
 Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
 **Supabase_Leap-NI** on the attachment GET (bucket prefix +
 `storage_path`). First execution is self-identifying:
-`SELECT name FROM public.events WHERE name = 'LEAP 2026'`.
+`SELECT name FROM public.lni_instance` (gate `NIS`).
 
 **Input** (Execute Workflow Trigger): `owner_id`, `correlation_id`,
 `source` (`command` \| `voice` \| `callback`), `text` (command),
@@ -2946,11 +2946,12 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 1. **Manual Trigger** and **When called** (executeWorkflow) both
    feed **Self identify**. History webhook removed 12.5a-0.
 2. **Self identify** — Postgres
-   `SELECT name, owner_id FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`.
-   `executeOnce: true`. Still returns `owner_id` until 12.5a C1.
-3. **Row returned?** — `name` equals `LEAP 2026`, strict. False →
+   `SELECT name FROM public.lni_instance LIMIT 1`.
+   `executeOnce: true`. Does **not** return `owner_id`.
+   Fingerprint is instance name `NIS` (12.5a C1).
+3. **Row returned?** — `name` equals `NIS`, strict. False →
    **Wrong database terminal** (`stopAndError`:
-   `Wrong database LEAP 2026 row missing`).
+   `Wrong database instance name missing`).
 4. **Normalize input** — Code. Named-node source. Copies
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
    `correlation_id` from **When called** when executed.
@@ -3000,8 +3001,11 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `omitted_names`. Live finding 28 Aug: the set was **empty**
     for every person until packet 7.3b linked capture #54 to the
     prove person. Cap 3 here, not at send.
-14. **Load owner cc** — `auth.users.email` for the events owner
-    (same join WF-07 uses). Named node.
+14. **Load owner cc** — `auth.users.email` for the **caller**
+    `owner_id` (`Normalize input`). Not `events.name`.
+    Same for **Load owner cc voice** and **Load history cc**.
+    **Load history cc** also returns `mailbox_linked` `yes`/`no`
+    from `lni_settings` key `mailbox_linked` (039 / D-M).
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
     OpenAI audio, `language` **absent**. False → skip.
 16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
@@ -3027,6 +3031,13 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `prompt_version='wf10-v1'`, `title` = subject.
     `due_at = NULLIF($4::text, '')::timestamptz` (empty string
     cannot be bound as timestamptz). `RETURNING id`.
+    `owner_id` from **Normalize input**. `interaction_id`
+    subquery is `person_id AND owner_id` (12.5a E). Same on
+    **Insert awaiting voice** and **History insert**.
+    **History load** LATERAL/EXISTS clauses are owner-scoped.
+    **Mailbox linked?** after **History is email?**: `yes` →
+    Gmail draft; `no` → **History copy insert** (Telegram
+    copy-text, D-M).
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
 20. **Compose confirm** — plain text. Full `to_email`, CC,

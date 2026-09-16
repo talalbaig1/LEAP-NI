@@ -416,6 +416,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0f** | Dry-run rewrite on throwaway clone. | none | **Nothing pushed.** C2=16 (8-char prefixes ate full version UUIDs). |
 | **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
+| **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039** | WF-10 only. Rollback `<WF10_PUBLISHED>` (`e9204581`). No WF-01/02/03/05/06/09 PUT. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -690,6 +691,11 @@ returns the owner's latest draft rather than the tapped
 person. Owner-scoped, so not a cross-tenant leak — a
 correctness defect. Own packet. Published graph `<WF10_PUBLISHED>` (OR branch
 unchanged). Do not PUT this in 12.5a.
+
+**WF-05 `Kick WF-10 deferred` (12.4-class, found 12.5a C5).**
+Sends `$('Self-identify LEAP-NI').item.json.owner_id` —
+the events owner, not the capture's owner. WF-10 C/D/E
+does **not** cover this. Own packet. No WF-05 PUT here.
 
 ## Acceptance (later — do not execute here)
 
