@@ -28,7 +28,7 @@ Supabase Postgres  ── source of truth
         ├─► WF-04 Structured extraction   strict JSON schema, temp 0
         ├─► WF-05 Entity resolution       suggest, never silently merge
         ├─► WF-06 Enrichment (Phase 4)    Apollo person-by-email · org from same response · Tavily website fallback
-        ├─► WF-07 Digests                 10 PM close · 7 AM briefing · /digest
+        ├─► WF-07 Digests                 hourly fan-out (local 22 close · local 7 brief) · /digest
         ├─► WF-08 /ask                    natural-language query
         ├─► WF-09 Watchdog                stuck-job detector
         └─► WF-10 Follow-up               voice/deferred confirm-then-send
@@ -55,8 +55,10 @@ These are invariants. Violating one is a defect regardless of test results.
 5. **Nothing is silently discarded.** Every capture reaches a visible terminal
    state: `ready`, `needs_review`, or `failed`.
 6. **User corrections are canonical** and are never overwritten by a re-run.
-7. **All cron schedules explicitly pinned to `Asia/Riyadh`.** Never inherit the
-   container default.
+7. **All cron schedules explicitly pinned.** WF-07 hourly uses
+   `events.timezone` for local hour, not a Saudi-only 22:00/07:00
+   pair. Other crons stay `Asia/Riyadh` via `settings.timezone`.
+   Never inherit the container default.
 8. **Telegram send paths are enumerated, not implied.** Inbound chat replies
    are WF-01 only — **except the recorded WF-10 exception:** when
    `source` is `sweep` or `deferred`, WF-10 sends the confirm card
@@ -64,9 +66,10 @@ These are invariants. Violating one is a defect regardless of test results.
    WF-01. WF-00 alerts on repeated errors. Scheduled WF-07 / WF-09
    send operational messages because a cron tick has no parent WF-01
    execution. WF-02 never sends. On-demand `/digest` and `/ask` return
-   `reply_text`; WF-01 sends. `chat_id` always from `bot_state`, never
-   `$env`. Email copy is scheduled-only; recipient is `auth.users.email`
-   for the events owner, never committed.
+   `reply_text`; WF-01 sends. Inbound `chat_id` always from `bot_state`,
+   never `$env`. WF-00 operator alert `chat_id` from
+   `lni_settings.operator_chat_id` under the platform owner (035).
+   Email copy is scheduled-only and fail-closed (D-M).
 
 ---
 
@@ -550,10 +553,14 @@ Seeded keys (packet 4.1): `apollo_daily_ceiling` = 60,
 **`lni_settings` (034 live, 16 Sep).** Owner-scoped text
 key/value. UNIQUE `(owner_id, key)` as
 `lni_settings_owner_key_uniq`. RLS `lni_settings_owner_all`,
-same shape as this table. Seeded key: `display_name` for
-the live owner only. Not the platform owner (D-O).
-Signatures stay on `sender_profile`. Ceilings stay on
-`lni_config`.
+same shape as this table. Seeded keys: `display_name` for the live owner only
+(034). `operator_chat_id` under the platform owner
+(035, packet 12.2) — value is the live owner's
+`bot_state.telegram_user_id`, resolved not hardcoded.
+Not a `bot_state` row on the platform owner (D-O).
+BEFORE UPDATE trigger `lni_settings_set_updated_at`
+sets `updated_at`. Signatures stay on `sender_profile`.
+Ceilings stay on `lni_config`.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -686,7 +693,9 @@ plus the fingerprint and the platform owner:
 WF-00 Telegram alerts stay on the operator chat (Q5
 routing). Platform `audit_log.owner_id` is the D-O
 identity (`donotreplynis@gmail.com`), not a tenant.
-That identity gets **no** `bot_state` row.
+That identity gets **no** `bot_state` row. Alert
+`chat_id` is `lni_settings` key `operator_chat_id`
+under the platform owner (035). Not `bot_state`.
 
 **`captures.flags` is a jsonb OBJECT.** Default `'{}'::jsonb`. CHECK
 `jsonb_typeof(flags) = 'object'` (migration `015`). Reserved keys only:
@@ -1352,6 +1361,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 032 | `032_sender_profile_signature_html` | HTML `signature_block` typography. Does not add columns. |
 | 033 | `033_sender_profile_channel_signatures` | `signature_whatsapp` + `signature_linkedin` text NOT NULL default `''`, then seed. Forward-only. 030 stays reserved. Applied 14 Sep 2026. |
 | 034 | `034_multitenancy_foundation` | Packet 12.1 applied 16 Sep 2026 (`20260916022806`). `lni_settings` + `lni_instance` + `bot_state.telegram_user_id` UNIQUE + assets UNIQUE `(owner_id, telegram_file_unique_id)` + platform owner on `lni_instance` via exact email `donotreplynis@gmail.com`. 030 stays Phase 6. `lni_config` gained nothing. |
+| 035 | `035_operator_chat` | Packet 12.2 applied 16 Sep 2026 (`20260916024816`). Seeds `lni_settings` key `operator_chat_id` under `lni_instance.platform_owner_id`; value resolved from the live owner's `bot_state.telegram_user_id` (RAISE if `bot_state` empty). BEFORE UPDATE trigger `lni_settings_set_updated_at`. Not a `bot_state` row — D-O holds. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 

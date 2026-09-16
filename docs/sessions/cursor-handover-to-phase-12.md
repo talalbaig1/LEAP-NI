@@ -91,8 +91,9 @@ WF-10 History skip after 10.1: UUID skip is Zahir kaacib
 
 ## 2. Migration catalogue (live `list_migrations` 14 Sep)
 
-Highest applied: **`033_sender_profile_channel_signatures`**
-catalog `20260914083604`.
+Highest applied: **`035_operator_chat`**
+catalog `20260916024816`. 030 still reserved Phase 6.
+Next LNI schema number is **036**.
 
 | Catalog name | Version | Notes |
 |---|---|---|
@@ -104,10 +105,10 @@ catalog `20260914083604`.
 | 031 | `20260914060746` | `031_sender_profile_history` — `sender_profile` + `follow_ups.channel` + `gmail_draft` + partial unique `(person_id, channel)` |
 | 032 | `20260914074931` | `032_sender_profile_signature_html` — HTML `signature_block` typography. No new columns. |
 | 033 | `20260914083604` | `033_sender_profile_channel_signatures` — `signature_whatsapp` + `signature_linkedin` |
+| 034 | `20260916022806` | `034_multitenancy_foundation` — packet 12.1 |
+| 035 | `20260916024816` | `035_operator_chat` — packet 12.2. `operator_chat_id` + `lni_settings` updated_at trigger |
 
-Next LNI schema number is **034** (10.1 explicitly did
-**not** write it). Phase 12 multi-tenancy must not steal
-030.
+Next LNI schema number is **036**. Phase 12 must not steal 030.
 
 ---
 

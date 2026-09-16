@@ -371,24 +371,20 @@ Receives errors from every LNI workflow.
    committed file (the repo is public; masterplan.md §5; architecture.md
    §2 rule 2):
 
-   - `owner_id` ← parameterised
-     `SELECT owner_id FROM public.events WHERE name = $1 LIMIT 1`
-     with `$1` bound from the Code node field `event_name` (`'LEAP 2026'`,
-     the public 009 seed). `queryReplacement` is the array expression
-     `{{ [event_name, workflow_name, node_name, execution_id,
+   - `owner_id` ← `lni_instance.platform_owner_id` (D-O).
+     A tenant error is never written as that tenant's row
+     and never as the live owner's row. Packet 12.2.
+     `queryReplacement` is the array expression
+     `{{ [workflow_name, node_name, execution_id,
      redacted_message, request_id] }}` — not a CSV, not `.join()`.
-     **Phase 12 (Q4/Q5 locked):** this SELECT is today's
-     fingerprint **and** owner lookup. 12.1 adds
-     `lni_instance`. 12.2 must stop using `LEAP 2026` in
-     workflow logic. Do not PUT WF-00 in 12.0a.
      Routing: alerts stay on the operator chat.
      Ownership: platform `audit_log.owner_id` is the D-O
-     identity, not the live tenant.
-   - `chat_id` ← parameterised
-     `SELECT telegram_user_id FROM public.bot_state WHERE owner_id = $1 LIMIT 1`
-     using the resolved owner.
+     identity, not the live tenant. The string `LEAP 2026`
+     does not appear in this workflow.
+   - `chat_id` ← `lni_settings` key `operator_chat_id`
+     under the platform owner (035). **Not** `bot_state`.
 
-   If the events lookup returns no `owner_id`, **THROW** rather than skip
+   If the `lni_instance` lookup returns no `platform_owner_id`, **THROW** rather than skip
    the write. An error handler that silently drops errors is worse than
    no error handler.
 
@@ -413,11 +409,11 @@ Receives errors from every LNI workflow.
    change can disable it silently. The row-returned gate above is what
    must hold.
 
-   If `bot_state` returns no row, `chat_id` is empty and repeated failures
-   take the undeliverable path. Migration `012` seeds the owner `bot_state`
-   row (the same row WF-01 uses as the allowlist), so alerts should deliver
-   once it is applied. The undeliverable INSERT remains if that row is
-   missing: visible, not silent.
+   If `operator_chat_id` is empty, `chat_id` is empty and repeated failures
+   take the undeliverable path. Migration `035` seeds that key under the
+   platform owner from the live owner's `bot_state.telegram_user_id`, so
+   alerts should deliver once it is applied. The undeliverable INSERT
+   remains if that key is missing: visible, not silent.
 
    Implement the two lookups **and** the undeliverable INSERT in the
    **same** parameterised `executeQuery` as the `workflow_error` INSERT
@@ -2128,26 +2124,41 @@ only. Cache skip must not reach the provider.
 
 ## WF-07 — Digests
 
-**Phase 3** · **Triggers:** two Schedule Triggers + Execute Workflow Trigger.
+**Phase 3** · **Triggers:** one hourly Schedule Trigger + Execute Workflow Trigger.
 
-`scheduleTrigger` v1.3 has **no node-level timezone**. Both crons are
-bare expressions (`0 22 * * *`, `0 7 * * *`). Timezone is
-**`settings.timezone: Asia/Riyadh` only.** A UTC container with no
-workflow timezone fires 7 AM at 10 AM Riyadh. Proof of timezone is an
-**observed execution `startedAt`**, never the cron string.
+`scheduleTrigger` v1.3 has **no node-level timezone**. The cron is
+the bare expression `0 * * * *`. Workflow `settings.timezone` stays
+`Asia/Riyadh` (skill §6). Per-owner local hour is
+`EXTRACT(HOUR FROM (now() AT TIME ZONE events.timezone))` — not the
+cron timezone. A 22:00 / 07:00 Asia/Riyadh pair would skip a second
+tenant entirely.
 
 Workflow ID on the instance: `<WF-07_WORKFLOW_ID>`. Never commit the
 literal. Settings: `availableInMCP: true`, `errorWorkflow` = LNI WF-00,
 `executionTimeout: 300`, timezone `Asia/Riyadh`,
 `callerPolicy: workflowsFromSameOwner`. MCP create does not persist
 these — REST PUT after create, then read-back. Postgres credential
-**Leap-NI**. First execution self-identifies
-(`SELECT name FROM public.events WHERE name = 'LEAP 2026'`). Gate
-`Row returned?`: `name` **equals** `LEAP 2026`, `typeValidation:
-strict` (same as WF-03/04/05). Wrong database → `stopAndError`
-(`Wrong database terminal`). Message: no comma, quote, or apostrophe.
-Self identify: `executeOnce: true` and `options.replaceEmptyStrings:
-false` explicit in saved JSON.
+**Leap-NI**. Fingerprint: `SELECT name FROM public.lni_instance`
+(`executeOnce: true`, `replaceEmptyStrings: false`). Gate
+`Row returned?`: `name` **equals** `NIS`, `typeValidation: strict`.
+Wrong database → `stopAndError`. Message: no comma, quote, or
+apostrophe. The string `LEAP 2026` does not appear in this workflow.
+
+**Owner_id is never re-derived on `/digest`.** Load digest `$1` is
+the caller's payload `owner_id` (`On demand digest`). The old Self
+identify `SELECT … owner_id FROM events WHERE name = 'LEAP 2026'`
+was the leak (packet 12.2 D1).
+
+**Hourly fan-out.** `List due owners` selects owners with **both** a
+`bot_state` row and an `events` row. Close digest when local hour
+is 22; briefing when 7. One item per owner, carrying that
+`owner_id`. Off-hour → NoOp `Not this hour` (not a send). Manual
+run is the proof; do not wait for 22:00.
+
+**Gmail is fail-closed (D-M).** No mailbox-link row exists yet, so
+`owner_email` is empty and Email present? skips Gmail. Telegram
+still sends. Do not send a second tenant's digest from the live
+owner's mailbox.
 
 After **Load digest** (`alwaysOutputData: true` kept): IF named Load
 `kind` equals `close` or `brief` (`typeValidation: strict`) AND
@@ -2163,9 +2174,8 @@ them apart. Never gate on captured > 0.
 
 | Trigger | `kind` | `source` | Sends? |
 |---|---|---|---|
-| Cron `0 22 * * *` Asia/Riyadh | `close` | `schedule` | Telegram + email |
-| Cron `0 7 * * *` Asia/Riyadh | `brief` | `schedule` | Telegram + email |
-| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text` |
+| Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if a mailbox-link exists (none yet, D-M) |
+| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text`. `owner_id` from the caller. |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared
 self-identify node. Source every later field from the **named** node
@@ -2174,17 +2184,17 @@ that produced it, never `$json` after Postgres.
 Optional Execute Workflow inputs (call path only; production `/digest`
 omits them):
 
-- `since` — timestamptz text. Empty → `events.starts_at` for LEAP 2026
-  (read at runtime). Never hardcode a date. The 29 Aug gate test
-  passes `since` so counts are non-zero before the event window
-  opens.
+- `since` — timestamptz text. Empty → the caller's `events.starts_at`
+  (read at runtime by `owner_id`). Never hardcode a date. The 29 Aug
+  gate test passes `since` so counts are non-zero before the event
+  window opens.
 - `kind` — `close` or `brief`. Empty → hour rule above.
 
-### Day (`today`) is Riyadh
+### Day (`today`) is the owner's `events.timezone`
 
 ```sql
-(opened_at AT TIME ZONE 'Asia/Riyadh')::date
-  = (now() AT TIME ZONE 'Asia/Riyadh')::date
+(opened_at AT TIME ZONE e.timezone)::date
+  = (now() AT TIME ZONE e.timezone)::date
 ```
 
 Same pattern for `due_at`, `closed_at`. Never `::date` on timestamptz
@@ -2192,7 +2202,8 @@ without the zone (that is UTC date).
 
 ### 10:00 PM — Day close (deterministic, no model)
 
-One parameterised query, owner-scoped from the self-id `owner_id`.
+One parameterised query, owner-scoped from the caller's or fan-out
+`owner_id` (never re-derived from a fingerprint).
 **Scope lower bound** = `COALESCE($since::timestamptz, events.starts_at)`.
 Counts for **today Riyadh** that also satisfy `opened_at >= scope`:
 
@@ -2283,8 +2294,10 @@ must not copy WF-07's old serial graph.**
 2. Resolve `chat_id` and owner email in the **same** Leap-NI Postgres
    node as the counts if possible; otherwise a second Leap-NI node
    (restore-by-name — a *new* node auto-assigns ElderWise).
-   `chat_id` ← `bot_state.telegram_user_id`. Email ←
-   `auth.users.email` for `events.owner_id`. Never `$env`.
+   `chat_id` ← `bot_state.telegram_user_id` for **that**
+   owner. Email is fail-closed (D-M): no mailbox-link row
+   → skip Gmail. Never `$env`. Never the live owner's
+   mailbox for a second tenant.
 3. Fan-out from `Scheduled send?` **true**. Send in **parallel**. Merge
    **after** both attempts, never before (Telegram `retryOnFail` must
    not delay mail).
@@ -2306,7 +2319,7 @@ must not copy WF-07's old serial graph.**
 
 **Must not:** log emails, phones, transcripts, signed URLs; call WF-06;
 deactivate WF-01–05; send on the `call` path (WF-01 owns that send);
-deactivate WF-07 (22:00 timezone proof).
+deactivate WF-07 (hourly fan-out proof).
 
 ---
 
@@ -2326,8 +2339,12 @@ unknown extra fields if present. Empty / missing `question` →
 `ok: true`, `reply_text` = `Usage: /ask <question>` (non-empty, so
 WF-01 sends the hint).
 
-1. **Self-identify** before any read that is not the events probe.
-   Wrong database → `stopAndError`.
+1. **Self-identify** via `lni_instance` (`SELECT name FROM
+   public.lni_instance`, gate `name` equals `NIS`) before any
+   read that is not the fingerprint. Packet 12.2. Wrong
+   database → `stopAndError`. Do not gate on `events.name`.
+   `Retrieve corpus` `$1` is the caller's `owner_id` — do not
+   rebind it.
 2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
    structured filters:
    - `people.full_name % $q` OR `companies.name % $q` OR
@@ -2355,8 +2372,12 @@ WF-01 sends the hint).
    owner is waiting on, not a durable enqueue. Same for `/digest` →
    WF-07.
 
-1. **Self-identify** before any read that is not the events probe.
-   Wrong database → `stopAndError`.
+1. **Self-identify** via `lni_instance` (`SELECT name FROM
+   public.lni_instance`, gate `name` equals `NIS`) before any
+   read that is not the fingerprint. Packet 12.2. Wrong
+   database → `stopAndError`. Do not gate on `events.name`.
+   `Retrieve corpus` `$1` is the caller's `owner_id` — do not
+   rebind it.
 2. **Retrieve** owner-scoped rows. Parameterised. Trigram plus
    structured filters:
    - `people.full_name % $q` OR `companies.name % $q` OR

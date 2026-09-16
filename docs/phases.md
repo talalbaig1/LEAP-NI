@@ -780,14 +780,29 @@ Catalog **034_multitenancy_foundation**
 WF-01 still `ON CONFLICT (telegram_file_unique_id)`
 until 12.2. Do not publish unpublished drafts.
 
-### Packet 12.2 — Owner resolution (not started)
+### Packet 12.2 — Owner resolution (applied 16 Sep)
 
-Split self-identify onto `lni_instance`. Owner from
-`bot_state` inbound; iterate tenant `owner_id` on cron.
-Fail-closed Gmail/Apollo (D-M). `capture_no` lookups
-include `owner_id` (audit every workflow). Storage path
-read-back. Permanent test tenant `bot_state` (Q2) —
-never deleted. No unpublished-draft publish.
+Catalog **035_operator_chat** (`20260916024816`).
+WF-00 / WF-07 / WF-08 PUT. WF-01 published still
+`4836ffd8` / draft `e454df40`. WF-06 published still
+`356a2d1f` / draft `76840a2a`. Full cross-tenant
+isolation is **not** proven (12.5, two real accounts).
+
+- Fingerprint is `lni_instance` name `NIS`. The string
+  `LEAP 2026` is gone from WF-00 / WF-07 / WF-08.
+- WF-00 `audit_log.owner_id` = `lni_instance.platform_owner_id`.
+  Alert `chat_id` from `lni_settings.operator_chat_id`
+  under the platform owner. Not `bot_state`.
+- WF-07 `/digest` Load digest `$1` is the **caller**
+  `owner_id`. Hourly fan-out lists owners with both
+  `bot_state` and `events`; local hour 22 = close, 7 =
+  brief. Gmail fail-closed (D-M): no mailbox-link row
+  → Telegram only.
+- WF-08 Self-identify gates `lni_instance`. Retrieve
+  corpus `$1` still the caller `owner_id`.
+
+WF-01 / 02 / 03 / 05 / 06 / 09 / 10 unchanged.
+Permanent test tenant and `capture_no` audit stay later.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

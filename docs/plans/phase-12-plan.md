@@ -3,7 +3,10 @@
 **Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.1)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
-`20260916022806`). 12.2 not started. No PUT.
+`20260916022806`). Packet **12.2 applied** (catalog
+`035_operator_chat`, `20260916024816`). WF-00 / WF-07 /
+WF-08 PUT. WF-01 / WF-06 drafts untouched. Full
+cross-tenant isolation is **not** proven here (12.5).
 **Home:** this file. Contracts also in `phases.md` Phase 12,
 `architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
 `workflows.md` §1 owner-resolution.
@@ -274,7 +277,7 @@ there is a door.
 |---|---|---|---|
 | **12.0 / 12.0a** | This plan. Docs only. Q1–Q5 locked. | none | none |
 | **12.1** | `lni_settings` + `lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` + assets composite unique + platform owner seed | **034 applied** (`20260916022806`) | none. WF-01/06 drafts untouched. |
-| **12.2** | Split self-id onto `lni_instance`. Cron iterates tenants. Fail-closed Gmail/Apollo. `capture_no` + owner audit. Storage path read-back. Permanent test tenant `bot_state` | none | WF-00/01/02/06/07/09 as the packet lists. **No unpublished-draft publish.** |
+| **12.2** | Split self-id onto `lni_instance`. WF-07 hourly fan-out per owner local hour. Fail-closed Gmail. `operator_chat_id` seed. WF-00 platform `audit_log.owner_id`. | **035 applied** (`20260916024816`) | WF-00 / WF-07 / WF-08 only. **No unpublished-draft publish.** WF-01/02/06/09 stay. Permanent test tenant and capture_no audit are later packets. |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.5** | Minimal login surface | named then | none until isolation proven |
@@ -363,14 +366,31 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
 
+## Acceptance (12.2 — applied 16 Sep)
+
+- catalog `035_operator_chat` (`20260916024816`); 030 still
+  absent.
+- `lni_settings` key `operator_chat_id` under
+  `lni_instance.platform_owner_id`; value = live owner
+  `bot_state.telegram_user_id`.
+- `lni_settings_set_updated_at` BEFORE UPDATE trigger live.
+- WF-00 / WF-07 / WF-08 published JSON: zero `LEAP 2026`.
+- Fingerprint is `lni_instance` name `NIS`.
+- WF-00 `audit_log.owner_id` = platform owner. Alert from
+  `operator_chat_id`, not `bot_state`.
+- WF-07 `/digest` Load digest `$1` from caller payload.
+  Hourly fan-out per owner local hour. Gmail fail-closed.
+- WF-08 Retrieve corpus `$1` still caller `owner_id`.
+- WF-01 published `4836ffd8` / draft `e454df40`.
+  WF-06 published `356a2d1f` / draft `76840a2a`.
+- Full cross-tenant isolation is **not** proven (12.5).
+
 ## Acceptance (later — do not execute here)
 
-- 12.2: no workflow node contains the string
-  `LEAP 2026`; fingerprint is `lni_instance`; owner from
-  `bot_state`; fail-closed Gmail/Apollo; `capture_no`
-  lookups include `owner_id`; storage path read-back;
-  permanent test tenant `bot_state` live; WF-01 published
-  id still `4836ffd8` unless a packet authorised a PUT.
+- 12.2 remainder (other packets): `capture_no` lookups
+  include `owner_id` on WF-01/02; storage path read-back;
+  permanent test tenant `bot_state` live; fail-closed
+  Apollo on WF-06.
 - 12.3: Zahir still two people rows until a merge packet
   after `person_emails` exists.
 - 12.4: 61 pre-window candidates still `pending` unless
