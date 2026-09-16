@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4b)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4c)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -327,6 +327,29 @@ N=2 **failure isolation** proven Hourly tick exec
 **483257**. N=2 **successful** delivery to two real
 chats is **not** proven — that is 12.5.
 
+Same-packet intermediates (named before each PUT):
+`353f649a` (03:49:23) → `feb5f066` (03:51:57) →
+`ca2f3d35` (03:53:25). Immediate predecessor of
+`ca2f3d35` is `feb5f066`. Packet restore is `28754af8`.
+
+### Packet 12.4c — reconcile `ca2f3d35` (docs only, 16 Sep)
+
+No PUT. No rollback issued. `ca2f3d35` is a **12.4b**
+build. The unattended 04:00Z tick exec **483309** ran on
+it. Filing that tick under packet 12.3 was a standing-
+rule slip.
+
+**Rollback for `ca2f3d35` (recorded here):** packet
+restore `28754af8` — captured **before** the first 12.4b
+PUT. Immediate predecessor `feb5f066` — captured
+**before** the PUT that created `ca2f3d35`. The two
+intermediates are written into docs after the fact
+(they were already in n8n history).
+
+Chain: `9197f7a3` (12.2) → `becd329b` (12.2a) →
+`28754af8` (12.3b) → `ca2f3d35` (12.4b). D3 **483257**
+status **success** (completed, last node Fan-out done).
+
 ### Packet 12.5 — isolation proven (two real accounts)
 
 Two real `bot_state` rows. Cross-tenant proof. Depends
@@ -371,6 +394,7 @@ held. Not the permanent harness.
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `ca2f3d35` (rollback `28754af8`). **Before 12.5.** |
+| **12.4c** | Reconcile `ca2f3d35`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -539,6 +563,19 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
   No other workflow PUT.
+
+## Acceptance (12.4c — docs 16 Sep)
+
+- No PUT. WF-07 still `ca2f3d35`. Packet restore
+  `28754af8` was named **before** the first 12.4b PUT.
+  Immediate predecessor `feb5f066` was named **before**
+  the PUT that created `ca2f3d35`.
+- Same-packet intermediates: `353f649a` → `feb5f066` →
+  `ca2f3d35`. Recorded in docs after the fact.
+- D3 exec **483257** status **success**.
+- 04:00Z exec **483309** ran on `ca2f3d35` (12.4b), not
+  `28754af8`.
+- WF-00 still `be1e7b71`. WF-08 still `8b835659`.
 
 ## Acceptance (later — do not execute here)
 

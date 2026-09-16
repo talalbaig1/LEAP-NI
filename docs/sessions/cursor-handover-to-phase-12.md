@@ -71,7 +71,7 @@ changes, someone wrote again — STOP.
 | 04 | `cxyvgBJC1DD8LEbU` | true | `6fa41bc4-175f-4787-8b91-458e502e4a62` | same | named `dafe9b02` 10.2c-fix (history-pruned) | 29 |
 | 05 | `Iv0loGijYVH77OGh` | true | `68f47505-36b6-4843-98e1-16892a098aa2` | same | named `74b08d0f` (history-pruned) | 29 |
 | **06** | `eNlgt1wk9Z8Nefwy` | true | `356a2d1f-daf1-4560-a68f-4df82ff64ceb` | **`76840a2a-3d4f-454e-86ff-0f70bca48ca1` unpublished autosave** | named `f6b39538-28ae-4946-ac81-504c9f004c36` | 53 |
-| 07 | `AyPtkP8PMFeEdYU9` | true | `ca2f3d35-d344-419d-b7ee-64b4e28df82b` | same | **12.4b rollback `28754af8-1960-479b-912e-b398e7264343`**. Chain `9197f7a3` (12.2) → `becd329b` (12.2a) → `28754af8` (12.3b) → `ca2f3d35` (12.4b). `28754af8` is not 12.2a. | 34 |
+| 07 | `AyPtkP8PMFeEdYU9` | true | `ca2f3d35-d344-419d-b7ee-64b4e28df82b` | same | **12.4b packet restore `28754af8-1960-479b-912e-b398e7264343`** (named **before** first 12.4b PUT). Immediate predecessor of `ca2f3d35` is `feb5f066` (named before that PUT). Chain `9197f7a3` (12.2) → `becd329b` (12.2a) → `28754af8` (12.3b) → `ca2f3d35` (12.4b). Intermediates `353f649a` → `feb5f066` recorded 12.4c after the fact. `28754af8` is not 12.2a. | 34 |
 | 08 | `QIioJBxuZYJh5R4W` | true | `8b835659-6179-4472-9f78-f096bdaba841` | same | **12.2 rollback `b699e7d6-ecd4-431d-86ff-d61bd1472390`** | 19 |
 | 09 | `m0lvc9dzpyxLj2hI` | true | `fdd6fe67-9cc4-4b05-af20-3994f3e1e859` | same | named `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | 43 |
 | 10 | `D9PRjbZMQxe9ESVW` | true | `226fe197-39bf-497c-ad4f-2735740f0547` | same | **`fd8b7f9b-f156-4295-ae92-87fa21c98350` (live history)** | 172 |

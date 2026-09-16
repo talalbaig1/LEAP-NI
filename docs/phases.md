@@ -878,6 +878,19 @@ Scheduled empty / undeliverable writes `audit_log`
 tick exec **483257**. N=2 successful delivery to two
 real chats is **not** this packet — that is 12.5.
 
+Same-packet intermediates: `353f649a` (03:49:23) →
+`feb5f066` (03:51:57) → `ca2f3d35` (03:53:25). Packet
+restore `28754af8` named before the first 12.4b PUT.
+
+### Packet 12.4c — reconcile `ca2f3d35` (docs only)
+
+No PUT. `ca2f3d35` is 12.4b. 04:00Z tick **483309** ran
+on it. Packet restore `28754af8` was named before the
+first 12.4b PUT; immediate predecessor `feb5f066` was
+named before the PUT that created `ca2f3d35`.
+Intermediates recorded in docs after the fact.
+D3 **483257** status success.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
