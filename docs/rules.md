@@ -182,6 +182,7 @@ One task packet at a time. One vertical slice or bounded feature.
 | 21 | **`$credentials` is undefined in HTTP Request URLs and `this.getCredentials` is unavailable in the task runner.** A Telegram token cannot be reached from workflow JSON. Use the Telegram node. | 7.4-B LNI-TEST-WF10-buttons |
 | 22 | **The `/done` enqueue can run before the last upload lands (16ms on capture #77).** WF-09 reconciler is the backstop. Set-based enqueue across N captures is not ordered against N parallel uploads. | GATE-FIX capture #77; WF-09 orphan reconciler |
 | 23 | **State that must survive a follow-up belongs in a Postgres row, never in an expression that depends on which nodes ran.** Read the row. | Session 28–29 Aug: six losses from `$('Node').isExecuted` / missing payload fields. See below. |
+| 24 | **A migration that drops, renames or replaces a constraint MUST first enumerate every ON CONFLICT clause, foreign key and query in every workflow that depends on it, and prove each still parses against the post-migration schema.** Schema and workflows are one system; verifying them separately verifies neither. | 034 dropped `assets_telegram_file_unique_id_key` while WF-01 Insert asset inferred on it. Catalog, index, policy, grant and row-count read-back all passed. Capture down 02:28Z–04:41Z. Architect verification could not have caught it. Architect error, 16 Sep. Restored by 038. |
 
 ### Traps already proven
 
@@ -237,6 +238,22 @@ look.” Six times in one session (28–29 Aug 2026):
 
 Write it on `follow_ups` (or `people`, or `captures`) and read that
 row on the next execution.
+
+**A constraint drop that the catalog accepts can still
+break capture.** `pg_depend` non-internal, FK lists,
+index lists, policies, grants and row-counts do not
+see n8n `ON CONFLICT` inference. 034 dropped
+`assets_telegram_file_unique_id_key`. Published WF-01
+Insert asset still inferred `ON CONFLICT
+(telegram_file_unique_id)` → 42P10. Capture was down
+02:28Z–04:41Z on 16 Sep. Architect read-back of the
+schema passed; it could not have caught the workflow
+bind. Restored by 038. This is rule 24. Before any
+future DROP / RENAME / REPLACE of a unique, enumerate
+every ON CONFLICT, foreign key and query in every
+workflow that depends on it, and prove each still
+parses (`BEGIN; EXPLAIN INSERT … ON CONFLICT;
+ROLLBACK`) against the post-migration schema.
 
 ### Known defects — September (do not "fix" out of packet)
 

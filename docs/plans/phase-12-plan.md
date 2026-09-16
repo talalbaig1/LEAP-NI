@@ -598,9 +598,13 @@ Platform errors are owned by it, inside no tenant. D-O.
   stored 91339; **483620** success voice `cdccd64e`
   stored 16378. assets 191 → 193.
 - STEP 3: 7 published ON CONFLICT clauses, all parse
-  (rolled-back EXPLAIN). Zeros: WF-00/03/04/06/07/08/10.
-  No published graph infers the 034 composite assets
-  unique or `bot_state_telegram_user_id_key`.
+  (rolled-back EXPLAIN). Arbiters live. Zeros:
+  WF-00/03/04/06/07/08/10. No `ON CONSTRAINT`. No SQL
+  naming an index. No FK onto the 034/038 uniques
+  (`processing_jobs_asset_id_fkey` → `assets` PK only).
+  Unapplied **012** infers
+  `bot_state_owner_id_telegram_user_id_key` (kept).
+  Rule 24 in `rules.md`. No PUT.
 
 ## Acceptance (later — do not execute here)
 

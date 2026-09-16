@@ -915,11 +915,27 @@ success photo Insert asset `57b0e023` stored 91339;
 WF-01 **483620** success voice Insert asset `cdccd64e`
 stored 16378. assets **191 → 193**.
 
-STEP 3 ON CONFLICT audit: 7 clauses in published graphs.
-All 7 parse against a live unique today (rolled-back
-EXPLAIN). WF-00/03/04/06/07/08/10 zero. No published
-graph infers `assets_owner_id_telegram_file_unique_id_key`
-or `bot_state_telegram_user_id_key`.
+STEP 3 ON CONFLICT audit (re-released with additions):
+7 clauses in published graphs. All 7 parse against a
+live unique (rolled-back `EXPLAIN`). Arbiters:
+`assets_telegram_file_unique_id_key` (WF-01 Insert
+asset), `processing_jobs_enrichment_person_uniq`
+(WF-01 Flag enqueue, WF-05 Enqueue enrichment),
+`processing_jobs_asset_job_uniq` (WF-02 Enqueue asset
+jobs / sweep / closed standard, WF-09 Enqueue orphan
+jobs). Zeros: WF-00/03/04/06/07/08/10 plus active
+LNI-TEST 10.4b ×2 and NIWL-01. No published
+`ON CONSTRAINT`. No SQL naming an index/constraint.
+No published graph infers
+`assets_owner_id_telegram_file_unique_id_key` or
+`bot_state_telegram_user_id_key` (both would parse).
+`pg_depend` non-internal on assets/bot_state uniques:
+empty. Only FK onto those tables:
+`processing_jobs_asset_id_fkey` → `assets(id)` PK.
+Unapplied repo file: **012** only —
+`ON CONFLICT (owner_id, telegram_user_id)` infers
+`bot_state_owner_id_telegram_user_id_key` (034 kept
+it). Rule **24** added to `rules.md`. No PUT.
 
 ### Packet 12.5 — Isolation proven (two real accounts)
 

@@ -228,6 +228,7 @@ Drop `assets_telegram_file_unique_id_key` in **packet 12.2
 remainder** when WF-01 Insert asset is PUT to
 `ON CONFLICT (owner_id, telegram_file_unique_id)`.
 NULL `telegram_file_unique_id` stays legal (multiple NULLs).
+Standing check before any future drop: `rules.md` rule 24.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -1384,7 +1385,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 035 | `035_operator_chat` | Packet 12.2 applied 16 Sep 2026 (`20260916024816`). Seeds `lni_settings` key `operator_chat_id` under `lni_instance.platform_owner_id`; value resolved from the live owner's `bot_state.telegram_user_id` (RAISE if `bot_state` empty). BEFORE UPDATE trigger `lni_settings_set_updated_at`. Not a `bot_state` row — D-O holds. 030 stays Phase 6. |
 | 036 | `036_digest_email` | Packet 12.2a applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
 | 037 | `037_test_tenant` | Packet 12.3c / 12.2b-i applied 16 Sep 2026 (`20260916033502`). Permanent **inert** test tenant. Owner resolved by exact email `talalbaig+tenant2@gmail.com` (009 RAISE: 0 / many / unconfirmed). Never a hardcoded uuid. Seeds `events` name `NIS test tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`), `lni_config` apollo daily + lifetime ceilings, `sender_profile`. **No `bot_state`.** **No `digest_email`** (D2d fixture). Never deleted, never frozen (Q2). 030 stays Phase 6. |
-| 038 | `038_restore_assets_single_unique` | Packet 12.4e applied 16 Sep 2026 (`20260916043514`). Restores UNIQUE `(telegram_file_unique_id)` as `assets_telegram_file_unique_id_key` TEMPORARY. Keeps `assets_owner_id_telegram_file_unique_id_key`. Zero duplicates asserted. Phone proof: WF-01 483617 photo + 483620 voice, assets 191→193. Drop in packet 12.2 remainder (WF-01 Insert asset ON CONFLICT PUT). 030 stays Phase 6. |
+| 038 | `038_restore_assets_single_unique` | Packet 12.4e applied 16 Sep 2026 (`20260916043514`). Restores UNIQUE `(telegram_file_unique_id)` as `assets_telegram_file_unique_id_key` TEMPORARY. Keeps `assets_owner_id_telegram_file_unique_id_key`. Zero duplicates asserted. Phone proof: WF-01 483617 photo + 483620 voice, assets 191→193. Drop in packet 12.2 remainder (WF-01 Insert asset ON CONFLICT PUT). 12.4e STEP 3: no other published bind or live FK depends on the 034/038 uniques. Rule 24 (`rules.md`) is the standing check before any future constraint drop. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 
