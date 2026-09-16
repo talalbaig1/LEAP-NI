@@ -61,7 +61,7 @@ changes, someone wrote again — STOP.
 
 | WF | id | active | published `activeVersionId` | draft `versionId` | rollback | nodes |
 |---|---|---|---|---|---|---|
-| 00 | `X7zKL3wTFPIhwyaN` | true | `5ec180fd-3270-433d-9e03-d0f2ff9ecd44` | same | history-pruned (only current) | 15 |
+| 00 | `X7zKL3wTFPIhwyaN` | true | `be1e7b71-b55a-4bd8-a318-fa096ae0257d` | same | **12.2 rollback `5ec180fd-3270-433d-9e03-d0f2ff9ecd44`** | 15 |
 | 00b | `Q1eMhUF67VAt3T8a` | **false** | none | `46330598-9abb-422e-817e-ec6ea620321a` | never activate | 6 |
 | **01** | `ZMYx19qEr72mJoCX` | true | `4836ffd8-10e3-4d8c-963d-42bf0ccb9372` | **`e454df40-cc92-4a06-ba52-31fc0d1594c8` unpublished autosave** | named `1d53c03d-4e8f-42a1-9f84-f6f0b97aa240` (not in live history) | 137 |
 | 02 | `BV0nukrQdOpDCPe4` | true | `eddb0f11-644a-47e2-a510-3098a090c510` | same (autosaved 10 Sep 17:40Z) | named `ce51e6f4` 10.2c (history API returns only current) | 98 |
@@ -69,8 +69,8 @@ changes, someone wrote again — STOP.
 | 04 | `cxyvgBJC1DD8LEbU` | true | `6fa41bc4-175f-4787-8b91-458e502e4a62` | same | named `dafe9b02` 10.2c-fix (history-pruned) | 29 |
 | 05 | `Iv0loGijYVH77OGh` | true | `68f47505-36b6-4843-98e1-16892a098aa2` | same | named `74b08d0f` (history-pruned) | 29 |
 | **06** | `eNlgt1wk9Z8Nefwy` | true | `356a2d1f-daf1-4560-a68f-4df82ff64ceb` | **`76840a2a-3d4f-454e-86ff-0f70bca48ca1` unpublished autosave** | named `f6b39538-28ae-4946-ac81-504c9f004c36` | 53 |
-| 07 | `AyPtkP8PMFeEdYU9` | true | `fb9ee1c4-6b40-4064-af22-950b78a45544` | same | history-pruned | 25 |
-| 08 | `QIioJBxuZYJh5R4W` | true | `b699e7d6-ecd4-431d-86ff-d61bd1472390` | same | history-pruned | 19 |
+| 07 | `AyPtkP8PMFeEdYU9` | true | `9197f7a3-af51-41aa-8ea2-8f32a7670726` | same | **12.2 rollback `fb9ee1c4-6b40-4064-af22-950b78a45544`** | 27 |
+| 08 | `QIioJBxuZYJh5R4W` | true | `8b835659-6179-4472-9f78-f096bdaba841` | same | **12.2 rollback `b699e7d6-ecd4-431d-86ff-d61bd1472390`** | 19 |
 | 09 | `m0lvc9dzpyxLj2hI` | true | `fdd6fe67-9cc4-4b05-af20-3994f3e1e859` | same | named `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | 43 |
 | 10 | `D9PRjbZMQxe9ESVW` | true | `226fe197-39bf-497c-ad4f-2735740f0547` | same | **`fd8b7f9b-f156-4295-ae92-87fa21c98350` (live history)** | 172 |
 | NIWL-01 | `qsBvL6myQxqfZldF` | true | `93dccd28-cb98-4862-8c92-e43260d471f2` | same | history-pruned | 16 |

@@ -785,7 +785,9 @@ until 12.2. Do not publish unpublished drafts.
 Catalog **035_operator_chat** (`20260916024816`).
 WF-00 / WF-07 / WF-08 PUT. WF-01 published still
 `4836ffd8` / draft `e454df40`. WF-06 published still
-`356a2d1f` / draft `76840a2a`. Full cross-tenant
+`356a2d1f` / draft `76840a2a`. WF-00 `be1e7b71` (rollback
+`5ec180fd`). WF-07 `9197f7a3` (rollback `fb9ee1c4`).
+WF-08 `8b835659` (rollback `b699e7d6`). Full cross-tenant
 isolation is **not** proven (12.5, two real accounts).
 
 - Fingerprint is `lni_instance` name `NIS`. The string
