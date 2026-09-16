@@ -1,8 +1,9 @@
 # Packet 12.6 — Drain owner resolution
 
 **Date:** 16 Sep 2026
-**Status:** PART A only. No PUT. Architect agrees
-the contract before PART B.
+**Status:** PART B applied. PART C: C3 C4 C5
+done. C1 owner phone. C2 stopped — no
+test-tenant asset.
 **Home:** this file. Stub in `phases.md` Phase 12.
 Login surface previously numbered 12.6 stays
 **after isolation**; it is not this packet.
@@ -27,13 +28,14 @@ roll back to it.
 
 | WF | Published rollback |
 |---|---|
-| WF-09 | `<WF09_PUBLISHED>` |
-| WF-06 | `<WF06_PUBLISHED>` |
-| WF-04 | `<WF04_PUBLISHED>` |
-| WF-03 | `<WF03_PUBLISHED>` |
-| WF-05 | `<WF05_PUBLISHED>` |
+| WF-09 | `<WF09_ROLLBACK_A6>` |
+| WF-06 | `<WF06_ROLLBACK_A6>` |
+| WF-04 | `<WF04_ROLLBACK_A6>` |
+| WF-03 | `<WF03_ROLLBACK_A6>` |
+| WF-05 | `<WF05_ROLLBACK_A6>` |
 
-WF-06 draft `<WF06_DRAFT>` untouched this packet.
+WF-06 draft `<WF06_DRAFT>` was not the PUT
+source and was not published.
 
 ---
 
@@ -308,9 +310,135 @@ SQL.
 
 ---
 
-## PART B / C — not this turn
+## PART B — applied 16 Sep
 
-Order after agreement: WF-09, WF-06, WF-04,
-WF-03, WF-05. One PUT each from activeVersion
-`sanitize_for_put`. POST `/activate`. Prove C1–C5
-then.
+Order: WF-09, WF-06, WF-04, WF-03, WF-05.
+One PUT each from `activeVersion`
+`sanitize_for_put`. POST `/activate`.
+WF-09 needed a second PUT (`Compose
+findings` `runOnceForEachItem` must return
+`{ json }`, not an array). Named A6
+rollbacks matched before the first PUT.
+
+| WF | A6 rollback | Published now | nodes | `LEAP 2026` |
+|---|---|---|---|---|
+| 09 | `<WF09_ROLLBACK_A6>` | `<WF09_PUBLISHED>` | 50 | **0** |
+| 06 | `<WF06_ROLLBACK_A6>` | `<WF06_PUBLISHED>` | 53 | **0** |
+| 04 | `<WF04_ROLLBACK_A6>` | `<WF04_PUBLISHED>` | 29 | **0** |
+| 03 | `<WF03_ROLLBACK_A6>` | `<WF03_PUBLISHED>` | 38 | **0** |
+| 05 | `<WF05_ROLLBACK_A6>` | `<WF05_PUBLISHED>` | 31 | **0** |
+
+B1. All five: `SELECT name FROM public.lni_instance
+LIMIT 1`, gate `NIS`. Self-id does **not**
+return `owner_id`. Exec 486765 / 486781
+Self identify output `{ name: NIS }` only.
+
+B2. WF-03/04/05 claim dropped `owner_id = $1`.
+Writes still source owner from the claimed
+row / Join / Prepare. When called stays a
+wake-up.
+
+B3. WF-05: Enqueue enrichment and Kick WF-10
+use `Each claimed resolution job.owner_id`.
+`splitInBatches` 1 added. Call WF-10 still
+`executeOnce`. Enrichment then followup
+are serial so the split loop does not
+double-count.
+
+B4. WF-06: every Self identify `owner_id`
+retargeted to `Each claimed job.owner_id`.
+Ceiling `COALESCE((SELECT value …), 0)`.
+`batchSize` 1 unchanged. Claim is global.
+
+B5. WF-09: `List owners that have work`
+(captures / jobs / assets — not
+`bot_state`). `Each owner` batchSize 1.
+Scan leftover keys on **that** owner's
+`events.id`. Empty `chat_id` and empty
+`digest_email` → `Alert no destination`
+(no Telegram, no Gmail, no live-chat
+fallback). Enqueue orphan dropped the
+events-owner predicate. Kick WF-03
+reconcile sends `{ correlation_id, source }`
+only.
+
+B6. Actual `LEAP 2026` counts in published
+graphs: 09=0, 06=0, 04=0, 03=0, 05=0.
+
+B7. Zero-row claim gates kept. Last nodes
+on those paths are NoOps (`No queued
+jobs`, `Empty queue`, `Alert no
+destination`, `Silent clean`, `Owners
+done`). Rule 26.
+
+WF-06 top-level draft `<WF06_DRAFT>` was
+**not** published. PUT from published
+`<WF06_ROLLBACK_A6>` created a new
+current version; GET now shows
+`versionId` = `activeVersionId`. The old
+draft id is no longer the top version.
+WF-01 draft `<WF01_DRAFT>` untouched.
+
+No WF-01/02/07/08/10 PUT. No test-tenant
+`bot_state`. No canvas.
+
+---
+
+## PART C — prove 16 Sep
+
+**C1.** Owner phone photo + voice + `/done`.
+Not run this turn.
+
+**C2. STOPPED.** Test tenant `2678f157`:
+assets **0**, captures were **0** before
+C3, jobs **0**, no stored object. Smallest
+honest remaining fixture (not applied):
+
+1. Reuse capture `#217` (`6bcc2fe1`, already
+   owned by `2678f157` from C3).
+2. One **stored** JPEG in Storage (new path,
+   not a live-owner path).
+3. `assets` row: that owner, that capture,
+   `kind=photo`, `upload_status=stored`.
+4. `processing_jobs` `card_vision` `queued`
+   `attempt_count=0` on that asset.
+
+Then leave WF-03 cron to drain unattended.
+Do **not** MCP-execute WF-03 for C2.
+
+Need Talal: name an existing stored asset
+to clone, or drop a tiny JPEG. Will not
+invent bytes.
+
+**C3.** Exec **486765** (WF-09, success).
+Test-tenant Scan: `finding_count=2`
+(`failed_24h` job `7c72371f`, leftover
+`#217` on event `042e02b7`). `chat_id`
+empty, `digest_email` empty → **Any
+destination?** false → last send node
+**Alert no destination**. `Telegram alert`
+and `Gmail alert` did **not** run. Live
+owner Scan: `finding_count=0` → **Silent
+clean**. Live chat was not sent the
+test-tenant text.
+
+**C4.** Forced `apollo_daily_ceiling=0` on
+the test tenant (restored to 60 after).
+Job `78371b74` claimed with
+`owner_id=2678f157`. Exec **486781**
+(WF-06 Manual, success). Load ceilings
+`daily_ceiling=0` `daily_used=0`. Last
+node **Drain done**. Job
+`needs_review` / `ceiling_reached`.
+**Insert ledger** and **Apollo people
+match** did not run. Test-tenant Apollo
+`credit_ledger` count **0**. Missing-key
+`COALESCE` SQL returns **0**.
+
+**C5.** Re-GET:
+
+- WF-01 `activeVersionId` `<WF01_PUBLISHED>`
+  `versionId` `<WF01_DRAFT>` (unchanged).
+- WF-06 `activeVersionId` =
+  `versionId` = `<WF06_PUBLISHED>`.
+  `<WF06_DRAFT>` is not the top version.

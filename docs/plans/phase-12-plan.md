@@ -709,10 +709,11 @@ unchanged). Do not PUT this in 12.5a.
   exec **483257**. N=2 successful delivery to two real
   chats is **not** proven — that is 12.5.
 - 12.5: isolation proven with two real accounts.
-- **12.6 drain (this packet, PART A):** owner
-  resolution on WF-03/04/05/06/09. Home
-  `docs/plans/packet-12-6-drain-owner.md`. No PUT
-  until the architect agrees the contract.
+- **12.6 drain (applied):** owner resolution on
+  WF-03/04/05/06/09. Home
+  `docs/plans/packet-12-6-drain-owner.md`.
+  C2 unattended drain waiting on a stored
+  test-tenant asset.
 - 12.6-login: login surface only after 12.5.
   Seed `events` and
   ceilings at tenant creation (12.6 E1 / E2). Owner IU

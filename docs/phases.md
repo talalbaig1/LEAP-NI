@@ -1028,14 +1028,15 @@ Two real `bot_state` rows. Depends on 12.2b and 12.4b.
 
 ### Packet 12.6 — Drain owner resolution
 
-**16 Sep. PART A only. No PUT.** Home:
+**16 Sep. PART B applied.** Home:
 `docs/plans/packet-12-6-drain-owner.md`.
 
-WF-03 / 04 / 05 / 06 / 09 still claim from
-`events WHERE name='LEAP 2026'`. A second
-tenant’s captures would store and never
-process. Architect agrees the contract before
-PART B.
+WF-09 / 06 / 04 / 03 / 05 PUT from A6
+published graphs. Actual `LEAP 2026` count
+**0** on all five. C3 exec **486765** skip
+send. C4 exec **486781** ceiling 0, no
+Apollo spend. C2 stopped (no test-tenant
+asset). C1 owner phone.
 
 The **login surface** previously numbered 12.6
 is **not this packet**. It still lands after
