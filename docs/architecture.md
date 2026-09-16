@@ -131,8 +131,8 @@ seed guessed sectors. `companies.industry` is filled by enrichment
 (Phase 4); until then the mix is `unknown`.
 
 **`bot_state`** — which capture is open; batch mode; **WF-01 allowlist**.
-Live UNIQUE `(owner_id, telegram_user_id)`. Packet 12.1 adds global
-UNIQUE `(telegram_user_id)` (see constraints).
+Live UNIQUE `(owner_id, telegram_user_id)` **and**
+`UNIQUE (telegram_user_id)` (`bot_state_telegram_user_id_key`, 034).
 
 | Column | Type | Default | Null |
 |---|---|---|---|
