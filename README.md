@@ -72,4 +72,19 @@ This repository is **public**. Host names, project refs, workflow IDs, and
 account IDs appear as `<PLACEHOLDERS>`. Real values belong in
 `docs/environment.local.md`, which is gitignored.
 
-**Never commit a literal identifier, key, token, or connection string.**
+**Never commit banned identity / infrastructure literals.**
+Rule 25 (`docs/rules.md`): emails, hosts, project ref, webhook
+paths, workflow / credential ids, contact names and company
+domains. Row-level uuids (people, captures, follow_ups) are
+allowed. Session logs cite tokens. Real values only in
+gitignored `docs/environment.local.md`.
+
+CI: `.github/workflows/no-literals.yml` runs
+`scripts/check-no-literals.sh`. Enable locally:
+
+```
+git config core.hooksPath .githooks
+```
+
+CI stays red on email / webhook / supabase until the rewrite
+packet. That is the control, not a broken build.
