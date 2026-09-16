@@ -93,9 +93,9 @@ WF-10 History skip after 10.1: UUID skip is Zahir kaacib
 
 ## 2. Migration catalogue (live `list_migrations` 14 Sep)
 
-Highest applied: **`037_test_tenant`**
-catalog `20260916033502`. 030 still reserved Phase 6.
-Next LNI schema number is **038**.
+Highest applied: **`038_restore_assets_single_unique`**
+catalog `20260916043514`. 030 still reserved Phase 6.
+Next LNI schema number is **039**.
 
 | Catalog name | Version | Notes |
 |---|---|---|
@@ -111,8 +111,9 @@ Next LNI schema number is **038**.
 | 035 | `20260916024816` | `035_operator_chat` — packet 12.2. `operator_chat_id` + `lni_settings` updated_at trigger |
 | 036 | `20260916030417` | `036_digest_email` — packet 12.2a. `digest_email` for live owner only from `auth.users.email` |
 | 037 | `20260916033502` | `037_test_tenant` — packet 12.3c / 12.2b-i. Inert test tenant. Exact email. No `bot_state`. No `digest_email`. |
+| 038 | `20260916043514` | `038_restore_assets_single_unique` — packet 12.4e. TEMPORARY column-only assets unique restored. Composite unique kept. Drop in 12.2 remainder WF-01 PUT. |
 
-Next LNI schema number is **038**. Phase 12 must not steal 030.
+Next LNI schema number is **039**. Phase 12 must not steal 030.
 
 ---
 

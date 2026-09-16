@@ -891,6 +891,25 @@ named before the PUT that created `ca2f3d35`.
 Intermediates recorded in docs after the fact.
 D3 **483257** status success.
 
+### Packet 12.4e — restore capture unique (applied 16 Sep)
+
+Catalog **038_restore_assets_single_unique**
+(`20260916043514`). No PUT. No canvas. Drafts
+`e454df40` / `76840a2a` unpublished.
+
+034 dropped `assets_telegram_file_unique_id_key`.
+Published WF-01 Insert asset still infers
+`ON CONFLICT (telegram_file_unique_id)` → 42P10.
+Capture down since 02:28Z. Architect-caused.
+
+038 re-CREATEs UNIQUE `(telegram_file_unique_id)`
+and **keeps** `assets_owner_id_telegram_file_unique_id_key`.
+Zero duplicate `telegram_file_unique_id` first (191/191).
+Constraint comment: TEMPORARY. Drop in **packet 12.2
+remainder** when that packet PUTs WF-01 Insert asset to
+`ON CONFLICT (owner_id, telegram_file_unique_id)`.
+030 still absent.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.

@@ -782,7 +782,7 @@ LNI bot only and must not disturb any ElderWise webhook.
       Telegram → `stopAndError` (`Storage mismatch terminal`). Do **not**
       write the assets row. PUT `{Key, Id}` is not a size. Verified
       26 Aug 2026: this Supabase build returns `Content-Length` on HEAD.
-   g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`.
+   g. **ONLY IF** the HEAD measurement passes: `INSERT` the `assets` row with the **same** `asset_id` minted in (c), `size_bytes` = HEAD `Content-Length`, `upload_status = 'stored'`, `ON CONFLICT (telegram_file_unique_id) DO NOTHING`. Published graph still infers the column-only unique. 034 dropped it (42P10). **038 / 12.4e** restored `assets_telegram_file_unique_id_key` TEMPORARY. Packet **12.2 remainder** PUTs this clause to `ON CONFLICT (owner_id, telegram_file_unique_id)` then drops the column-only unique. No WF-01 PUT in 12.4e.
    h. **ONLY NOW** send if `reply_text` is a non-empty string. Nothing else.
       WF-02 already returned empty `reply_text` for batch and for
       non-adopted resolves. An `adopted` or `mode != batch` test here

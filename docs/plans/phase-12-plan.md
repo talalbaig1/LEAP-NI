@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4c)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4e)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -9,7 +9,11 @@ applied** (catalog `036_digest_email`,
 `20260916030417`). Packet **12.3c / 12.2b-i applied**
 (catalog `037_test_tenant`, `20260916033502`) — inert
 test tenant, **no `bot_state`**. Packet **12.4b applied**
-(WF-07 `ca2f3d35`, rollback `28754af8`). E1–E3 fixed.
+(WF-07 `ca2f3d35`, rollback `28754af8`). Packet **12.4e
+applied** (catalog `038_restore_assets_single_unique`,
+`20260916043514`) — column-only assets unique restored
+TEMPORARY so published WF-01 Insert asset can infer.
+No WF-01 PUT. E1–E3 fixed.
 Kind on demand `source` literal `call`. WF-01 / WF-06
 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -18,7 +22,7 @@ cross-tenant isolation is **not** proven here (12.5).
 `workflows.md` §1 owner-resolution.
 
 Packet 10.1 closed. Highest applied migration is
-`037_test_tenant` (catalog `20260916033502`).
+`038_restore_assets_single_unique` (catalog `20260916043514`).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
@@ -64,7 +68,7 @@ workflows to NIWL credentials.
 | `person_emails` / `tenants` | **absent** |
 | `lni_settings` / `lni_instance` | **live 16 Sep (034)** |
 | Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) |
-| `assets_telegram_file_unique_id_key` | **dropped 16 Sep.** Live UNIQUE `(owner_id, telegram_file_unique_id)` |
+| `assets_telegram_file_unique_id_key` | **restored 16 Sep 12.4e** (038 `20260916043514`). TEMPORARY. Coexists with UNIQUE `(owner_id, telegram_file_unique_id)`. Drop in 12.2 remainder WF-01 PUT. |
 | `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
 | WF-01 published | `4836ffd8` · draft still `e454df40` (30 Aug autosave) |
 | WF-06 published | `356a2d1f` · draft still `76840a2a` (30 Aug autosave) |
@@ -395,6 +399,7 @@ held. Not the permanent harness.
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `ca2f3d35` (rollback `28754af8`). **Before 12.5.** |
 | **12.4c** | Reconcile `ca2f3d35`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
+| **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -577,9 +582,25 @@ Platform errors are owned by it, inside no tenant. D-O.
   `28754af8`.
 - WF-00 still `be1e7b71`. WF-08 still `8b835659`.
 
+## Acceptance (12.4e — applied 16 Sep)
+
+- catalog `038_restore_assets_single_unique` (`20260916043514`);
+  030 still absent.
+- `assets_telegram_file_unique_id_key` UNIQUE
+  `(telegram_file_unique_id)` restored. TEMPORARY.
+  Coexists with `assets_owner_id_telegram_file_unique_id_key`.
+- Zero duplicate `telegram_file_unique_id` at apply (191/191).
+- No WF-01 PUT. Drafts `e454df40` / `76840a2a` unpublished.
+- Drop the column-only unique in **12.2 remainder** when
+  WF-01 Insert asset is PUT to
+  `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+
 ## Acceptance (later — do not execute here)
 
-- 12.2 remainder: `capture_no` lookups include `owner_id`
+- 12.2 remainder: PUT WF-01 Insert asset
+  `ON CONFLICT (owner_id, telegram_file_unique_id)`
+  then DROP `assets_telegram_file_unique_id_key`.
+  Also: `capture_no` lookups include `owner_id`
   on WF-01/02; storage path read-back.
 - 12.2b: permanent test tenant `bot_state` live. Not
   asserted today.
