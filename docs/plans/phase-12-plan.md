@@ -1,16 +1,16 @@
-# Phase 12 — Multi-tenancy (docs only)
+# Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 14 Sep 2026 (packet 12.0a)
-**Status:** PLAN ONLY. Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O
-locked. No migration, no PUT, no SQL write.
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.1)
+**Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
+Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
+`20260916022806`). 12.2 not started. No PUT.
 **Home:** this file. Contracts also in `phases.md` Phase 12,
-`architecture.md` §4, `masterplan.md` D-L…D-O, `prd.md` §8c,
+`architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
 `workflows.md` §1 owner-resolution.
 
 Packet 10.1 closed. Highest applied migration is
-`033_sender_profile_channel_signatures` (catalog
-`20260914083604`). Next LNI schema number is **034**.
-**030 stays Phase 6 embeddings.** Do not steal it.
+`034_multitenancy_foundation` (catalog
+`20260916022806`). **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
 `LNI` is the legacy internal code prefix (D-N). Internal
@@ -52,10 +52,11 @@ workflows to NIWL credentials.
 | `bot_state` / `events` / `sender_profile` | 1 row each, all `a79b744e` |
 | `people.owner_id` distinct | 1 |
 | `lni_config` | 3 integer keys (Apollo daily 60, lifetime 2200, Tavily 1000) |
-| `person_emails` / `lni_settings` / `tenants` / `lni_instance` | **absent** |
+| `person_emails` / `tenants` | **absent** |
+| `lni_settings` / `lni_instance` | **live 16 Sep (034)** |
 | Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) |
-| `assets_telegram_file_unique_id_key` | UNIQUE on the column alone |
-| `bot_state` unique | `(owner_id, telegram_user_id)` only |
+| `assets_telegram_file_unique_id_key` | **dropped 16 Sep.** Live UNIQUE `(owner_id, telegram_file_unique_id)` |
+| `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
 | WF-01 published | `4836ffd8` · draft still `e454df40` (30 Aug autosave) |
 | WF-06 published | `356a2d1f` · draft still `76840a2a` (30 Aug autosave) |
 
@@ -95,10 +96,10 @@ same principle as capture #9.
 
 ---
 
-## 12.1 tables (named then, not now)
+## 12.1 tables (applied 16 Sep, catalog 034)
 
-Catalog **034**. Do not write the file in 12.0 / 12.0a.
-030 stays Phase 6.
+Catalog **034_multitenancy_foundation**
+(`20260916022806`). 030 stays Phase 6.
 
 ### `lni_settings`
 
@@ -272,7 +273,7 @@ there is a door.
 | Packet | What | Migration | Workflows |
 |---|---|---|---|
 | **12.0 / 12.0a** | This plan. Docs only. Q1–Q5 locked. | none | none |
-| **12.1** | `lni_settings` + `lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` + assets composite unique + platform owner seed | **034** (named then, not now) | none unless a seed-read prove |
+| **12.1** | `lni_settings` + `lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` + assets composite unique + platform owner seed | **034 applied** (`20260916022806`) | none. WF-01/06 drafts untouched. |
 | **12.2** | Split self-id onto `lni_instance`. Cron iterates tenants. Fail-closed Gmail/Apollo. `capture_no` + owner audit. Storage path read-back. Permanent test tenant `bot_state` | none | WF-00/01/02/06/07/09 as the packet lists. **No unpublished-draft publish.** |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
@@ -350,14 +351,20 @@ Platform errors are owned by it, inside no tenant. D-O.
   named as 034. No migration file.
 - Live GET: WF-01 / WF-06 unpublished drafts unchanged.
 
+## Acceptance (12.1 — applied 16 Sep)
+
+- `pg_tables` has `lni_settings` and `lni_instance`.
+- `pg_policies`: `lni_settings_owner_all`,
+  `lni_instance_select`.
+- `bot_state` unique on `telegram_user_id`.
+- assets unique is `(owner_id, telegram_file_unique_id)`.
+- catalog `034_multitenancy_foundation`
+  (`20260916022806`); 030 still absent.
+- WF-01 published `4836ffd8` / draft `e454df40`.
+  WF-06 published `356a2d1f` / draft `76840a2a`.
+
 ## Acceptance (later — do not execute here)
 
-- 12.1: `pg_tables` has `lni_settings` and
-  `lni_instance`; `pg_policies` has
-  `lni_settings_owner_all`; `bot_state` unique on
-  `telegram_user_id`; assets unique is
-  `(owner_id, telegram_file_unique_id)`; platform Auth
-  user exists; catalog 034; 030 still absent.
 - 12.2: no workflow node contains the string
   `LEAP 2026`; fingerprint is `lni_instance`; owner from
   `bot_state`; fail-closed Gmail/Apollo; `capture_no`

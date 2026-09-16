@@ -478,9 +478,9 @@ candidates (`created_at < 2026-08-30 21:00Z`: 2 on
 `decision='rejected'` would claim a review nobody
 did. 10.1 wrote no 034. 16 in-window pending also
 left pending (table reworked in packet **12.4**).
-034 is now reserved for 12.1 (`lni_settings` +
-`lni_instance` + uniques + platform owner), not
-this table.
+034 is packet 12.1 (`lni_settings` +
+`lni_instance` + uniques + platform owner, applied
+16 Sep), not this table.
 
 Live counts (SQL 14 Sep):
 
@@ -757,24 +757,28 @@ Plan, D-L…D-O, Q1–Q5 LOCKED. No SQL file. No PUT.
   in `masterplan.md`.
 - 034 named, not written. 030 untouched.
 
-### Packet 12.1 — Isolation schema (not started)
+### Packet 12.1 — Isolation schema (applied 16 Sep)
 
-Catalog **034**. Same packet:
+Catalog **034_multitenancy_foundation**
+(`20260916022806`). 030 still absent. No PUT.
 
-- `lni_settings (owner_id, key, value text)` UNIQUE
-  `(owner_id, key)`. RLS same shape as `lni_config`.
-  Seed `display_name` for the live owner.
-- `lni_instance` — not owner-scoped, one row, instance
-  name. Fingerprint. After this, `LEAP 2026` is not in
-  workflow logic.
-- `UNIQUE (telegram_user_id)` on `bot_state`.
+- `lni_settings` live. UNIQUE `(owner_id, key)`. RLS
+  `lni_settings_owner_all`. Seed `display_name` for the
+  live owner only. Not the platform owner (D-O).
+- `lni_instance` live. Not owner-scoped. Singleton
+  boolean PK. `name` = NIS. `platform_owner_id` resolved
+  by exact email `donotreplynis@gmail.com` (009 RAISE
+  pattern). SELECT policy `lni_instance_select`.
+- `UNIQUE (telegram_user_id)` on `bot_state` added.
+  Existing `(owner_id, telegram_user_id)` unique stays.
 - assets UNIQUE `(owner_id, telegram_file_unique_id)`
-  (replaces column-only unique).
-- Platform owner seed: `donotreplynis@gmail.com`
-  (dotless). No `bot_state`, no `events`, no
-  `sender_profile`.
+  replaced `assets_telegram_file_unique_id_key`. Counts
+  191/191 unchanged. No FK/index dependents on the
+  dropped constraint (internal backing index only).
+- `lni_config` untouched (integer-only).
 
-Do not write the file in 12.0a.
+WF-01 still `ON CONFLICT (telegram_file_unique_id)`
+until 12.2. Do not publish unpublished drafts.
 
 ### Packet 12.2 — Owner resolution (not started)
 
