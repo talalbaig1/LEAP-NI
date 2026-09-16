@@ -2761,9 +2761,12 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`<WF10_PUBLISHED>`**
-(171 nodes) after packet **12.5a-0** (History webhook
-removed). Rollback **`<WF10_ROLLBACK>`**.
+Published **`a4d02063`**
+(172 nodes) after packet **12.5a** (caller owner,
+`mailbox_linked`, Class B inner `owner_id`). Rollback
+**`e9204581`**.
+Prior **12.5a-0** graph **`e9204581`** (History webhook
+removed). Prior rollback **`<WF10_ROLLBACK>`**.
 Prior rollback **`<WF10_PUBLISHED_CH5>`**
 (CH1–CH5 close). Prior graphs **`<WF10_PUBLISHED_DESRAJ>`**
 (<CONTACT_14_NAME> + WA/LI dry run), **`<WF10_PUBLISHED_HIST_V4>`** (email

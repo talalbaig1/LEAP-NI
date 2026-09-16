@@ -416,7 +416,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0f** | Dry-run rewrite on throwaway clone. | none | **Nothing pushed.** C2=16 (8-char prefixes ate full version UUIDs). |
 | **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
-| **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039** | WF-10 only. Rollback `<WF10_PUBLISHED>` (`e9204581`). No WF-01/02/03/05/06/09 PUT. |
+| **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039 applied** (`20260916090802`) | WF-10 only. Rollback `e9204581`. Published `a4d02063`. No WF-01/02/03/05/06/09 PUT. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -682,6 +682,26 @@ Platform errors are owned by it, inside no tenant. D-O.
 - Rule 25 checker green on a fresh origin clone.
   C2 eaten-uuid count = 0. 12.5a C/D/E/G unstarted.
 - No WF-01 PUT. No canvas.
+
+## Acceptance (12.5a — applied 16 Sep)
+
+- Rollback named before PUT: `e9204581`. New published
+  `a4d02063` (172 nodes). POST `/activate`.
+- Self identify: `SELECT name FROM public.lni_instance`.
+  Gate `NIS`. No `owner_id` column. Inserts / CC use
+  **Normalize input** caller `owner_id`.
+- Catalog `039_mailbox_linked` (`20260916090802`). Live
+  owner only. Value `true`. Not platform. Not test tenant.
+- History email + `mailbox_linked=no` → copy-text, no
+  Gmail draft (exec **485692**, follow_ups `03928fb8`,
+  `gmail_message_id` null).
+- Missing caller `owner_id` → `WF-10 missing caller owner_id`
+  (exec **485693**).
+- Published WF-10: zero `LEAP 2026`.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06 `356a2d1f` /
+  draft `76840a2a`. Untouched.
+- G3 (phone `/followup` → Gmail draft) still on the owner.
+- WF-05 deferred kick still events owner (C5). Not fixed.
 
 ## Logged, do not fix in 12.5a
 
