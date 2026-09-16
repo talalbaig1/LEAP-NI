@@ -74,7 +74,7 @@ changes, someone wrote again — STOP.
 | 07 | `AyPtkP8PMFeEdYU9` | true | `ca2f3d35-d344-419d-b7ee-64b4e28df82b` | same | **12.4b packet restore `28754af8-1960-479b-912e-b398e7264343`** (named **before** first 12.4b PUT). Immediate predecessor of `ca2f3d35` is `feb5f066` (named before that PUT). Chain `9197f7a3` (12.2) → `becd329b` (12.2a) → `28754af8` (12.3b) → `ca2f3d35` (12.4b). Intermediates `353f649a` → `feb5f066` recorded 12.4c after the fact. `28754af8` is not 12.2a. | 34 |
 | 08 | `QIioJBxuZYJh5R4W` | true | `8b835659-6179-4472-9f78-f096bdaba841` | same | **12.2 rollback `b699e7d6-ecd4-431d-86ff-d61bd1472390`** | 19 |
 | 09 | `m0lvc9dzpyxLj2hI` | true | `fdd6fe67-9cc4-4b05-af20-3994f3e1e859` | same | named `f3885d5a-4eb9-41d0-96ae-91115c69fcaf` | 43 |
-| 10 | `D9PRjbZMQxe9ESVW` | true | `226fe197-39bf-497c-ad4f-2735740f0547` | same | **`fd8b7f9b-f156-4295-ae92-87fa21c98350` (live history)** | 172 |
+| 10 | `D9PRjbZMQxe9ESVW` | true | `e9204581-78fc-4a3c-8009-aef3c3c96e16` | same | **12.5a-0 rollback `226fe197-39bf-497c-ad4f-2735740f0547`** | 171 |
 | NIWL-01 | `qsBvL6myQxqfZldF` | true | `93dccd28-cb98-4862-8c92-e43260d471f2` | same | history-pruned | 16 |
 | NIWL-00 | `mt72Ygk6KqoIhisT` | **false** | none | `fc46433a-ee1b-4b1c-8e1d-22290d7a8fff` | never activate | 6 |
 
@@ -345,8 +345,9 @@ Phase 10 added, same rank:
 - `wa.me` is Meta click-to-chat. Country code **996 is
   Kyrgyzstan**; do not auto-correct to 966.
 - MCP `execute_workflow` cannot run an
-  Execute-Workflow-only graph. History kick is
-  `POST /webhook/lni-wf10-history`.
+  Execute-Workflow-only graph. History kick was
+  `POST /webhook/lni-wf10-history` — **removed 12.5a-0**.
+  Use executeWorkflow with caller `owner_id`.
 - MCP `create_workflow_from_code` binds the **first**
   credential of each type on the instance (ElderWise
   Postgres, random Telegram, **Serper Header Auth** on

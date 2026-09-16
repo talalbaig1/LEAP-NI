@@ -256,8 +256,11 @@ null). Re-run cannot double-draft.
   are `resource=draft` `operation=create`.
 - `Route source` outputs: 0 command, 1 voice, 2 callback,
   3 history, 4 unknown.
-- Kick path: `POST /webhook/lni-wf10-history`
-  `{source:history, person_id}`. MCP `execute_workflow`
+- Kick path was `POST /webhook/lni-wf10-history`
+  `{source:history, person_id}`. **Removed 12.5a-0**
+  (unauthenticated; path in public LEAP-NI). History
+  is executeWorkflow `When called` with caller
+  `owner_id`. MCP `execute_workflow`
   cannot run an Execute-Workflow-only graph.
 - Gmail draft + real attachment proven before the batch:
   `LNI-TEST- 10.4b gmail draft attach` `YjgQeHvlRigRzugm`

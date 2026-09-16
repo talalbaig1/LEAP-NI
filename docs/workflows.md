@@ -2756,9 +2756,10 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`226fe197-39bf-497c-ad4f-2735740f0547`**
-(172 nodes). Packet 10.1 skip-list PUT 14 Sep.
-Rollback **`fd8b7f9b-f156-4295-ae92-87fa21c98350`**
+Published **`e9204581-78fc-4a3c-8009-aef3c3c96e16`**
+(171 nodes) after packet **12.5a-0** (History webhook
+removed). Rollback **`226fe197-39bf-497c-ad4f-2735740f0547`**.
+Prior rollback **`fd8b7f9b-f156-4295-ae92-87fa21c98350`**
 (CH1–CH5 close). Prior graphs **`1e4ae9c6`**
 (DES RAJ + WA/LI dry run), **`bed27da5`** (email
 batch), **`1c1c39f4-3bff-4f1f-ba16-c3d6765a4221`**.
@@ -2768,8 +2769,14 @@ in English. Every body starts with a greeting by name.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
 short plain copy on Telegram (no Gmail), with `wa.me`
 click-to-chat (Meta FAQ) or a LinkedIn people-search
-link plus paste-text. Kick
-`POST /webhook/lni-wf10-history` with `channel`.
+link plus paste-text. Kick is executeWorkflow
+`source=history` **with caller `owner_id`**. Packet
+**12.5a-0** removed the unauthenticated
+`POST /webhook/lni-wf10-history` trigger (one-off
+Phase 10 batch tool; path was in the **public**
+LEAP-NI repo). History graph still exists behind
+`When called`. Missing caller `owner_id` is a hard
+error, never Self identify fallback.
 `second_touch` is `draft_state='sent'` only.
 `Extract history draft` is a sibling of live
 `Extract draft` (live expressions would throw).
@@ -2932,17 +2939,19 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 **Shared head**
 
 1. **Manual Trigger** and **When called** (executeWorkflow) both
-   feed **Self identify**.
+   feed **Self identify**. History webhook removed 12.5a-0.
 2. **Self identify** — Postgres
    `SELECT name, owner_id FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`.
-   `executeOnce: true`.
+   `executeOnce: true`. Still returns `owner_id` until 12.5a C1.
 3. **Row returned?** — `name` equals `LEAP 2026`, strict. False →
    **Wrong database terminal** (`stopAndError`:
    `Wrong database LEAP 2026 row missing`).
 4. **Normalize input** — Code. Named-node source. Copies
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
-   `correlation_id` from **When called** when executed, else from
-   the manual item. No backslash regex.
+   `correlation_id` from **When called** when executed.
+   **No fallback** to Self identify `owner_id`. Missing
+   caller `owner_id` throws `WF-10 missing caller owner_id`.
+   No backslash regex.
 5. **Route source** Switch: `command` \| `voice` \| `callback`.
    Fallback → **Unknown source terminal** (`stopAndError`:
    `Unknown followup source`). After any append, re-GET every

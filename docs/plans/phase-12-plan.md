@@ -400,6 +400,7 @@ held. Not the permanent harness.
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `ca2f3d35` (rollback `28754af8`). **Before 12.5.** |
 | **12.4c** | Reconcile `ca2f3d35`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
 | **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
+| **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `226fe197`. 12.5a C/D/E/G wait. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -606,14 +607,25 @@ Platform errors are owned by it, inside no tenant. D-O.
   `bot_state_owner_id_telegram_user_id_key` (kept).
   Rule 24 in `rules.md`. No PUT.
 
+## Acceptance (12.5a-0 — applied 16 Sep)
+
+- WF-10 published `e9204581`. Rollback `226fe197` named
+  before PUT.
+- History webhook node gone. POST production URL 404.
+- Normalize: no Self identify owner_id fallback.
+- Self identify still returns owner_id (C1 waits).
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06 `356a2d1f`
+  / draft `76840a2a`. No other workflow PUT.
+- 12.5a C/D/E/G unstarted.
+
 ## Logged, do not fix in 12.5a
 
 **WF-10 `Load callback follow_up` OR branch.**
 `($3::text='p' AND f.draft_state IN ('draft','awaiting_voice'))`
 returns the owner's latest draft rather than the tapped
 person. Owner-scoped, so not a cross-tenant leak — a
-correctness defect. Own packet. Published graph
-`226fe197`. Do not PUT this in 12.5a.
+correctness defect. Own packet. Published graph `e9204581` (OR branch
+unchanged). Do not PUT this in 12.5a.
 
 ## Acceptance (later — do not execute here)
 

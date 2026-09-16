@@ -937,6 +937,19 @@ Unapplied repo file: **012** only —
 `bot_state_owner_id_telegram_user_id_key` (034 kept
 it). Rule **24** added to `rules.md`. No PUT.
 
+### Packet 12.5a-0 — close WF-10 History webhook (16 Sep)
+
+Severity 1. Rollback **`226fe197`** named before PUT.
+Removed unauthenticated `History webhook`
+(`POST /webhook/lni-wf10-history`). One-off Phase 10
+kick; no live caller. Path was in **public** LEAP-NI
+(not only NIWL). Normalize input no longer falls back
+to Self identify `owner_id`. Missing caller `owner_id`
+errors. Self identify still returns `owner_id` (C1
+waits). Published **`e9204581`**. Rollback
+**`226fe197`**. 12.5a C/D/E/G unstarted. No other
+workflow.
+
 ### Packet 12.5 — Isolation proven (two real accounts)
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
