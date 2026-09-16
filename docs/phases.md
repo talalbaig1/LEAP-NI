@@ -746,9 +746,9 @@ on `lni_config`.
 **inside this phase**, deferred to 12.3 / 12.4. They are
 not a reason to start with a migration. Isolation proven
 with two real accounts is **12.5**. Login surface is
-**12.6**, after that. Permanent test tenant is **12.2b**
-(slipped from 12.2). Fan-out N>1 is **12.4b**, before
-12.5.
+**12.6**, after that. Permanent test tenant **inert** row is **12.2b-i**
+(037, no `bot_state`). Full `bot_state` is still
+**12.2b**. Fan-out N>1 is **12.4b**, before 12.5.
 
 ### Packet 12.0 / 12.0a — Docs
 
@@ -824,10 +824,20 @@ fan-out blockers filed as **12.4b**; not fixed. WF-06
 Apollo missing-ceiling is already 0; no PUT. WF-01
 draft still `e454df40`. WF-06 draft still `76840a2a`.
 
-### Packet 12.2b — permanent test tenant (slipped)
+### Packet 12.2b-i — inert test tenant (applied 16 Sep)
+
+Catalog **037_test_tenant** (`20260916033502`). Auth user
+`talalbaig+tenant2@gmail.com` resolved by exact email
+(009 RAISE). `events` + ceilings + `sender_profile`.
+**No `bot_state`.** **No `digest_email`.** Invisible to
+`List due owners`, WF-01 allowlist, and every cron. D2d
+fixture. Never deleted, never frozen (Q2).
+
+### Packet 12.2b — permanent test tenant `bot_state` (still slipped)
 
 12.2 did not insert a second `bot_state`. Live count
-is 1. Do not assert that row.
+is still 1. 12.2b-i is the inert fixture only. Do not
+assert a second allowlist row.
 
 ### Packet 12.3 — `person_emails` (deferred)
 
@@ -856,6 +866,9 @@ Two real `bot_state` rows. Depends on 12.2b and 12.4b.
 Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. A Phase 12 **dependency**, landing
 **after** 12.5. Isolation before there is a door.
+Onboarding must seed `events` (exec 482941) and
+ceilings. `talalbaig@iu.edu.sa` reserved Phase 14, not
+the harness. See phase-12-plan 12.6 E1–E3.
 
 ---
 

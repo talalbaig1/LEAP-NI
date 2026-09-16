@@ -1,12 +1,14 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.2a)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.3c)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
 `035_operator_chat`, `20260916024816`). Packet **12.2a
 applied** (catalog `036_digest_email`,
-`20260916030417`). WF-07 Load digest looks up
+`20260916030417`). Packet **12.3c / 12.2b-i applied**
+(catalog `037_test_tenant`, `20260916033502`) — inert
+test tenant, **no `bot_state`**. WF-07 Load digest looks up
 `digest_email`. WF-01 / WF-06 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
 **Home:** this file. Contracts also in `phases.md` Phase 12,
@@ -14,7 +16,7 @@ cross-tenant isolation is **not** proven here (12.5).
 `workflows.md` §1 owner-resolution.
 
 Packet 10.1 closed. Highest applied migration is
-`036_digest_email` (catalog `20260916030417`).
+`037_test_tenant` (catalog `20260916033502`).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
@@ -95,12 +97,13 @@ platform `audit_log` rows only. No `bot_state`, no
 `events`, no `sender_profile`. Never a sender.
 
 The **permanent test tenant** (Q2) is a tenant. Schema in
-12.1. Live second `bot_state` **slipped**: 12.2 did not
-insert it. Live `bot_state` count is 1. Named packet
-**12.2b**. Never deleted, never frozen — standing
-cross-tenant regression harness, same principle as
-capture #9. Do not assert a row the database does not
-have.
+12.1. **12.2b-i** (037, applied 16 Sep): `events` +
+ceilings + `sender_profile`. **No `bot_state`.** **No
+`digest_email`.** Invisible to cron and WF-01. Never
+deleted, never frozen — standing cross-tenant regression
+harness, same principle as capture #9. Live second
+`bot_state` is still **12.2b**. Do not assert an allowlist
+row the database does not have.
 
 ---
 
@@ -267,12 +270,20 @@ claim a review nobody did. Row today:
 pair. `{name_trgm}` is not a human reason. 61 pre-window
 stay pending through 12.4.
 
-### Packet 12.2b — permanent test tenant (slipped from 12.2)
+### Packet 12.2b-i — inert test tenant (applied 16 Sep)
 
-12.2 did **not** land a second `bot_state` row. Give it
-its own packet. `auth.users` + `bot_state` + `events` +
-ceilings + settings. Never deleted. Never frozen. Needed
-before 12.5 can pass.
+Catalog **037_test_tenant** (`20260916033502`). Auth user
+created in the dashboard (do **not** reopen public
+signup). Exact email match. `events` name `NIS test
+tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`).
+Ceilings + `sender_profile`. **No `bot_state`.** **No
+`digest_email`** (D2d). Never deleted. Never frozen.
+
+### Packet 12.2b — permanent test tenant `bot_state` (slipped from 12.2)
+
+12.2 did **not** land a second `bot_state` row. Live count
+is still 1. 12.2b-i is inert only. Give `bot_state` its
+own packet. Needed before 12.5 can pass.
 
 ### Packet 12.4b — hourly fan-out N>1 (E1–E3)
 
@@ -307,6 +318,22 @@ Telegram-ID capture. **Dependency, not a shortcut.**
 Isolation (12.5) is proven first. Isolation before
 there is a door.
 
+**Onboarding notes (found 12.3c, record for 12.6):**
+
+**E1.** A tenant with no `events` row hits `stopAndError`
+on `/digest` (`Empty digest terminal`). Tenant creation
+must seed `events`, or WF-07 must answer gracefully.
+Found by exec **482941**.
+
+**E2.** A tenant with no `lni_config` ceiling row gets
+**ZERO** enrichment, silently — correct per D-M, but
+tenant creation must seed ceilings or the tenant never
+learns why nothing happens.
+
+**E3.** `talalbaig@iu.edu.sa` reserved as a Phase 14
+Microsoft-OAuth tenant, while that account is still
+held. Not the permanent harness.
+
 ---
 
 ## Packets
@@ -317,6 +344,7 @@ there is a door.
 | **12.1** | `lni_settings` + `lni_instance` + `bot_state` UNIQUE `(telegram_user_id)` + assets composite unique + platform owner seed | **034 applied** (`20260916022806`) | none. WF-01/06 drafts untouched. |
 | **12.2** | Split self-id onto `lni_instance`. WF-07 hourly fan-out per owner local hour. Fail-closed Gmail. `operator_chat_id` seed. WF-00 platform `audit_log.owner_id`. | **035 applied** (`20260916024816`) | WF-00 / WF-07 / WF-08 only. **No unpublished-draft publish.** WF-01/02/06/09 stay. Test tenant **slipped → 12.2b**. capture_no audit later. |
 | **12.2a** | `digest_email` door. WF-07 Load digest lookup. Record N>1 fan-out as 12.4b. WF-06 Apollo ceiling cause only. | **036 applied** (`20260916030417`) | WF-07 only. **No unpublished-draft publish.** No WF-06 PUT. |
+| **12.2b-i** | Inert test tenant. `events` + ceilings + `sender_profile`. No `bot_state`. No `digest_email`. | **037 applied** (`20260916033502`) | none. D2d via existing TEST caller. |
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | named then | none until named |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
@@ -335,10 +363,11 @@ JSON. Implementer report is not evidence.
 No `tenants` table. D-L ACCEPTED.
 
 **Q2. Second owner.** AMENDED. Permanent test tenant, not
-a throwaway. Schema in 12.1. Live second `bot_state` row
-**slipped from 12.2** — packet **12.2b**. Never deleted.
-Never frozen. Standing cross-tenant regression harness,
-same principle as capture #9.
+a throwaway. Schema in 12.1. **12.2b-i applied** (037):
+inert `events` + ceilings + `sender_profile`. Live second
+`bot_state` **still slipped** — packet **12.2b**. Never
+deleted. Never frozen. Standing cross-tenant regression
+harness, same principle as capture #9.
 
 **Q3. Per-owner Gmail / OpenAI / Apollo.** OVERRIDDEN.
 Stay out of Phase 12. Behaviour is **fail closed**, not
@@ -450,6 +479,21 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-06 Apollo: missing `apollo_daily_ceiling` is already
   treated as 0 (no PUT this packet).
 
+## Acceptance (12.3c / 12.2b-i — applied 16 Sep)
+
+- catalog `037_test_tenant` (`20260916033502`); 030 still
+  absent.
+- Auth user resolved by exact email
+  `talalbaig+tenant2@gmail.com` (confirmed, unique). Never
+  a hardcoded uuid.
+- `events` name `NIS test tenant`, timezone
+  `Pacific/Auckland`. Not `LEAP 2026`.
+- `lni_config` apollo daily + lifetime ceilings. `sender_profile` row.
+- **No `bot_state`.** **No `digest_email`.**
+- Never deleted. Never frozen (Q2).
+- WF-01 published `4836ffd8` / draft `e454df40`.
+  WF-06 published `356a2d1f` / draft `76840a2a`.
+
 ## Acceptance (later — do not execute here)
 
 - 12.2 remainder: `capture_no` lookups include `owner_id`
@@ -462,4 +506,7 @@ Platform errors are owned by it, inside no tenant. D-O.
   a human reviewed them.
 - 12.4b: E1–E3 fixed before 12.5.
 - 12.5: isolation proven with two real accounts.
-- 12.6: login surface only after 12.5.
+- 12.6: login surface only after 12.5. Seed `events` and
+  ceilings at tenant creation (12.6 E1 / E2).
+  `talalbaig@iu.edu.sa` reserved Phase 14, not the harness
+  (12.6 E3).

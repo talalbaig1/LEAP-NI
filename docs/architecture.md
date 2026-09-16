@@ -114,6 +114,11 @@ application nicknames.
 Purpose, then every live column (`NULL` = nullable, no default unless shown).
 
 **`events`** — LEAP 2026 and future events. UNIQUE `(owner_id, name)`.
+Live rows: `LEAP 2026` (`Asia/Riyadh`, live owner) and
+`NIS test tenant` (`Pacific/Auckland`, permanent inert
+test tenant, 037 / 12.2b-i). The inert row is never
+`LEAP 2026`. No `bot_state` on that owner. Never deleted,
+never frozen (Q2).
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -136,6 +141,9 @@ seed guessed sectors. `companies.industry` is filled by enrichment
 **`bot_state`** — which capture is open; batch mode; **WF-01 allowlist**.
 Live UNIQUE `(owner_id, telegram_user_id)` **and**
 `UNIQUE (telegram_user_id)` (`bot_state_telegram_user_id_key`, 034).
+Live count is **1** (live owner). The permanent inert test
+tenant has **no** row (037 / 12.2b-i) — that is the
+fixture. Full second allowlist row is still 12.2b.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
@@ -1371,6 +1379,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 034 | `034_multitenancy_foundation` | Packet 12.1 applied 16 Sep 2026 (`20260916022806`). `lni_settings` + `lni_instance` + `bot_state.telegram_user_id` UNIQUE + assets UNIQUE `(owner_id, telegram_file_unique_id)` + platform owner on `lni_instance` via exact email `donotreplynis@gmail.com`. 030 stays Phase 6. `lni_config` gained nothing. |
 | 035 | `035_operator_chat` | Packet 12.2 applied 16 Sep 2026 (`20260916024816`). Seeds `lni_settings` key `operator_chat_id` under `lni_instance.platform_owner_id`; value resolved from the live owner's `bot_state.telegram_user_id` (RAISE if `bot_state` empty). BEFORE UPDATE trigger `lni_settings_set_updated_at`. Not a `bot_state` row — D-O holds. 030 stays Phase 6. |
 | 036 | `036_digest_email` | Packet 12.2a applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
+| 037 | `037_test_tenant` | Packet 12.3c / 12.2b-i applied 16 Sep 2026 (`20260916033502`). Permanent **inert** test tenant. Owner resolved by exact email `talalbaig+tenant2@gmail.com` (009 RAISE: 0 / many / unconfirmed). Never a hardcoded uuid. Seeds `events` name `NIS test tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`), `lni_config` apollo daily + lifetime ceilings, `sender_profile`. **No `bot_state`.** **No `digest_email`** (D2d fixture). Never deleted, never frozen (Q2). 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 

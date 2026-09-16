@@ -30,8 +30,9 @@ assets UNIQUE `(owner_id, telegram_file_unique_id)` +
 platform owner seed. Do not write 034 in 12.0a. Do not PUT.
 
 Q1 ACCEPTED — tenant = `owner_id`. No `tenants` table.
-Q2 AMENDED — permanent test tenant. Schema 12.1. Live
-second `bot_state` **slipped from 12.2** (packet 12.2b).
+Q2 AMENDED — permanent test tenant. Schema 12.1. **12.2b-i
+applied** (037 inert, no `bot_state`). Live second
+`bot_state` **still slipped** (packet 12.2b).
 Never deleted, never frozen.
 Q3 OVERRIDDEN — fail closed. No mailbox → no Gmail /
 digest email (Telegram copy-text). No Apollo ceiling → 0.
@@ -92,9 +93,9 @@ WF-10 History skip after 10.1: UUID skip is Zahir kaacib
 
 ## 2. Migration catalogue (live `list_migrations` 14 Sep)
 
-Highest applied: **`036_digest_email`**
-catalog `20260916030417`. 030 still reserved Phase 6.
-Next LNI schema number is **037**.
+Highest applied: **`037_test_tenant`**
+catalog `20260916033502`. 030 still reserved Phase 6.
+Next LNI schema number is **038**.
 
 | Catalog name | Version | Notes |
 |---|---|---|
@@ -109,8 +110,9 @@ Next LNI schema number is **037**.
 | 034 | `20260916022806` | `034_multitenancy_foundation` — packet 12.1 |
 | 035 | `20260916024816` | `035_operator_chat` — packet 12.2. `operator_chat_id` + `lni_settings` updated_at trigger |
 | 036 | `20260916030417` | `036_digest_email` — packet 12.2a. `digest_email` for live owner only from `auth.users.email` |
+| 037 | `20260916033502` | `037_test_tenant` — packet 12.3c / 12.2b-i. Inert test tenant. Exact email. No `bot_state`. No `digest_email`. |
 
-Next LNI schema number is **037**. Phase 12 must not steal 030.
+Next LNI schema number is **038**. Phase 12 must not steal 030.
 
 ---
 

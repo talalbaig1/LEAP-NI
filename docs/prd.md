@@ -276,6 +276,9 @@ Talal's people, captures, or drafts. WF-01 allowlist stays
 `bot_state`. Display name lives in `lni_settings`, not in
 integer `lni_config`. Signatures stay on `sender_profile`.
 Instance fingerprint is `lni_instance`, not `LEAP 2026`.
+Permanent test tenant (Q2) is inert in 12.2b-i: `events`
+without `bot_state`, never deleted, never frozen. Full
+allowlist row is still 12.2b.
 
 **Fail closed (D-M).** No linked mailbox → no Gmail draft,
 no digest email. Copy-text on Telegram (D-E). No Apollo
