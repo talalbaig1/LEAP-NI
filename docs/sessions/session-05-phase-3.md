@@ -50,9 +50,9 @@ touched.
 29 August phone test and is otherwise **dropped pre-event**. WF-05
 still ends at `WF-06 dispatch (not yet)`. Do not call WF-06.
 
-**<CONTACT_7_NAME> on `ikhalid@`.** The OCR-split pair (two <CONTACT_7_NAME> rows,
-`ikhaild@` vs `ikhalid@`) was an owner-confirmed merge in packet 3.9.
-Survivor is the `ikhalid@` row; absorbed title carried. That is data.
+**<CONTACT_7_NAME> on the `…lid@` row.** The OCR-split pair (two <CONTACT_7_NAME> rows,
+`…ld@` vs `…lid@`) was an owner-confirmed merge in packet 3.9.
+Survivor is the `…lid@` row; absorbed title carried. That is data.
 WF-05 still never auto-merges on name.
 
 **Arabic-only names accepted.** A non-Latin `full_name` is identity
@@ -117,7 +117,7 @@ B7 accepted on counts).
 ## 4. Measured limitations (not defects to "fix" tonight)
 
 - **OCR is not reproducible between runs.** Same physical card, two
-  photos, two emails (`ikhaild@` vs `ikhalid@`). Exact-email auto-link
+  photos, two emails (`…ld@` vs `…lid@`). Exact-email auto-link
   will not merge them. Name similarity must not auto-merge.
 - **`/ask` retrieval has no relevance floor.** Compose context
   `row_count` was **10** on every live retrieve (255773, 255781,

@@ -1775,7 +1775,7 @@ without touching `wf04-v3`.
    A pair of silent unlinked people with `entity_candidates` empty is
    a defect.
    **Packet 3.9 C** applied an **owner-confirmed** merge of the <CONTACT_7_NAME>
-   OCR-split pair (survivor = the `ikhalid@` row; absorbed title
+   OCR-split pair (survivor = the `…lid@` row, vs `…ld@`; absorbed title
    carried) and collapsed three Huawei company rows onto the
    `huawei.com` survivor. That is data. WF-05 still never auto-merges.
    MDS transliteration and phone candidates stay `pending`.

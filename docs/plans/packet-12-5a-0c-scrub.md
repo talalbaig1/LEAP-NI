@@ -25,6 +25,7 @@ Token names are below so documents stay coherent after rewrite.
 | NIWL-00 / NIWL-01 | `<NIWL00_ID>` `<NIWL01_ID>` |
 | Archived `LNI-TEST-*` workflow ids | `<TEST_104B_ATTACH_WF_ID>` `<TEST_104B_DEL_WF_ID>` `<TEST_716_DRIVER_WF_ID>` plus remaining TEST ids as `<TEST_{name}_WF_ID>` |
 | ElderWise creds (do-not-bind) | `<ELDERWISE_PG_CRED_ID>` `<ELDERWISE_TAVILY_CRED_ID>` |
+| ElderWise error workflow (do-not-bind) | `<ELDERWISE_ERROR_WF_ID>` |
 | n8n version ids | `<WF{nn}_{PUBLISHED\|ROLLBACK\|DRAFT}>` — one token per distinct version uuid, stable for that uuid |
 | Postgres / Telegram / Gmail / OpenAI creds | `<PG_CRED_ID>` `<TELEGRAM_CRED_ID>` `<GMAIL_CRED_ID>` `<OPENAI_CRED_ID>` |
 | Storage / Apollo / Tavily / NIWL header | `<STORAGE_CRED_ID>` `<APOLLO_CRED_ID>` `<TAVILY_CRED_ID>` `<NIWL_HEADER_CRED_ID>` |

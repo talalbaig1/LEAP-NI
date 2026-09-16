@@ -118,7 +118,7 @@ may care. Do not “fix” it in Phase 3.
 
 Pending candidate `affab30d-ef9c-4236-b610-bbcedf76c680` points at one
 <CONTACT_7_NAME> row; reasons include `same_full_name`, `same_company`, and
-`emails_differ: ikhaild@… vs ikhalid@…`. Owner decides. Do not auto-accept.
+`emails_differ: …ld@ vs …lid@`. Owner decides. Do not auto-accept.
 
 Older `processing` captures have **no** `entity_resolution` job. WF-05
 will not sweep them. Leave them unless the architect orders a backfill.

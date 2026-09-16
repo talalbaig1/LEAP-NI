@@ -164,7 +164,7 @@ merge the rows in this packet.**
 
 ## D-K — <CONTACT_1_NAME> domain
 
-**Exclude** `<CONTACT_1_EMAIL>`. OCR transposition of
+**Exclude** `<CONTACT_1_EMAIL>` (domain transposition: one-char swap `…cai…` vs `…aci…`). OCR transposition of
 `<CONTACT_2_EMAIL>` (live website, real company domain).
 One email to <CONTACT_1_NAME>, not two. Filter the typo in the
 history SELECT.

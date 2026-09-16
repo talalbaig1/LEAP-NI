@@ -398,12 +398,15 @@ Merge duplicates **by suggestion only** — never auto-merge
 on name (`rules.md` §7 rule 5):
 
 - <CONTACT_13_NAME> ×2
-- probable <CONTACT_44_NAME> = <CONTACT_44_NAME>
-- probable <CONTACT_27_NAME> = <CONTACT_27_NAME>
-- **<CONTACT_43_NAME>** (#210, tel +966554936765)
-  = **<CONTACT_43_NAME>** (#174). Same man, two rows, no email on
-  either so nothing auto-linked. Logged 7 Sep after T2.
-  Do **not** replay #174.
+- Arabic single-token name `<CONTACT_44_NAME>` matched Latin full name
+  `<CONTACT_44_NAME>` (script pair, same human; the proof is
+  the pair of scripts, not string-equal)
+- Short given name `<CONTACT_27_NAME>` matched Latin full name `<CONTACT_27_NAME>`
+  (given vs full, same human)
+- Telegram label `<CONTACT_43_NAME>` (#210, tel
+  +966554936765) = person name `<CONTACT_43_NAME>` (#174). Same man, two
+  rows, label vs name. No email on either so nothing
+  auto-linked. Logged 7 Sep after T2. Do **not** replay #174.
 
 Telegram contact labels that became `people.full_name`
 because they were the only name (correct 10.2c behaviour)
@@ -451,7 +454,7 @@ company_id)` — two current employers are allowed.
 | 3 | <CONTACT_42_NAME> `bc1a347f` | `4e51b68d` | phone | WA draft | |
 | 4 | <CONTACT_37_NAME> `ae02af5e` | `8ae2ea22` | phone | WA draft | dropped dup IVY link |
 | 5 | Rana `fc2ba74f` | `4ef3824c` | **phone only** | WA draft | name stays <CONTACT_11_NAME> |
-| 6 | <CONTACT_43_NAME> `f60aebe7` | `3be1d85e` | phone | WA + 1 interaction | renamed <CONTACT_43_NAME> → **<CONTACT_43_NAME>** |
+| 6 | <CONTACT_43_NAME> `f60aebe7` | `3be1d85e` | phone | WA + 1 interaction | renamed <CONTACT_43_NAME> → **<CONTACT_43_NAME>** (spelling of the same name) |
 | 7 | <CONTACT_14_NAME> `61b14e31` | `1905fff3` | none (Aliph kept) | cancelled LI + 1 interaction | Utopian added as **second** `person_companies`; live channels stay email+WA |
 | 8 | <CONTACT_44_NAME> `10cf0540` | `39d9fffa` | SEED link | cancelled LI | one live LinkedIn remains |
 | 9 | <CONTACT_13_NAME> `4efe1828` | `d887ab79` | — | — | empty duplicate; dropped dup Blossom |

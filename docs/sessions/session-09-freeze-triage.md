@@ -485,16 +485,16 @@ Do not PUT until authorised. Likely fix: forward
 
 **10.1 log — do not act here**
 
-- #210 minted "<CONTACT_43_NAME>"
-  (+966554936765), duplicate of "<CONTACT_43_NAME>" on #174. Same
-  man, no email, no auto-link. Merge in 10.1.
+- #210 minted Telegram label "<CONTACT_43_NAME>"
+  (+966554936765), duplicate of person name "<CONTACT_43_NAME>" on
+  #174. Same man, two rows, label vs name. No email, no
+  auto-link. Merge in 10.1.
 - **Do not replay #167 or #174.** Owner re-shared those
   contacts by hand today; replay would mint a third row.
 - Replay list is **seven:** #151 #156 #157 #165 #184
   #185 #203.
 - Telegram contact labels as `full_name` is correct when
-  they are the only name; clean in 10.1 (e.g. <CONTACT_38_NAME>
-  From Bahrain…, <CONTACT_43_NAME>).
+  they are the only name; clean in 10.1 (e.g. "<CONTACT_38_NAME>", "<CONTACT_43_NAME>").
 
 ### 10.2c-fix PUT 7 Sep (authorised)
 

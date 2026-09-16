@@ -819,7 +819,7 @@ a defect (`architecture.md` §4: everything that is not an exact match becomes
 a scored suggestion).
 
 **Owner-confirmed merge is data, not code (packet 3.9 C).** The <CONTACT_7_NAME>
-OCR-split pair was merged onto the `ikhalid@` row and the absorbed title
+OCR-split pair was merged onto the `…lid@` row (vs `…ld@`) and the absorbed title
 was carried across because the owner confirmed that email. Three Huawei
 company rows were collapsed onto the `huawei.com` survivor. That does
 **not** license WF-05 to auto-merge. Transliteration / phone
