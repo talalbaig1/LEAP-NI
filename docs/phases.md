@@ -805,6 +805,50 @@ a door.
 
 ---
 
+## Phase 13 — Enrichment read path
+
+**Timing:** after packet **12.2**, never before. Logged
+15 Sep. Architect-owned defect. No SELECT written in
+this packet. No PUT.
+
+`enrichment_records` is written by WF-06 and read by
+nothing. Verified 15 Sep: **85** rows, **40** real Apollo
+person reveals carrying title / seniority / headline /
+employment_history, **35** company records. Of **85**
+follow-up bodies belonging to an enriched person,
+Apollo's title differs from the card title in **75** and
+appears in the body in **2**; Apollo's headline appears
+in **0**. **18** people carry an Apollo-sourced
+`linkedin_url`; overlap with the 10 LinkedIn-channel
+draft recipients is **0**.
+
+`/ask` exclusion was **DELIBERATE**
+(`docs/plans/phase-06-plan.md`). WF-10 was an
+**OMISSION** — no doc line decides it.
+
+Any enrichment SELECT written now would hardcode
+single-owner assumptions and become another 12.4 audit
+item. `enrichment_records` without an `owner_id`
+predicate leaks one tenant's contact intelligence into
+another's draft.
+
+Two design rules, locked (also `masterplan.md` §4):
+
+- **D-P** Card is truth; enrichment is context. What the
+  draft ASSERTS about a person comes from their card.
+  Apollo may be stale or wrong — Tasneem Ibraheim's card
+  reads "Solution Specialist", Apollo reads "Connectivity
+  Consultant, seniority entry". Enrichment informs the
+  composer's brief; it never becomes a sentence claiming
+  their title.
+- **D-Q** Enrichment surfaces as evidence beside the
+  draft in Telegram (D-F), never silently inside a body.
+
+**Out of this log.** Do not write the read path until
+12.2 isolation is live.
+
+---
+
 ## Field operations during LEAP
 
 - Verify Telegram permissions and bot responsiveness before leaving each day
