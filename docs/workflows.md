@@ -2153,7 +2153,18 @@ was the leak (packet 12.2 D1).
 `bot_state` row and an `events` row. Close digest when local hour
 is 22; briefing when 7. One item per owner, carrying that
 `owner_id`. Off-hour → NoOp `Not this hour` (not a send). Manual
-run is the proof; do not wait for 22:00.
+run is the proof; do not wait for 22:00. Due owners then enter
+`Each owner` (SplitInBatches v3, batchSize 1). One owner at a
+time. A failure, empty Load digest, or undeliverable state for
+owner N writes `audit_log` and continues to N+1. It does not
+`stopAndError` the hourly run. `Wait both channels` therefore
+pairs inside the current owner's iteration. `Any delivered?`
+has no `executeOnce` and reads `.last()` of the named send
+nodes for **that** owner (Telegram `result.message_id` or
+`message_id`; Gmail `id`). On-demand (`source = call`) is
+unchanged: `reply_text` back to WF-01; genuine empty Load
+digest still `Empty digest terminal`. Kind on demand `source`
+is the literal `call` — a caller cannot make WF-07 send.
 
 **Gmail is fail-closed (D-M), with a door.** Mailbox linkage is
 `lni_settings` key `digest_email` scoped to Load digest `$1`
@@ -2165,8 +2176,12 @@ owner's mailbox.
 
 After **Load digest** (`alwaysOutputData: true` kept): IF named Load
 `kind` equals `close` or `brief` (`typeValidation: strict`) AND
-`riyadh_date` notEmpty. False → `stopAndError`. Do not compose. Do not
-send. Do not return to WF-01.
+`riyadh_date` notEmpty. False on the **on-demand** path →
+`stopAndError` (`Empty digest terminal`). False on the
+**scheduled** path → `Record empty digest` (`audit_log.action =
+digest_undeliverable`, `after.reason = empty_digest`, no PII;
+`$execution.id` in `after`, not `correlation_id`) and the loop
+continues. Do not compose. Do not send. Do not return to WF-01.
 
 A real SQL row with captured = 0 is a valid report and SHOULD send.
 An empty item from alwaysOutputData on zero rows is NOT a report and
@@ -2178,7 +2193,7 @@ them apart. Never gate on captured > 0.
 | Trigger | `kind` | `source` | Sends? |
 |---|---|---|---|
 | Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if `lni_settings.digest_email` is set for that owner (036) |
-| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | `call` | no — return `reply_text`. `owner_id` from the caller. |
+| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | literal `call` (Kind on demand). A caller `source` cannot become `schedule`. | no — return `reply_text`. `owner_id` from the caller. |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared
 self-identify node. Source every later field from the **named** node
@@ -2311,14 +2326,22 @@ must not copy WF-07's old serial graph.**
    - `Email present?` true → Gmail (`continueOnFail: true`,
      `onError: continueRegularOutput`). False → skip email.
 4. After Merge: IF at least one delivered. Delivery is Telegram
-   `message_id` or Gmail `id` from the **named** send node via
-   `$('Node').first()` — never `.item` (the discarded Merge branch
-   is not an ancestor) and never "the node ran". Keep `isExecuted`
-   guards. A `continueOnFail` item with an `error` is not delivered.
-   True → NoOp `Scheduled done`. False → `stopAndError`
-   (both channels empty or both failed) so WF-00 runs.
+   `result.message_id` or `message_id`, or Gmail `id`, from the
+   **named** send node via `$('Node').last()` for the current
+   owner — never `.first()` (that was E1: owner 1 for every
+   owner) and never "the node ran". Keep `isExecuted` guards.
+   `.item` is still unsafe after `chooseBranch` (discarded Merge
+   branch is not an ancestor). A `continueOnFail` item with an
+   `error` is not delivered. True → NoOp `Scheduled done` → loop
+   `Each owner`. False on the **scheduled** path → `Record
+   undeliverable` (`audit_log.action = digest_undeliverable`,
+   `after.reason = both_channels_empty`) and continue. False
+   on the **on-demand** path cannot happen (`source = call`
+   returns before send). Audit write failure still
+   `stopAndError` (`Undeliverable digest`) so WF-00 runs.
 5. Empty-item Load digest must not reach compose or send (gate on
    named Load `kind` + `riyadh_date`, not on `captured > 0`).
+   Scheduled empty is an audit row, not an abort-all.
 
 **Must not:** log emails, phones, transcripts, signed URLs; call WF-06;
 deactivate WF-01–05; send on the `call` path (WF-01 owns that send);

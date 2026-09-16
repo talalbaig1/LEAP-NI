@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.3c)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4b)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -8,8 +8,10 @@ Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 applied** (catalog `036_digest_email`,
 `20260916030417`). Packet **12.3c / 12.2b-i applied**
 (catalog `037_test_tenant`, `20260916033502`) — inert
-test tenant, **no `bot_state`**. WF-07 Load digest looks up
-`digest_email`. WF-01 / WF-06 drafts untouched. Full
+test tenant, **no `bot_state`**. Packet **12.4b applied**
+(WF-07 `353f649a`, rollback `28754af8`). E1–E3 fixed.
+Kind on demand `source` literal `call`. WF-01 / WF-06
+drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
 **Home:** this file. Contracts also in `phases.md` Phase 12,
 `architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
@@ -287,23 +289,40 @@ own packet. Needed before 12.5 can pass.
 
 ### Packet 12.4b — hourly fan-out N>1 (E1–E3)
 
-Recorded in 12.2a. Do **not** change these nodes in
-12.2a. A second tenant is what breaks them, so they
-must be **fixed before 12.5** can pass. The hourly
-fan-out is proven for **exactly one tenant** and is
-**not** proven for N.
+**Fixed in 12.4b.** WF-07 PUT `353f649a` (named rollback
+`28754af8` before PUT). Chain: `9197f7a3` (12.2) →
+`becd329b` (12.2a) → `28754af8` (12.3b) → `353f649a`
+(12.4b). Self identify, Load digest (mail CTE), Compose
+digest, and List due owners were not changed.
 
-**E1. `Any delivered?`** — `executeOnce: true` plus
-`$('Telegram digest').first()` reports only the FIRST
-owner. A second owner's failed send is invisible.
+**E1. `Any delivered?`** — `executeOnce` removed. Delivery
+reads `$('Telegram digest').last()` /
+`$('Gmail digest').last()` for the **current** owner
+(Telegram `result.message_id` or `message_id`; Gmail
+`id`). N=1 `.first()` lie is gone.
 
-**E2. `Wait both channels`** — `chooseBranch` /
-`useDataOfInput: 1` does not pair per owner.
+**E2. `Wait both channels`** — still `chooseBranch` /
+`waitForAll` / `useDataOfInput: 1`. Pairing is per owner
+because `Each owner` (SplitInBatches v3, batchSize 1)
+serializes the scheduled path. Loop output → Load digest;
+done → `Fan-out done`. `Scheduled done` loops back.
 
-**E3. `Empty digest terminal`** — `stopAndError` aborts
-the hourly execution for ALL owners, not the one with
-no data. Mitigated today only because `List due owners`
-INNER JOINs `events`.
+**E3. Empty / undeliverable on the scheduled path** —
+`stopAndError` no longer aborts owners N+1..M. Empty
+Load digest → `Scheduled empty?` true → `Record empty
+digest` (`audit_log.action = digest_undeliverable`,
+`after.reason = empty_digest`) → continue. Both channels
+empty → `Record undeliverable` (`after.reason =
+both_channels_empty`) → continue. On-demand still
+`Empty digest terminal` / `stopAndError` (one caller,
+one owner). Audit write failure still throws.
+
+Kind on demand `source` is the literal `call`. A caller
+cannot make WF-07 send.
+
+N=2 **failure isolation** is the D3 proof (guaranteed-
+failing second owner). N=2 **successful** delivery to
+two real chats is **not** proven — that is 12.5.
 
 ### Packet 12.5 — isolation proven (two real accounts)
 
@@ -348,7 +367,7 @@ held. Not the permanent harness.
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | named then | none until named |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
-| **12.4b** | Fix E1–E3 hourly fan-out for N>1 | none | WF-07. **Before 12.5.** |
+| **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `353f649a` (rollback `28754af8`). **Before 12.5.** |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -471,11 +490,11 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-07 Load digest `mail` CTE LEFT JOINs `lni_settings`
   `digest_email` on `$1`. Missing key → `''` →
   `Email skipped` (fail-closed with a door).
-- WF-07 published `28754af8` (rollback `becd329b`).
+- WF-07 published `becd329b` (rollback `9197f7a3`).
+  `28754af8` is **12.3b**, not 12.2a (71b4049 label smear).
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
-- 12.4b E1–E3 recorded, not fixed. Fan-out proven for
-  N=1 only.
+- 12.4b E1–E3 were recorded here, then fixed in 12.4b.
 - WF-06 Apollo: missing `apollo_daily_ceiling` is already
   treated as 0 (no PUT this packet).
 
@@ -494,6 +513,25 @@ Platform errors are owned by it, inside no tenant. D-O.
 - WF-01 published `4836ffd8` / draft `e454df40`.
   WF-06 published `356a2d1f` / draft `76840a2a`.
 
+## Acceptance (12.4b — applied 16 Sep)
+
+- WF-07 published `353f649a` (named rollback `28754af8`
+  before PUT). Chain: `9197f7a3` (12.2) → `becd329b`
+  (12.2a) → `28754af8` (12.3b) → `353f649a` (12.4b).
+- Kind on demand `source` is the literal `call`.
+- Scheduled path: `Each owner` SplitInBatches batchSize 1.
+  Owner N empty / undeliverable writes `audit_log` and
+  continues to N+1. On-demand still `stopAndError`.
+- E1–E3 **fixed in 12.4b**. N=2 failure isolation is the
+  D3 Hourly tick proof (exec id recorded after D3).
+  N=2 successful delivery to two real chats is **not**
+  proven — that is 12.5.
+- Self identify, Load digest (mail CTE), Compose digest,
+  List due owners unchanged.
+- WF-01 published `4836ffd8` / draft `e454df40`.
+  WF-06 published `356a2d1f` / draft `76840a2a`.
+  No other workflow PUT.
+
 ## Acceptance (later — do not execute here)
 
 - 12.2 remainder: `capture_no` lookups include `owner_id`
@@ -504,7 +542,10 @@ Platform errors are owned by it, inside no tenant. D-O.
   a merge packet after `person_emails` exists.
 - 12.4: 61 pre-window candidates still `pending` unless
   a human reviewed them.
-- 12.4b: E1–E3 fixed before 12.5.
+- 12.4b: E1–E3 **fixed in 12.4b** (WF-07 `353f649a`,
+  rollback `28754af8`). N=2 failure isolation is the D3
+  proof. N=2 successful delivery to two real chats is
+  **not** proven — that is 12.5.
 - 12.5: isolation proven with two real accounts.
 - 12.6: login surface only after 12.5. Seed `events` and
   ceilings at tenant creation (12.6 E1 / E2).

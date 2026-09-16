@@ -815,14 +815,14 @@ WF-01 / 02 / 03 / 05 / 06 / 09 / 10 unchanged.
 ### Packet 12.2a — `digest_email` (applied 16 Sep)
 
 Catalog **036_digest_email** (`20260916030417`). WF-07
-PUT `28754af8` (rollback `becd329b`; 12.2a first PUT was
-`becd329b` / `9197f7a3`). Load digest looks
+PUT `becd329b` (rollback `9197f7a3`). Load digest looks
 up `digest_email` for `$1`. Live owner seeded from
 `auth.users.email`. Platform owner not seeded (D-O).
 Mailbox linkage until Phase 14 OAuth. N>1 hourly
-fan-out blockers filed as **12.4b**; not fixed. WF-06
+fan-out blockers filed as **12.4b**. WF-06
 Apollo missing-ceiling is already 0; no PUT. WF-01
 draft still `e454df40`. WF-06 draft still `76840a2a`.
+`28754af8` is **12.3b**, not 12.2a (71b4049 label smear).
 
 ### Packet 12.2b-i — inert test tenant (applied 16 Sep)
 
@@ -850,12 +850,28 @@ exists. Do not merge.
 Stored pair + human-readable reasons. 61 pre-window
 pending stay pending. No false `rejected`.
 
-### Packet 12.4b — hourly fan-out N>1 (before 12.5)
+### Packet 12.3b — Kind on demand test affordance (superseded)
 
-E1 `Any delivered?` executeOnce + `.first()`. E2 `Wait
-both channels` chooseBranch/useDataOfInput:1. E3 Empty
-digest terminal abort-all. A second tenant is what
-breaks them. Fix before 12.5.
+WF-07 PUT `28754af8` (rollback `becd329b`). Kind on
+demand `source` passed through a caller `schedule` so the
+TEST caller could reach Gmail. Hourly tick exec **483097**
+proved the scheduled branch without that affordance.
+Reverted in 12.4b to literal `call`.
+
+Version chain: `9197f7a3` (12.2) → `becd329b` (12.2a) →
+`28754af8` (12.3b) → `353f649a` (12.4b).
+
+### Packet 12.4b — hourly fan-out N>1 (applied 16 Sep)
+
+E1 / E2 / E3 **fixed in 12.4b**. WF-07 PUT `353f649a`
+(named rollback `28754af8` before PUT). Kind on demand
+`source` is literal `call`. Scheduled path processes
+owners one at a time (`Each owner` SplitInBatches
+batchSize 1). Scheduled empty / undeliverable writes
+`audit_log` (`digest_undeliverable`) and continues.
+On-demand still `stopAndError`. N=2 failure isolation
+is the D3 proof; N=2 successful delivery to two real
+chats is **not** this packet — that is 12.5.
 
 ### Packet 12.5 — Isolation proven (two real accounts)
 
