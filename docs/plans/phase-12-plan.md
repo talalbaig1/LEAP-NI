@@ -606,6 +606,15 @@ Platform errors are owned by it, inside no tenant. D-O.
   `bot_state_owner_id_telegram_user_id_key` (kept).
   Rule 24 in `rules.md`. No PUT.
 
+## Logged, do not fix in 12.5a
+
+**WF-10 `Load callback follow_up` OR branch.**
+`($3::text='p' AND f.draft_state IN ('draft','awaiting_voice'))`
+returns the owner's latest draft rather than the tapped
+person. Owner-scoped, so not a cross-tenant leak — a
+correctness defect. Own packet. Published graph
+`226fe197`. Do not PUT this in 12.5a.
+
 ## Acceptance (later — do not execute here)
 
 - 12.2 remainder: PUT WF-01 Insert asset
