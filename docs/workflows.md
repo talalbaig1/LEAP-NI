@@ -1611,6 +1611,23 @@ transcripts, emails, phones, or signed URLs.
 **`language` is not set on any node.** There is no transcription node
 in WF-04.
 
+**Packet 13.1 (not yet PUT).** Live published `43f52217`
+(= named rollback). Intended:
+
+- Parse + validate + flag outputs `owner_id` and
+  `capture_id` from Build labelled sources, by name.
+- Insert contact name suggestions: `executeOnce` true;
+  `$3` = JSON of Parse.all() map of owner_id /
+  capture_id / name_conflicts; SQL iterates the
+  recordset with owner predicate per row (**G3**).
+  Live pairing after Call WF-05 `executeOnce` binds
+  Claim item 0 for every incoming item (Q2).
+- Delete unreachable **Resolution already queued**.
+- Missing capture: Postgres **Mark extraction failed:
+  no capture** (`failed`, owner-scoped) **before**
+  `stopAndError`. Live Gate false → `stopAndError`
+  with the job still `running`.
+
 ---
 
 ## WF-05 — Entity resolution
@@ -1666,6 +1683,11 @@ without touching `wf04-v3`.
 3. Load the latest `extraction_runs` row + `captures.capture_no` for
    `j.capture_id`. Missing run or missing capture → `stopAndError`.
    Source every field from the **named** node. Never `$json` after I/O.
+   **Packet 13.1 (not yet PUT against rollback `743c7c78`):**
+   Mark resolution failed: no run (`failed`,
+   `error_code=missing_extraction_run`, owner-scoped)
+   **before** that `stopAndError`. Live Gate false →
+   `stopAndError` with the job still `running`.
 4. **Auto-link ONLY** on exact `people.email_normalized` or exact
    `people.linkedin_url_normalized` **where
    `people.linkedin_source = 'card'`** (both URL columns
@@ -1694,10 +1716,27 @@ without touching `wf04-v3`.
 5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
    Preserve `name_original_script` verbatim — never overwrite a stored
    original with null. Write `interactions.summary` and
-   `interactions.topics` from `structured_output`. One interaction per
-   capture. A capture with zero people still gets an interaction
-   (`person_id` NULL) so the summary is not lost, and still gets a
-   terminal capture status.
+   `interactions.topics` from `structured_output`. **Live published `b6cd3894` (13.2, catalog 045):** one
+   interaction per extracted person, `ON CONFLICT
+   (capture_id, person_id)`, no `LIMIT 1` on person_hit.
+   **G1 LIVE defect:** a no-email extracted person binds
+   to **every** same-owner same-`full_name` people row
+   (SQL sim: **3** interactions for one name). Bind is
+   still `p.full_name = s.full_name`, not the upsert
+   result. Do **not** repair #46/#208 or the 20
+   NULL-person rows. **Resolved-id PUT is later:**
+   Prepare resolution adds `idx`; job id from Each
+   claimed resolution job, not Claim. Upsert people
+   MATERIALIZED `src` with `idx` + `gen_random_uuid`
+   `new_id`; `resolved` jsonb_agg from the upsert
+   result. Downstream **no** `p.full_name = x.full_name`
+   (**G1**, rule 27). Empty resolved → one NULL-person
+   row only if the capture has no interaction. trgm
+   excludes resolved ids and gains pending
+   `(candidate_entity_id, 'name_trgm')` dedupe (**G9**).
+   A capture with zero people still gets a NULL
+   `person_id` row so the summary is not lost, and still
+   gets a terminal capture status.
 
    **Company matcher (packet 3.7).** Cause of the live orphans (accepted):
    Prepare resolution unioned `companies[].name` and `people[].company_name`
@@ -1840,7 +1879,9 @@ without touching `wf04-v3`.
 
 11. **Deferred follow-up (live).** After `Mark resolution succeeded`,
     parallel with enqueue: **Load followup draft** — followup capture
-    + `follow_ups.draft_state='draft'` (exclude `5df341f8`).
+    + `follow_ups.draft_state='draft'` (live still binds leftover
+    `$2` lock `5df341f8`; row is `awaiting_confirm` so it never
+    matches). **Packet 13.1:** drop that uuid and its parameter.
     **Should complete followup draft?** true → **Kick WF-10 deferred**
     `{source:'deferred', owner_id, capture_id, correlation_id}` →
     **Call WF-10 deferred** `wait:false`. `awaiting_confirm` is never
@@ -1931,7 +1972,11 @@ loop would bill real money.
    `split_part(email_normalized, '@', 2)` as `email_domain`.
    Named-node sourcing after this I/O.
 7. **Person has email?** — `email_normalized` notEmpty. False →
-   **No email terminal** (`stopAndError`).
+   **Mark no email** (packet **13.3**, G4): Postgres
+   `status=needs_review`, `error_code=no_email`,
+   owner-scoped → back to Each claimed job. Named
+   rollback `c0d7a773` replaced `No email terminal`
+   (`stopAndError`).
 8. **Load ceilings** — `lni_config` keys `apollo_daily_ceiling` and
    `apollo_lifetime_ceiling`; `sum(credits_spent)` of `credit_ledger`
    rows with `provider='apollo'` and `status IN
@@ -1959,6 +2004,14 @@ loop would bill real money.
     `neverError: true`, `fullResponse: true`. **No** `retryOnFail`.
     Placed **before Insert ledger**. Named-node sourcing:
     `body.num_credits_remaining`. Do not log the profile email.
+    **Packet 13.3 (G2 / rule 29):** IF
+    **Credits readable?** `statusCode` 200–299 AND
+    `Number.isFinite(Number(body.num_credits_remaining))`.
+    False → Postgres **Release: credit read failed**
+    (`status=queued`, `error_code=credit_read_failed`,
+    `last_transition_at=now()`, owner-scoped) → back to
+    Each claimed job. Apollo **not** called. No ledger
+    row. Named rollback `c0d7a773`.
 12. **Insert ledger** — `credit_ledger` `provider='apollo'`,
     `credits_spent=1` (conservative hold), `operation='people_match'`,
     `status='attempted'`, `entity_id` = person. **Before the enrich
@@ -1979,9 +2032,10 @@ loop would bill real money.
     id for a hollow shell (packet 4.3, `.example` domain).
     `typeValidation: strict`. True → **Write match**. False →
     **Write no match**.
-17. **Write match** — `credits_spent` = measured delta (`Read credits
-    before` minus `Read credits after`, floored at 0). Status
-    `'confirmed'` when the name is non-empty — including
+17. **Write match** — `credits_spent` = `$10` (packet **13.3**,
+    rule 29): before−after if finite and ≥0, else **1**.
+    Never NaN. Status `'confirmed'` when the
+    name is non-empty — including
     `'confirmed'` / `credits_spent=0` when a named reveal cost
     nothing. That is honest. `enrichment_records`
     `entity_type='person'` `provider='apollo'` payload = person
@@ -2189,6 +2243,14 @@ On-demand (`source = call`) is
 unchanged: `reply_text` back to WF-01; genuine empty Load
 digest still `Empty digest terminal`. Kind on demand `source`
 is the literal `call` — a caller cannot make WF-07 send.
+**Packet 13.1 (not yet PUT, live = rollback `b9bd519c`):**
+Load digest params and List due owners resolve the event via
+`bot_state.current_event_id` (same JOIN as G5). Kind on
+demand passes explicit `close`|`brief` else `''`. Load digest
+`kind = COALESCE(NULLIF($2,''), CASE WHEN local hour in
+event tz < 12 THEN brief ELSE close END)`. Remove the
+Asia/Riyadh hour literal. Live on-demand table still says
+“hour < 12 Riyadh”.
 
 **Gmail is fail-closed (D-M), with a door.** Mailbox linkage is
 `lni_settings` key `digest_email` scoped to Load digest `$1`
@@ -2217,7 +2279,7 @@ them apart. Never gate on captured > 0.
 | Trigger | `kind` | `source` | Sends? |
 |---|---|---|---|
 | Cron `0 * * * *` (hourly) | local hour 22 → `close`; local hour 7 → `brief`; else skip | `schedule` | Telegram; Gmail only if `lni_settings.digest_email` is set for that owner (036) |
-| Execute Workflow (WF-01 `/digest`) | hour < 12 Riyadh → `brief`, else `close`; optional `kind` override | literal `call` (Kind on demand). A caller `source` cannot become `schedule`. | no — return `reply_text`. `owner_id` from the caller. |
+| Execute Workflow (WF-01 `/digest`) | live: hour < 12 Riyadh → `brief`, else `close`. **13.1 (not PUT):** explicit `close`\|`brief` else `''`; SQL uses event tz | literal `call` (Kind on demand). A caller `source` cannot become `schedule`. | no — return `reply_text`. `owner_id` from the caller. |
 
 Each trigger feeds a named Set (`kind`, `source`) then the shared
 self-identify node. Source every later field from the **named** node
@@ -2526,12 +2588,15 @@ while Insert asset has not committed. The asset lands `stored`, the
 capture is already `processing`, and no `processing_jobs` row exists.
 Capture #77 is that row. **Do not** try to make `/done` win the race.
 
-On every WF-09 tick, **List owners that have work** (packet 12.6:
-captures / jobs / assets, not `bot_state`), then `Each owner`
-splitInBatches 1. Scan / alert / fingerprint are per owner.
-`leftover_processing` keys on that owner's `events.id`. Empty
-`chat_id` and empty `digest_email` → **Alert no destination** (no
-live-chat fallback). **Enqueue orphan jobs** stays in parallel from
+On every WF-09 tick, **List owners that have work** (packet
+**13.3** G5): `JOIN events e ON e.owner_id = b.owner_id AND
+e.id = b.current_event_id`. An owner without `bot_state` is
+not listed (so Scan cannot return empty → Empty scan
+terminal). Then `Each owner` splitInBatches 1. Scan / alert /
+fingerprint are per owner. `leftover_processing` keys on that
+owner's `events.id`. Empty `chat_id` and empty `digest_email`
+→ **Alert no destination** (no live-chat fallback).
+**Enqueue orphan jobs** stays in parallel from
 Mint correlation (existing stuck-job / poison-job / alert paths
 stay untouched):
 
@@ -2599,6 +2664,15 @@ WF-09 dispatch eligibility (so it does not waste kicks):
 refreshes `last_transition_at`; do not bump `attempt_count` here —
 the worker claim does that). Then it is eligible on the next tick
 after the delay for its count.
+**Packet 13.3 (G2, named rollback `b3dedb40`):** Compose findings
+maps `stuck_running` + `job_type=enrichment` → `park_ids`, never
+`requeue_ids`. `kick_needed` includes `park_ids`. Requeue
+stuck running SQL adds `AND job_type <> 'enrichment'`. New
+Postgres **Park stuck enrichment** between Requeue and
+Call WF-03?: `UPDATE status=needs_review`,
+`error_code=watchdog_stuck_enrichment` where owner-scoped,
+`id=ANY($2)`, `status=running`, `job_type=enrichment`.
+`onError continueRegularOutput`.
 
 ### Scan (one Leap-NI query)
 
@@ -2874,6 +2948,14 @@ are unreliable (D-F).
   opportunities; `extraction_runs.raw_transcript`; `people`
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
+- Enrichment context (**packet 13.1 LIVE** `5f6ffbc9`;
+  D-P D-Q D-R D-S D-T): `History load` / `Load voice
+  person` / `Load picked person` JOIN
+  `enrichment_records` as owner-scoped curated laterals
+  (hollow skip, latest `fetched_at`). Prompts `wf10-v6`
+  CARD TITLE rule. Telegram Apollo evidence line.
+  Channel pick stays the card (D-R). `/ask` unchanged
+  (D-T). Echo flag is **D-U, not built**.
 - Signature: `sender_profile.signature_block` (031 +
   032 HTML email), `signature_whatsapp` and
   `signature_linkedin` (033). Not `$env`. Not
@@ -3126,8 +3208,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     no ask, use the no-specific-next-step sentinel.`
     **Sender (12.5g):** system + user `Owner name:` inject
     caller `sender_name`. Same change on **Extract
-    history draft**. Prompt version **`wf10-v5`** on
-    both composers.
+    history draft**. Prompt version **`wf10-v6`**
+    (packet **13.1**, published `5f6ffbc9`): D-P
+    system rule + Apollo context user line.
     Do not write the
     transcript to `audit_log`. Do not add `language` on
     Transcribe.
@@ -3164,7 +3247,8 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v5'`, `title` = subject.
+    `prompt_version='wf10-v6'` (packet **13.1**),
+    `title` = subject.
     Same version on **Update draft**, **Insert brief draft**,
     **Record script flags** / **Record script**,
     **History insert**, **History copy insert**.

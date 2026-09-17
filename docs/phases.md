@@ -1162,45 +1162,94 @@ Rollback named before each PUT. No canvas.
 
 ## Phase 13 — Enrichment read path
 
-**Timing:** after packet **12.2**, never before. Logged
-15 Sep. Architect-owned defect. No SELECT written in
-this packet. No PUT.
+**Status:** 13.1 / 13.2 **LIVE**. Packet **13.3-R**
+(delta on live; proofs without phone). Home:
+`docs/plans/phase-13-plan.md`. PR **#97** closed
+(superseded; remote branch gone). No migration.
 
-`enrichment_records` is written by WF-06 and read by
-nothing. Verified 15 Sep: **85** rows, **40** real Apollo
-person reveals carrying title / seniority / headline /
-employment_history, **35** company records. Of **85**
-follow-up bodies belonging to an enriched person,
-Apollo's title differs from the card title in **75** and
-appears in the body in **2**; Apollo's headline appears
-in **0**. **18** people carry an Apollo-sourced
-`linkedin_url`; overlap with the 10 LinkedIn-channel
-draft recipients is **0**.
+**Rule 6 phone-prove SUSPENDED** for this packet
+(owner instruction). Phone regression **T1–T4,
+P1–P3** deferred to one batch before Phase 13 is
+called closed. Substitutions: F13-* fixtures in the
+test tenant only; `executeWorkflow` / scheduled ticks;
+clone `LNI-TEST-13.1-credits` for the unreachable
+credits host. Never write fixtures into the live
+owner.
 
-`/ask` exclusion was **DELIBERATE**
-(`docs/plans/phase-06-plan.md`). WF-10 was an
-**OMISSION** — no doc line decides it.
+**LIVE, not planned:**
 
-Any enrichment SELECT written now would hardcode
-single-owner assumptions and become another 12.4 audit
-item. `enrichment_records` without an `owner_id`
-predicate leaks one tenant's contact intelligence into
-another's draft.
+- Catalog **045_interactions_capture_person_uniq**
+  (`20260917104401`). Index live. 030 stays reserved.
+- WF-10 published `5f6ffbc9` (rollback `465a037a`,
+  167 nodes): `History load` / `Load voice person` /
+  `Load picked person` owner-scoped curated columns,
+  hollow skip, latest `fetched_at`; prompts `wf10-v6`;
+  Telegram Apollo evidence lines.
+- WF-05 published `b6cd3894` (rollback `743c7c78`,
+  31 nodes): Insert interaction per-person +
+  `ON CONFLICT (capture_id, person_id)`.
 
-Two design rules, locked (also `masterplan.md` §4):
+Live SQL 17 Sep: **88** enrichment records — 46
+apollo person / **40** distinct people, **4 hollow**;
+36 apollo company / **25** distinct companies, **2
+NULL `entity_id`**; 6 tavily. `people` 80,
+`companies` 50.
 
-- **D-P** Card is truth; enrichment is context. What the
-  draft ASSERTS about a person comes from their card.
-  Apollo may be stale or wrong — <CONTACT_33_NAME>'s card
-  reads "Solution Specialist", Apollo reads "Connectivity
-  Consultant, seniority entry". Enrichment informs the
-  composer's brief; it never becomes a sentence claiming
-  their title.
+S6 NULL-person interactions: **20** live (17 live
+owner + 3 test; 5 note replays 17 Sep 10:00Z). Do
+not backfill. Do not repair #46 / #208.
+
+**G1 LIVE defect:** a no-email extracted person binds
+to **every** same-owner same-`full_name` people row
+(SQL sim: **3** interactions for one name). Name
+lookup after upsert, not the upsert result.
+
+Locked (also `masterplan.md` §4; wording from the
+#97 plan):
+
+- **D-P** Card is truth; enrichment is context.
 - **D-Q** Enrichment surfaces as evidence beside the
   draft in Telegram (D-F), never silently inside a body.
+- **D-R** Channel pick stays the card. An Apollo
+  LinkedIn URL must not flip channel. Evidence only.
+- **D-S** Curated columns, never `payload::text`.
+  Hollow rows join NULL. Latest `fetched_at`. Join
+  `owner_id`.
+- **D-T** `/ask` stays enrichment-blind. WF-07 does
+  not read `enrichment_records`.
+- **D-U** Echo flag, never silent edit. **Not built.**
+  Withdrawn 13.1 numbered this D-S.
 
-**Out of this log.** Do not write the read path until
-12.2 isolation is live.
+Packet **13.3-R** PUTs (named rollbacks = live
+baselines): WF-06 `c0d7a773` · WF-09 `b3dedb40` ·
+WF-05 `b6cd3894` (STOP-1 before PUT) · WF-04
+`43f52217` · WF-07 `b9bd519c` · WF-10 `5f6ffbc9`
+(D-U only). Rules 27–29. **STOP-1** is the only
+pause: rewritten WF-05 SQL posted before that PUT.
+
+### Gap register (architect session 13)
+
+G6–G11 quoted from the architect:
+
+| Id | Gap | Owner |
+|---|---|---|
+| **G1** | After upsert, `person_id` comes from that upsert’s own result, never a name lookup. Live fan-out: no-email name binds **every** same-name person (sim 3 rows). #46 / #208 **not repaired** | Cursor (later). Owner: data |
+| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call. WF-06 unreadable credits must not call Apollo; unknown delta = 1 never NaN | Cursor (13.3-R) |
+| **G3** | WF-04 Insert contact name suggestions `executeOnce`; SQL iterates Parse recordset with owner predicate per row (not Claim item 0) | Cursor |
+| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor (13.3-R) |
+| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed. WF-07 digest same event bind | Cursor (13.3-R) |
+| **G6** | literals (WF-05 follow_up uuid; WF-09 capture_no 9; WF-03 Fetch object bytes project ref) | Architect sourced. Cursor later |
+| **G7** | WF-04 dead node "Resolution already queued"; Insert extraction_runs NOT EXISTS same prompt_version keeps stale runs | Architect sourced. Cursor later |
+| **G8** | WF-05 job needs_review on informational non-Latin flag while capture goes ready | Architect sourced. Cursor later |
+| **G9** | WF-05 trgm candidates exclude the resolved id and `NOT EXISTS` pending `(candidate_entity_id, 'name_trgm')` | Cursor |
+| **G10** | WF-06 settings.binaryMode present | Architect sourced. Strip on PUT |
+| **G11** | WF-07/WF-09 single Gmail credential for all tenants | Architect sourced. Out of this packet |
+
+**Deferred phone batch** (not this packet): T1 two-name
+no-email note; T2 namesake re-run; T3 live card with
+email; T4 “Sara Alharbi” note without email; P1 live
+owner titles differ; P2 test-tenant unenriched; P3 live
+no enrichment.
 
 ---
 

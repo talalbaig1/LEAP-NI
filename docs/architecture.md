@@ -386,6 +386,24 @@ on an absorbed duplicate are deleted, not re-pointed.
 | `importance` | smallint | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
 
+**Packet 13.2 (catalog 045, applied 17 Sep
+`20260917104401`). LIVE.** Partial unique
+`interactions_capture_person_uniq`
+`(capture_id, person_id) WHERE person_id IS NOT NULL`.
+WF-05 `Insert interaction` (published `b6cd3894`)
+writes one row per extracted person (`ON CONFLICT
+(capture_id, person_id)`). A zero-people capture
+still gets one NULL `person_id` row so the summary
+is not lost. Do not backfill the **20** live NULL
+`person_id` rows (17 live owner + 3 test; 5 note
+replays 17 Sep 10:00Z). 030 stays reserved.
+
+**G1 LIVE defect (do not repair #46 / #208).** A
+no-email extracted person binds to **every**
+same-owner same-`full_name` people row. SQL sim: **3**
+interaction rows for one name. Bind is still a name
+lookup, not the upsert `RETURNING` id (rule 27).
+
 **`follow_ups`** — next actions.
 
 | Column | Type | Default | Null |
@@ -540,6 +558,23 @@ owner, applied 16 Sep), not this table.
 | `confidence` | numeric | — | YES |
 | `fetched_at` | timestamptz | `now()` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+
+**Enrichment read (Phase 13, packet 13.1).** WF-06
+writes this table. WF-10 `History load` /
+`Load voice person` / `Load picked person` read it.
+Join is `owner_id` + `entity_id` + latest
+`fetched_at`. Curated columns only (title, headline,
+seniority, LinkedIn URL, industry, short_description
+240, headcount, Tavily `answer` 240 when no Apollo
+company). Hollow person rows (`payload = '{}'` or
+blank `name`) join as NULL. Never stringify
+`payload`. Never copy these fields into
+`follow_ups.body` (D-P / D-Q). Channel pick stays
+the card (D-R). Curated columns (D-S). `/ask` and
+WF-07 do not read this table (D-T). Echo-flag on
+the confirm card is **D-U, not built**. Unique is PK
+only; duplicates per entity are real —
+`ORDER BY fetched_at DESC LIMIT 1`.
 
 **`credit_ledger`** — Apollo spend guard.
 
@@ -1276,6 +1311,12 @@ wait. That is intended and safe.
 
 Apollo and Tavily output lands in `enrichment_records` **only**.
 
+**Read path (Phase 13).** WF-10 compose may **read**
+curated keys into the composer brief and the
+Telegram evidence pane. It must not write them onto
+the person card or into a sendable body (D-P D-Q).
+`/ask` does not read this table (Phase 6, D-T).
+
 Enrichment **never** overwrites captured `people.email`, `people.full_name`,
 `people.title`, or `people.phone`. Card and voice are evidence; provider
 data is inference.
@@ -1428,6 +1469,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 042 | `042_bot_state_current_event` | Packet 12.9 applied 17 Sep 2026 (`20260917065325`). `bot_state.current_event_id` nullable. `events` UNIQUE `(owner_id, id)`. Composite FK `bot_state_owner_current_event_fk`. Backfill by owner, never by name. 030 stays Phase 6. |
 | 043 | `043_drop_assets_column_unique` | Packet 13.0 P1c applied 17 Sep 2026 (`20260917084212`). Drops TEMPORARY `assets_telegram_file_unique_id_key` after composite ON CONFLICT published. Keeps `assets_owner_id_telegram_file_unique_id_key`. 030 stays Phase 6. |
 | 044 | `044_tenant2_name_shaped_person` | Packet 14.0 A2 applied 17 Sep 2026 (`20260917093452`). One name-shaped person (Sara Alharbi, `example.invalid`) on the NIS test tenant that has `bot_state`. Does not touch existing fixture people. 030 stays Phase 6. |
+| 045 | `045_interactions_capture_person_uniq` | Packet 13.2 applied 17 Sep 2026 (`20260917104401`). Partial unique `interactions_capture_person_uniq` on `(capture_id, person_id) WHERE person_id IS NOT NULL`. One interaction per extracted person. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 
