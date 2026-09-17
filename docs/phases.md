@@ -838,7 +838,11 @@ fixture. Never deleted, never frozen (Q2).
 The door is **packet 12.8** (`041_tenant2_bot_state`,
 catalog `20260917060142`). Live `bot_state` count is
 **2**. 0a wait withdrawn: `7c72371f` stays as the
-B7 `failed_24h` finding.
+B7 `failed_24h` finding. B1/B2a `row_count=1`
+(owner predicate applied). B7 WF-09 **495812**
+alerted account 2 only; live owner Silent clean.
+Copy pass: user-facing still `LNI watchdog` (D-N).
+Do not fix now.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

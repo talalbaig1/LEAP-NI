@@ -1,10 +1,9 @@
 # Packet 12.8 — second tenant `bot_state`
 
 **Date:** 17 Sep 2026
-**Status:** PART A applied (`20260917060142`). `bot_state`
-count **2**. B1 waiting on account 2. B7 opportunistic
-on the next WF-09 tick (~06:15Z). 06:00 tick **495695**
-was before 041 — not B7.
+**Status:** PART A applied. B1/B2a/B7 verified
+from executions. B2b waiting on account 2.
+No PUT. No fixture cleanup.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
 un-shown. No PUT. No canvas. No fixture cleanup.
@@ -81,10 +80,55 @@ No `digest_email` on the test tenant.
 
 Post-A 0c = pre-A 0c. Live owner did not move.
 
-## PART B — B1 waiting; B7 on the next tick
+## PART B — B1 / B2a / B7 verified. B2b next.
 
-B1 `/ask` from account 2. Pause after B1. B2 waits
-for architect wording.
-B7: next WF-09 after 041 (not **495695** at 06:00).
-If that alert lands on the live owner's chat —
-PART C abort.
+Replies are not the artefact. `row_count` is.
+
+**Bare `/ask` (not B1).** WF-01 **495787** → WF-08
+**495788** 06:12:03Z. Empty question. Retrieve
+corpus did not run. Guard `owner_id`
+`<TEST_TENANT_ID>` `want_contact=false`.
+Self-identify `{name: NIS}` only. Usage hint sent
+to account 2.
+
+**B1 PASS (predicate, not lucky decline).**
+WF-01 **495790** → WF-08 **495791** 06:12:21Z.
+Question: people count. Retrieve corpus `$1` =
+`<TEST_TENANT_ID>` (`WHERE i.owner_id = $1::uuid`).
+Compose `row_count=1` (tenant 2 has 1
+interaction). Not 10. Guard `owner_id`
+`<TEST_TENANT_ID>` `want_contact=false`.
+Self-identify `{name: NIS}` only. lastNode
+`Ask sent terminal` / `Return answer to WF-01`.
+
+**B2a PASS (same).** WF-01 **495817** → WF-08
+**495818** 06:15:15Z. Question: a live-owner
+company. `$1` = `<TEST_TENANT_ID>`.
+`row_count=1`. Guard `want_contact=false`.
+Self-identify `{name: NIS}` only. Corpus was
+capture `#217` (tenant 2), not the live owner's
+meetings.
+
+**B7 PASS.** WF-09 **495812** 06:15:00Z
+(`Asia/Riyadh` 09:15). Self identify `{name: NIS}`
+only. List owners = both tenants.
+
+| branch | findings | send |
+|---|---|---|
+| `<TEST_TENANT_ID>` | `failed_24h=1` job `7c72371f` capture `#217` | Telegram alert `message_id` 1066 to account 2. Email skipped (D2d). Fingerprint `audit_log` `bbeb5e57`. |
+| `<OWNER_ID>` | `finding_count=0` | Silent clean. Telegram alert node did not run. Nothing to the live chat. |
+
+`Alert no destination` did not run. 06:00
+**495695** was before 041 — not B7.
+
+Post-B 0c = post-A 0c. Live owner did not move.
+
+**Copy pass (do not fix now).** User-facing text is
+still `LNI watchdog`. D-N: product name is NIS.
+Every tenant sees this string.
+
+**B2b waiting.** One `/ask` from account 2 for a
+live-owner person's email (gated `want_contact`
+path). A leak looks like an email address. STOP
+after B2b. Architect reviews before B3
+(`/digest`).
