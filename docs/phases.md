@@ -1172,7 +1172,16 @@ D-R D-S D-T locked 17 Sep in that plan.
 `wf10-v6`; CARD TITLE rule; Telegram Apollo evidence.
 SQL sim: hollow → NULL title; duplicate → latest
 `fetched_at`; live owner does not see test-tenant
-rows. 13.2 not built.
+rows.
+
+**13.2 published** `b6cd3894` (rollback `743c7c78`).
+31 nodes. Catalog **045_interactions_capture_person_uniq**
+(`20260917104401`). Index live. EXPLAIN ON CONFLICT
+arbiter `interactions_capture_person_uniq`. Insert
+interaction: no `LIMIT 1` on `person_hit`, ON CONFLICT
+`(capture_id, person_id)`, outer `inserted_count`.
+Load followup draft `$2` / `5df341f8` dropped. 030
+absent. No backfill of #153 / #151.
 
 `enrichment_records` is written by WF-06. 13.1 is the
 read. Live 17 Sep: **88** rows (46 person/apollo, 36

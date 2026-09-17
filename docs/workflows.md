@@ -1694,11 +1694,11 @@ without touching `wf04-v3`.
 5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
    Preserve `name_original_script` verbatim — never overwrite a stored
    original with null.    Write `interactions.summary` and
-   `interactions.topics` from `structured_output`. **Until 13.2:**
-   one interaction per capture (`LIMIT 1` + `NOT EXISTS
-   capture_id`) — S6/S9. **Packet 13.2:** one interaction per
-   extracted person; unique `(capture_id, person_id)` where
-   `person_id` IS NOT NULL; outer SELECT still one n8n item.
+   `interactions.topics` from `structured_output`. **Packet 13.2
+   published `b6cd3894`:** one interaction per extracted person;
+   unique `(capture_id, person_id)` where `person_id` IS NOT NULL;
+   outer SELECT still one n8n item. Pre-13.2 was one interaction
+   per capture (`LIMIT 1` + `NOT EXISTS capture_id`) — S6/S9.
    A capture with zero people still gets an interaction
    (`person_id` NULL) so the summary is not lost, and still gets a
    terminal capture status. Do not backfill #153 / #151 by hand.
@@ -1844,7 +1844,9 @@ without touching `wf04-v3`.
 
 11. **Deferred follow-up (live).** After `Mark resolution succeeded`,
     parallel with enqueue: **Load followup draft** — followup capture
-    + `follow_ups.draft_state='draft'` (exclude `5df341f8`).
+    + `follow_ups.draft_state='draft'` (13.2 dropped the
+    leftover `$2` lock on `5df341f8`; that row is
+    `awaiting_confirm` so it never matched).
     **Should complete followup draft?** true → **Kick WF-10 deferred**
     `{source:'deferred', owner_id, capture_id, correlation_id}` →
     **Call WF-10 deferred** `wait:false`. `awaiting_confirm` is never

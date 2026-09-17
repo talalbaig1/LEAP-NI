@@ -2,8 +2,10 @@
 
 **Date:** 17 Sep 2026
 **Status:** 13.1 published `5f6ffbc9` (rollback
-`<WF10_PUBLISHED_14_0>` / `465a037a`). GET-verified
-17 Sep. 13.2 not built. No canvas.
+`<WF10_PUBLISHED_14_0>` / `465a037a`). 13.2 published
+`b6cd3894` (rollback `<WF05_PUBLISHED_14_0>` /
+`743c7c78`). Catalog **045** `20260917104401`.
+GET-verified 17 Sep. No canvas.
 **Home:** this file. Also `phases.md`, `architecture.md`
 § enrichment read, `workflows.md` WF-05 / WF-10,
 `masterplan.md` D-P D-Q.

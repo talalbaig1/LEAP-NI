@@ -386,8 +386,8 @@ on an absorbed duplicate are deleted, not re-pointed.
 | `importance` | smallint | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
 
-**Packet 13.2 (catalog 045, not applied until that
-PUT).** Partial unique
+**Packet 13.2 (catalog 045, applied 17 Sep
+`20260917104401`).** Partial unique
 `interactions_capture_person_uniq`
 `(capture_id, person_id) WHERE person_id IS NOT NULL`.
 WF-05 `Insert interaction` writes one row per
@@ -1460,7 +1460,7 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 042 | `042_bot_state_current_event` | Packet 12.9 applied 17 Sep 2026 (`20260917065325`). `bot_state.current_event_id` nullable. `events` UNIQUE `(owner_id, id)`. Composite FK `bot_state_owner_current_event_fk`. Backfill by owner, never by name. 030 stays Phase 6. |
 | 043 | `043_drop_assets_column_unique` | Packet 13.0 P1c applied 17 Sep 2026 (`20260917084212`). Drops TEMPORARY `assets_telegram_file_unique_id_key` after composite ON CONFLICT published. Keeps `assets_owner_id_telegram_file_unique_id_key`. 030 stays Phase 6. |
 | 044 | `044_tenant2_name_shaped_person` | Packet 14.0 A2 applied 17 Sep 2026 (`20260917093452`). One name-shaped person (Sara Alharbi, `example.invalid`) on the NIS test tenant that has `bot_state`. Does not touch existing fixture people. 030 stays Phase 6. |
-| 045 | `045_interactions_capture_person_uniq` | Packet 13.2. **Not applied until that PUT.** Partial unique `interactions_capture_person_uniq` on `(capture_id, person_id) WHERE person_id IS NOT NULL`. One interaction per extracted person. 030 stays Phase 6. |
+| 045 | `045_interactions_capture_person_uniq` | Packet 13.2 applied 17 Sep 2026 (`20260917104401`). Partial unique `interactions_capture_person_uniq` on `(capture_id, person_id) WHERE person_id IS NOT NULL`. One interaction per extracted person. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 
