@@ -1162,30 +1162,25 @@ Rollback named before each PUT. No canvas.
 
 ## Phase 13 — Enrichment read path
 
-**Timing:** after packet **12.2**, never before. Logged
-15 Sep. Architect-owned defect. No SELECT written in
-this packet. No PUT.
+**Timing:** after 12.2 isolation (live). Home:
+`docs/plans/phase-13-plan.md`. D-P D-Q locked 15 Sep.
+D-R D-S D-T locked 17 Sep in that plan. **Not built**
+until packets 13.1 / 13.2 PUT.
 
 `enrichment_records` is written by WF-06 and read by
-nothing. Verified 15 Sep: **85** rows, **40** real Apollo
-person reveals carrying title / seniority / headline /
-employment_history, **35** company records. Of **85**
-follow-up bodies belonging to an enriched person,
-Apollo's title differs from the card title in **75** and
-appears in the body in **2**; Apollo's headline appears
-in **0**. **18** people carry an Apollo-sourced
-`linkedin_url`; overlap with the 10 LinkedIn-channel
-draft recipients is **0**.
+nothing until 13.1. Live 17 Sep: **88** rows (46
+person/apollo, 36 company/apollo, 6 company/tavily).
+Hollow person payloads **3**. Duplicates per entity
+exist; latest `fetched_at` wins.
 
 `/ask` exclusion was **DELIBERATE**
-(`docs/plans/phase-06-plan.md`). WF-10 was an
-**OMISSION** — no doc line decides it.
+(`docs/plans/phase-06-plan.md`) — D-T, stays out.
+WF-10 was an **OMISSION**. 13.1 is that read, owner-
+scoped, curated columns, Telegram evidence only.
 
-Any enrichment SELECT written now would hardcode
-single-owner assumptions and become another 12.4 audit
-item. `enrichment_records` without an `owner_id`
-predicate leaks one tenant's contact intelligence into
-another's draft.
+S6 (one interaction per extracted person) is packet
+**13.2** (catalog **045** + WF-05 PUT). Cause is 14.0
+C2. Do not backfill #153 / #151 by hand.
 
 Two design rules, locked (also `masterplan.md` §4):
 
@@ -1199,8 +1194,8 @@ Two design rules, locked (also `masterplan.md` §4):
 - **D-Q** Enrichment surfaces as evidence beside the
   draft in Telegram (D-F), never silently inside a body.
 
-**Out of this log.** Do not write the read path until
-12.2 isolation is live.
+Packets: **13.1** WF-10 only (no schema). **13.2**
+045 then WF-05. 030 stays Phase 6.
 
 ---
 

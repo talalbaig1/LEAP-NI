@@ -1693,11 +1693,15 @@ without touching `wf04-v3`.
    field. This is why auto-link on name is banned and **stays banned**.
 5. **Upsert** `people`, `companies`, `person_companies`, `interactions`.
    Preserve `name_original_script` verbatim — never overwrite a stored
-   original with null. Write `interactions.summary` and
-   `interactions.topics` from `structured_output`. One interaction per
-   capture. A capture with zero people still gets an interaction
+   original with null.    Write `interactions.summary` and
+   `interactions.topics` from `structured_output`. **Until 13.2:**
+   one interaction per capture (`LIMIT 1` + `NOT EXISTS
+   capture_id`) — S6/S9. **Packet 13.2:** one interaction per
+   extracted person; unique `(capture_id, person_id)` where
+   `person_id` IS NOT NULL; outer SELECT still one n8n item.
+   A capture with zero people still gets an interaction
    (`person_id` NULL) so the summary is not lost, and still gets a
-   terminal capture status.
+   terminal capture status. Do not backfill #153 / #151 by hand.
 
    **Company matcher (packet 3.7).** Cause of the live orphans (accepted):
    Prepare resolution unioned `companies[].name` and `people[].company_name`
@@ -2874,6 +2878,13 @@ are unreliable (D-F).
   opportunities; `extraction_runs.raw_transcript`; `people`
   card fields and `source_type`; company name. Replaces a
   live `Assemble brief` input. Do not fork a second composer.
+- Enrichment context (packet **13.1**, D-P D-Q D-S):
+  latest `enrichment_records` for that person (Apollo)
+  and company (Apollo, else Tavily answer). Owner-scoped.
+  Curated keys only. Informs the composer brief; never
+  the sendable body. Telegram evidence pane (D-F) shows
+  a short Apollo line. Channel pick stays the card (D-R).
+  `/ask` does not read this table (D-T).
 - Signature: `sender_profile.signature_block` (031 +
   032 HTML email), `signature_whatsapp` and
   `signature_linkedin` (033). Not `$env`. Not
@@ -2936,6 +2947,9 @@ are unreliable (D-F).
 - Auto-merge people on name. Do not merge <CONTACT_3_NAME> (D-J).
 - Put SilaCares in the body as if it was pitched (D-I),
   except the four manuals which are not on this path.
+- Put Apollo / Tavily into `follow_ups.body`, a Gmail draft,
+  or WhatsApp/LinkedIn copy-text (D-Q). Telegram evidence
+  only. Never assert Apollo title/seniority as the card.
 
 **Route.** `Normalize input` must pass `source=history`
 through without collapsing it to `command` if that would
@@ -3127,7 +3141,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     **Sender (12.5g):** system + user `Owner name:` inject
     caller `sender_name`. Same change on **Extract
     history draft**. Prompt version **`wf10-v5`** on
-    both composers.
+    both composers until packet **13.1**, then
+    **`wf10-v6`** (D-P system rule + Apollo context
+    user line).
     Do not write the
     transcript to `audit_log`. Do not add `language` on
     Transcribe.
@@ -3164,7 +3180,8 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v5'`, `title` = subject.
+    `prompt_version='wf10-v6'` after packet **13.1**
+    (`wf10-v5` until that PUT), `title` = subject.
     Same version on **Update draft**, **Insert brief draft**,
     **Record script flags** / **Record script**,
     **History insert**, **History copy insert**.
@@ -3183,9 +3200,11 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 20. **Compose confirm** — plain text (Sweep notify flag
     HTML-escapes). Full `to_email`, CC, subject, plain
     letter + stripped signature, attachment filenames or
-    `(none)`, omitted list if any. **Evidence pane
+    `(none)`, omitted list if any.     **Evidence pane
     (D-F, 12.5f):** raw transcript beside the draft on
     this Telegram card. Never inside the stored body.
+    Packet **13.1** (D-Q): a short Apollo context line
+    on the same card, labelled not-used-as-title.
     Garble `WARNING:` when Parse extract `unusable_reason`
     is set. Transcript truncated at 2800. Long cards
     split: draft + buttons on `reply_text`, transcript
