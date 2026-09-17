@@ -251,8 +251,11 @@ draft (D-F).
 2. WhatsApp / LinkedIn: Telegram messages with the text
    to copy. No API send (D-E / D-D).
 3. Transcript and summary go to **Telegram only** (Q1).
-   Wrong-script or garbled is labelled there. The Gmail
-   draft is the sendable email and nothing else.
+   Wrong-script or garbled is labelled there. Packet
+   **13.1** (D-Q): a short Apollo context line sits on
+   that same card, labelled as context, not as their
+   title. The Gmail draft is the sendable email and
+   nothing else.
 4. He opens Gmail (or copies from Telegram), edits, sends
    himself. No Send button. No approve card.
 

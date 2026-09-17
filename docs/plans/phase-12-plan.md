@@ -5,11 +5,14 @@
 Packets **12.1–12.5 / 12.6 drain / 12.7–12.9 / 13.0 / 14.0**
 applied as named. Login surface **12.6** is not built.
 `person_emails` **12.3** and `entity_candidates` **12.4**
-need architect design. Phase 13 enrichment read path is
-a new chat.
+need architect design. Phase 13 enrichment read path:
+`docs/plans/phase-13-plan.md`. **13.1 / 13.2 LIVE**
+(WF-10 `5f6ffbc9`, WF-05 `b6cd3894`, catalog **045**
+`20260917104401`). Packet **13.3** is WF-06 / WF-09.
 Highest applied migration is
-`044_tenant2_name_shaped_person` (catalog `20260917093452`).
-**030 stays Phase 6 embeddings.**
+`045_interactions_capture_person_uniq` (catalog `20260917104401`).
+**030 stays Phase 6 embeddings.** Do not add a migration
+this packet.
 
 Product name is **Networking Intelligence System (NIS)**.
 `LNI` is the legacy internal code prefix (D-N). Internal

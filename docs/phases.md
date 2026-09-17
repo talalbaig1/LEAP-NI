@@ -1162,85 +1162,79 @@ Rollback named before each PUT. No canvas.
 
 ## Phase 13 — Enrichment read path
 
-**Status:** IN PROGRESS. Packet **13.1**. Docs-first.
-No migration apply. No n8n PUT this packet until
-architect read-back and this PR merges.
+**Status:** 13.1 / 13.2 **LIVE**. Packet **13.3**
+(WF-06 + WF-09). Docs on this PR. No migration.
+No WF-04 / WF-05 / WF-07 / WF-10 PUT this packet.
+Home: `docs/plans/phase-13-plan.md`. PR **#97**
+closed (superseded).
 
-12.2 isolation is live. WF-06 **writes**. The composer
-read is **not** the packet-13.1 function path yet.
+**LIVE, not planned:**
 
-Live SQL 17 Sep (agrees with the packet 88-line):
-**88** records — 46 apollo person / **40** distinct
-people entities, **4 hollow** (`btrim(payload->>'name')`
-empty; 3 of those are also `payload = '{}'`); 36 apollo
-company / **25** distinct company entities, **2 NULL
-`entity_id`**; 6 tavily. Table counts are higher
-(`people` 80, `companies` 50) — 40/25 are enrichment
-entities, not table n.
+- Catalog **045_interactions_capture_person_uniq**
+  (`20260917104401`). Index live. 030 stays reserved.
+- WF-10 published `5f6ffbc9` (rollback `465a037a`,
+  167 nodes): `History load` / `Load voice person` /
+  `Load picked person` owner-scoped curated columns,
+  hollow skip, latest `fetched_at`; prompts `wf10-v6`;
+  Telegram Apollo evidence lines.
+- WF-05 published `b6cd3894` (rollback `743c7c78`,
+  31 nodes): Insert interaction per-person +
+  `ON CONFLICT (capture_id, person_id)`.
 
-A conflicting Phase 13 already landed on the instance
-and on PR **#97** (not this branch): catalog **045** is
-the unique index; WF-05 published `b6cd3894`; WF-10
-published `5f6ffbc9`. This packet’s names are 045 =
-`lni_enrichment_context`, 046 = that unique. **Do not
-re-apply or rename.** Architect owns the collision.
+Live SQL 17 Sep: **88** enrichment records — 46
+apollo person / **40** distinct people, **4 hollow**;
+36 apollo company / **25** distinct companies, **2
+NULL `entity_id`**; 6 tavily. `people` 80,
+`companies` 50.
 
-`/ask` exclusion is **DELIBERATE** (Phase 6) — **D-T**.
-WF-10 was an **OMISSION**. 13.1 is that read: owner-
-scoped function, fenced CONTEXT (D-R), Telegram
-evidence only (D-Q), confirm-card echo flag (D-S).
+S6 NULL-person interactions: **20** live (17 live
+owner + 3 test; 5 note replays 17 Sep 10:00Z). Do
+not backfill. Do not repair #46 / #208.
 
-Locked (also `masterplan.md` §4):
+**G1 LIVE defect:** a no-email extracted person binds
+to **every** same-owner same-`full_name` people row
+(SQL sim: **3** interactions for one name). Name
+lookup after upsert, not the upsert result.
 
-- **D-P** Card is truth; enrichment is context. What the
-  draft ASSERTS about a person comes from their card.
-  Apollo may be stale or wrong — <CONTACT_33_NAME>'s card
-  reads "Solution Specialist", Apollo reads "Connectivity
-  Consultant, seniority entry". Enrichment informs the
-  composer's brief; it never becomes a sentence claiming
-  their title.
+Locked (also `masterplan.md` §4; wording from the
+#97 plan):
+
+- **D-P** Card is truth; enrichment is context.
 - **D-Q** Enrichment surfaces as evidence beside the
   draft in Telegram (D-F), never silently inside a body.
-- **D-R** Enrichment reaches the composer as a fenced
-  CONTEXT block the model may use for tone/relevance
-  only; it must not assert title, seniority, employer,
-  history or headline from it. (Replaces the PR #97
-  “channel stays the card” D-R.)
-- **D-S** If a draft repeats an Apollo title/headline
-  that differs from the card, the confirm card flags it.
-  The system never edits the draft silently.
-- **D-T** `/ask` stays enrichment-blind. WF-07 does not
-  read `enrichment_records`.
+- **D-R** Channel pick stays the card. An Apollo
+  LinkedIn URL must not flip channel. Evidence only.
+- **D-S** Curated columns, never `payload::text`.
+  Hollow rows join NULL. Latest `fetched_at`. Join
+  `owner_id`.
+- **D-T** `/ask` stays enrichment-blind. WF-07 does
+  not read `enrichment_records`.
+- **D-U** Echo flag, never silent edit. **Not built.**
+  Withdrawn 13.1 numbered this D-S.
+
+Packet **13.3** PUTs (named rollbacks): WF-06
+`c0d7a773` (G2 credit-read gate + `$10` never NaN;
+G4 no-email park). WF-09 `b3dedb40` (stuck
+enrichment → `park_ids`, never requeue; G5
+`current_event_id` JOIN). Rules 27–29.
 
 ### Gap register (architect session 13)
 
-Owner per row. G6 G7 G8 G10 G11 were **not** in the
-repo, handover, git history, or Project store — not
-invented.
+G6–G11 quoted from the architect:
 
 | Id | Gap | Owner |
 |---|---|---|
-| **G1** | After upsert, `person_id` comes from that upsert’s own result, never a name lookup. #46 `cc224878` interaction `5ae91209` bound `c747ab72` not minted `a21a803f`. #208 `06ddeeeb` interaction `5a90989d` bound `4151e101` not minted `3e442ace`. Upsert `inserted:1`; person_hit `full_name` join `LIMIT 1` no `ORDER BY`. #46/#208 **not repaired** (owner decision pending) | Cursor (PUT). Owner: data |
-| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call | Cursor |
+| **G1** | After upsert, `person_id` comes from that upsert’s own result, never a name lookup. Live fan-out: no-email name binds **every** same-name person (sim 3 rows). #46 / #208 **not repaired** | Cursor (later). Owner: data |
+| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call. WF-06 unreadable credits must not call Apollo; unknown delta = 1 never NaN | Cursor (13.3) |
 | **G3** | WF-04 Insert contact name suggestions `executeOnce`; SQL iterates Parse recordset with owner predicate per row (not Claim item 0) | Cursor |
-| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor |
-| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed | Cursor |
-| **G6** | **Unsourced** — architect must supply | — |
-| **G7** | **Unsourced** — architect must supply | — |
-| **G8** | **Unsourced** — architect must supply | — |
+| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor (13.3) |
+| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed | Cursor (13.3 WF-09) |
+| **G6** | literals (WF-05 follow_up uuid; WF-09 capture_no 9; WF-03 Fetch object bytes project ref) | Architect sourced. Cursor later |
+| **G7** | WF-04 dead node "Resolution already queued"; Insert extraction_runs NOT EXISTS same prompt_version keeps stale runs | Architect sourced. Cursor later |
+| **G8** | WF-05 job needs_review on informational non-Latin flag while capture goes ready | Architect sourced. Cursor later |
 | **G9** | WF-05 trgm candidates exclude the resolved id and `NOT EXISTS` pending `(candidate_entity_id, 'name_trgm')` | Cursor |
-| **G10** | **Unsourced** — architect must supply | — |
-| **G11** | **Unsourced** — architect must supply | — |
-
-S6 design = this packet (one interaction per resolved
-person + 046 unique). Packet text said **15** NULL-person
-interactions stay as evidence; live SQL is **20** (17 live
-owner + 3 test). Cite both. Do not backfill.
-
-Intended PUTs (not this turn): WF-04 `43f52217` · WF-05
-`743c7c78` · WF-06 `c0d7a773` · WF-07 `b9bd519c` ·
-WF-09 `b3dedb40` · WF-10 `465a037a`. Live already
-diverges on WF-05 (`b6cd3894`) and WF-10 (`5f6ffbc9`).
+| **G10** | WF-06 settings.binaryMode present | Architect sourced. Strip on PUT |
+| **G11** | WF-07/WF-09 single Gmail credential for all tenants | Architect sourced. Out of this packet |
 
 ---
 
