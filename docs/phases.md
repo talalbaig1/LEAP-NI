@@ -833,11 +833,27 @@ Catalog **037_test_tenant** (`20260916033502`). Auth user
 `List due owners`, WF-01 allowlist, and every cron. D2d
 fixture. Never deleted, never frozen (Q2).
 
-### Packet 12.2b — permanent test tenant `bot_state` (still slipped)
+### Packet 12.2b — permanent test tenant `bot_state` (12.8 applied)
 
-12.2 did not insert a second `bot_state`. Live count
-is still 1. 12.2b-i is the inert fixture only. Do not
-assert a second allowlist row.
+The door is **packet 12.8** (`041_tenant2_bot_state`,
+catalog `20260917060142`). Live `bot_state` count is
+**2**. 0a wait withdrawn: `7c72371f` stays as the
+B7 `failed_24h` finding. B1/B2a `row_count=1`
+(owner predicate applied). B7 WF-09 **495812**
+alerted account 2 only; live owner Silent clean.
+Copy pass: user-facing still `LNI watchdog` (D-N).
+Do not fix now. B2b gated `want_contact` path
+PASS (`row_count=1`, no email in the reply).
+B3 `/digest` WF-01 **495886** / WF-07 **495887**:
+Telegram `ok=true` `message_id` 1074 (not assumed
+on-device). B4 Hourly tick **495953** N=2 with
+destinations: live Telegram+Gmail; tenant 2
+Telegram + `Email skipped`. Timezones restored.
+B5 picker **not shown** (cause only). WF-02
+Insert followup capture / resolve_target still
+fingerprint `events.name = 'LEAP 2026'`, so
+tenant-2 INSERT returns 0 rows. Not a leak.
+No abort. No PUT.
 
 ### Packet 12.3 — `person_emails` (deferred)
 
