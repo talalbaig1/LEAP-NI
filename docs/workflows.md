@@ -27,6 +27,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Retries | `retryOnFail: true` on all provider and DB write nodes | — |
 | Cron timezone | **Explicitly `Asia/Riyadh`** | Never inherit the container default |
 | Empty result guard | Explicit gate before any send node | Postgres emits `{success:true}` when an UPDATE matches zero rows, which crashes downstream sends. A real SQL row with `captured = 0` is a valid report and SHOULD send. An empty item from `alwaysOutputData` on zero rows is NOT a report and must NOT send. These are different things and the gate exists to tell them apart. Never gate on `captured > 0`. |
+| `executeWorkflow` last node | Re-source `{ok, reply_text, …}` from the named composer | The callee’s last node **is** what the caller waits on. A NoOp after a Postgres status write forwards `{success:true}` / a capture row and WF-01 takes the fail send. Rule 26. WF-10 `Return to caller` is a Set from `$('Sweep notify flag')` (HTML-escaped composer). `Set followup capture ready` may still run as a side effect; it must not be the return. |
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
@@ -2761,16 +2762,43 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`<WF10_PUBLISHED>`**
-(171 nodes) after packet **12.5a-0** (History webhook
-removed). Rollback **`<WF10_ROLLBACK>`**.
+Published **`dfd35bfb`**
+after packet **12.5h** (omit-incoherent, prompt
+`wf10-v5`). Rollback **`844e1858`** (12.5g).
+Prior **12.5g** graph **`844e1858`**.
+Prior rollback **`eeb9dc09`** (12.5f).
+Prior **12.5f** graph **`eeb9dc09`**.
+Prior rollback **`cca31bc9`** (12.5d last-node).
+Prior **12.5d** graph **`cca31bc9`**.
+Packet
+**12.5f** brings `/followup` up to the history
+contract (English lock, garble gate, D-I signature,
+D-F evidence pane). Prior rollback
+**`a4d02063`** (12.5a). `e9204581` carries the same
+swallow — do not roll back to it as a remedy.
+Prior **12.5a** graph **`a4d02063`**
+(172 nodes; caller owner, `mailbox_linked`, Class B).
+Prior rollback **`e9204581`**.
+Prior **12.5a-0** graph **`e9204581`** (History webhook
+removed). Prior rollback **`<WF10_ROLLBACK>`**.
 Prior rollback **`<WF10_PUBLISHED_CH5>`**
 (CH1–CH5 close). Prior graphs **`<WF10_PUBLISHED_DESRAJ>`**
 (<CONTACT_14_NAME> + WA/LI dry run), **`<WF10_PUBLISHED_HIST_V4>`** (email
 batch), **`<WF10_ROLLBACK_DESRAJ>`**.
 Non-Latin is not garbled. Unusable uses `History template`
 (warm card-only note). Usable runs `Extract history draft`
-in English. Every body starts with a greeting by name.
+in English (`Write in ENGLISH even if the transcript
+is Arabic, Urdu, or mixed` — same words on
+`Extract draft` and `Extract history draft`, both
+`wf10-v5` after 12.5h). Every body starts with a greeting by name.
+**Omit-incoherent (12.5h, same words on both composers):**
+if a phrase in the transcript is incoherent or cannot
+be understood, omit it; do not guess or smooth; if
+that leaves no ask, use the no-specific-next-step
+sentinel.
+Sender identity is the caller `lni_settings` key
+`display_name`, else the first line of
+`sender_profile.signature_block`. Not a prompt literal.
 History Gmail `emailType=html`. WhatsApp/LinkedIn are
 short plain copy on Telegram (no Gmail), with `wa.me`
 click-to-chat (Meta FAQ) or a LinkedIn people-search
@@ -2914,13 +2942,23 @@ Credentials (REST PUT, never ElderWise): Postgres **Leap-NI**,
 Gmail (same OAuth as WF-07/09), OpenAI **OpenAi account**, HTTP
 **Supabase_Leap-NI** on the attachment GET (bucket prefix +
 `storage_path`). First execution is self-identifying:
-`SELECT name FROM public.events WHERE name = 'LEAP 2026'`.
+`SELECT name FROM public.lni_instance` (gate `NIS`).
 
 **Input** (Execute Workflow Trigger): `owner_id`, `correlation_id`,
 `source` (`command` \| `voice` \| `callback`), `text` (command),
 `callback_data` (callback, `f7:` prefix), `file_id` (voice).
 **Return contract:** `{ ok, reply_text, reply_text_2?, reply_markup? }`.
-Empty `reply_text` is a defect.
+Empty `reply_text` is a defect. Last node is **Return to
+caller**, a Set that re-sources `$('Sweep notify flag')`
+(the HTML-escaped composer: Compose confirm / many /
+usage / …). It does **not** inherit the previous item.
+`Set followup capture ready` stays a side effect on the
+done/deferred/sweep tail; both gate outputs wire to
+Return to caller. `Followup status written` /
+`Followup status skipped` NoOps are off the path
+(12.5d, capture #214, execs 485773 / 485772).
+`Voice disambiguate?` is unchanged: `hit_count>1` OR
+`step=3` (trgm floor never auto-picks).
 
 **Does not Call WF-03.** Whisper (language **absent**) lives on
 WF-10 so a follow-up brief never claims a capture transcription
@@ -2946,11 +2984,12 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 1. **Manual Trigger** and **When called** (executeWorkflow) both
    feed **Self identify**. History webhook removed 12.5a-0.
 2. **Self identify** — Postgres
-   `SELECT name, owner_id FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`.
-   `executeOnce: true`. Still returns `owner_id` until 12.5a C1.
-3. **Row returned?** — `name` equals `LEAP 2026`, strict. False →
+   `SELECT name FROM public.lni_instance LIMIT 1`.
+   `executeOnce: true`. Does **not** return `owner_id`.
+   Fingerprint is instance name `NIS` (12.5a C1).
+3. **Row returned?** — `name` equals `NIS`, strict. False →
    **Wrong database terminal** (`stopAndError`:
-   `Wrong database LEAP 2026 row missing`).
+   `Wrong database instance name missing`).
 4. **Normalize input** — Code. Named-node source. Copies
    `source`, `text`, `callback_data`, `file_id`, `owner_id`,
    `correlation_id` from **When called** when executed.
@@ -3000,16 +3039,49 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `omitted_names`. Live finding 28 Aug: the set was **empty**
     for every person until packet 7.3b linked capture #54 to the
     prove person. Cap 3 here, not at send.
-14. **Load owner cc** — `auth.users.email` for the events owner
-    (same join WF-07 uses). Named node.
+14. **Load owner cc** — `auth.users.email` for the **caller**
+    `owner_id` (`Normalize input`). Not `events.name`.
+    Same for **Load owner cc voice** and **Load history cc**.
+    **Load history cc** also returns `mailbox_linked` `yes`/`no`
+    from `lni_settings` key `mailbox_linked` (039 / D-M).
+    **Load owner cc** / **Load owner cc voice** also
+    `LEFT JOIN sender_profile` on caller `owner_id` and
+    return `signature_block` (D-I) plus `sender_name`
+    (`lni_settings` `display_name`, else first line of
+    `signature_block`). Empty profile is
+    empty signature, not a hard fail (History load is
+    INNER JOIN — remaining difference).
+    **History load** returns the same `sender_name`
+    (12.5g).
 15. **Whisper?** — `source` equals `voice`. True → **Transcribe**
-    OpenAI audio, `language` **absent**. False → skip.
+    OpenAI audio, `language` **absent**. No `verbose_json`
+    (session 08 post-event item 3; 12.5f D1 leaves it).
+    False → skip.
 16. **Extract draft** — OpenAI `gpt-4o-mini`, `temperature: 0`,
-    Responses JSON schema `wf10-v1`. Fields: `recipient_ref`,
-    `agreed`, `send_what`, `deadline`, `subject`, `body`. All
-    strings; no “return null”. System prompt: address the person
-    by the supplied `full_name`; never bracketed placeholders.
-    Do not write the transcript to `audit_log`.
+    Responses JSON schema `wf10_v2`. Fields: `recipient_ref`,
+    `agreed`, `send_what`, `deadline`, `subject`, `body`,
+    `selected_asset_ids`, `unmatched_requests`. All strings
+    except the two arrays; no “return null”. System prompt:
+    address the person by the supplied `full_name`; never
+    bracketed placeholders. **English lock (12.5f, same
+    words as `Extract history draft`):** `Write in ENGLISH
+    even if the transcript is Arabic, Urdu, or mixed.`
+    **Sign-off (12.5g, same words as history):** `Do not
+    append a bio or signature. The channel signature is
+    appended from sender_profile after you.`
+    **Omit-incoherent (12.5h, same words on both
+    composers):** `If a phrase in the transcript is
+    incoherent or cannot be understood, omit it. Do
+    not guess its meaning and do not smooth it into
+    a plausible alternative. If omitting it leaves
+    no ask, use the no-specific-next-step sentinel.`
+    **Sender (12.5g):** system + user `Owner name:` inject
+    caller `sender_name`. Same change on **Extract
+    history draft**. Prompt version **`wf10-v5`** on
+    both composers.
+    Do not write the
+    transcript to `audit_log`. Do not add `language` on
+    Transcribe.
 17. **Parse extract** — Code. Unwraps the live OpenAI Responses
     envelope (`output[0].content[0].text` object). Empty
     `subject` or `body` → `stopAndError`
@@ -3020,23 +3092,65 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     bracketed placeholders; the guard is enforcement.
     Sentinel `deadline = none mentioned` maps to SQL NULL in the
     write, not in the model.
+    **Garble gate (12.5f).** Same heuristic as
+    `History compose`: unusable on explicit markers
+    (`aaa aaa` / `sulphur` / `netengine bus` /
+    `inaudible`) **or** when the transcript names
+    neither person nor company AND has no topic.
+    Non-Latin script is **not** a reject. Do **not**
+    port the history `shahzad` special case. Unusable
+    still extracts (no `/followup` template path);
+    `unusable_reason` travels to the confirm card.
+    **Signature (D-I, 12.5f).** Appends caller
+    `sender_profile.signature_block` the way
+    `History parse` does: HTML-escape the letter,
+    wrap in the Georgia div, concatenate the HTML
+    block. Stored `body` is the sendable HTML.
+    Plain `letter` + stripped signature stay on
+    the item for Telegram. `Gmail send` /
+    `Gmail send files` `emailType=html` (match
+    History Gmail draft). Owner-scoped; not
+    hardcoded.
 18. **Insert draft** — `draft_state='awaiting_confirm'`,
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v1'`, `title` = subject.
+    `prompt_version='wf10-v5'`, `title` = subject.
+    Same version on **Update draft**, **Insert brief draft**,
+    **Record script flags** / **Record script**,
+    **History insert**, **History copy insert**.
     `due_at = NULLIF($4::text, '')::timestamptz` (empty string
     cannot be bound as timestamptz). `RETURNING id`.
+    `owner_id` from **Normalize input**. `interaction_id`
+    subquery is `person_id AND owner_id` (12.5a E). Same on
+    **Insert awaiting voice**, **History insert**, and
+    **Update draft** (12.5f, was missing `owner_id`).
+    **History load** LATERAL/EXISTS clauses are owner-scoped.
+    **Mailbox linked?** after **History is email?**: `yes` →
+    Gmail draft; `no` → **History copy insert** (Telegram
+    copy-text, D-M).
 19. **Draft row returned?** False → `stopAndError`
     (`Draft insert returned no row`). True →
-20. **Compose confirm** — plain text. Full `to_email`, CC,
-    subject, full body, attachment filenames or `(none)`, omitted
-    list if any. `reply_markup` buttons: `f7:s:<id>` Send,
+20. **Compose confirm** — plain text (Sweep notify flag
+    HTML-escapes). Full `to_email`, CC, subject, plain
+    letter + stripped signature, attachment filenames or
+    `(none)`, omitted list if any. **Evidence pane
+    (D-F, 12.5f):** raw transcript beside the draft on
+    this Telegram card. Never inside the stored body.
+    Garble `WARNING:` when Parse extract `unusable_reason`
+    is set. Transcript truncated at 2800. Long cards
+    split: draft + buttons on `reply_text`, transcript
+    on `reply_text_2`. `reply_markup` buttons: `f7:s:<id>` Send,
     `f7:n:<id>` Send without attachments, `f7:x:<id>` Cancel.
-    → **Return to caller**.
+    → Sweep notify flag → Sweep source? (false for
+    command/callback/done) → Sweep auto-done? false →
+    Set followup capture ready (side effect) →
+    **Return to caller** (Set from Sweep notify flag).
     After 9.6: `Sweep notify flag` HTML-escapes `reply_text` /
     `reply_text_2`. WF-01 followup senders and WF-10 sweep
     senders are `parse_mode: HTML`. Real newlines.
+    follow_ups `96461882` is 12.5e evidence — do not
+    retro-fix (12.5f C3).
 
 **Voice path** (`source=voice` is a non-functional stub pending 7.4)
 
@@ -3132,6 +3246,71 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
 touch WF-01 Route type; send to a production contact during
 prove (To = owner address); auto-send without the claim SQL;
 log PII; alter `follow_ups_status_check`.
+
+---
+
+## LNI-TEST-15.0-transcribe (Phase 15, throwaway)
+
+Inactive. Manual Trigger only. No webhook. `availableInMCP:
+true`. `errorWorkflow` = WF-00. Timezone `Asia/Riyadh`.
+`executionTimeout` 300. REST-created with Leap-NI Postgres,
+Supabase_Leap-NI HTTP, OpenAi account — never MCP
+`create_workflow_from_code` (ElderWise auto-bind).
+
+Does **not** Call WF-10. Does not PUT WF-10. Does not
+touch the live Transcribe node. Does not send
+`language`.
+
+Graph (named-node sourcing; binary from `GET audio`
+only):
+
+1. **Self identify** `SELECT name FROM public.lni_instance`
+   — gate `NIS` else `stopAndError`.
+2. **Load asset** capture_no **214**, `kind='audio'`,
+   `upload_status='stored'`. Person/company from the
+   card join (hint B is an expression, not a literal).
+3. **HEAD object** then **Check size** — header
+   `Content-Length` equals `assets.size_bytes`. Mismatch
+   is `stopAndError`.
+4. **GET models** `GET /v1/models` via HTTP Request,
+   `predefinedCredentialType` `openAiApi`. Not a
+   transcribe call.
+   **Pick models** keeps transcribe ids and audio-chat
+   ids only. Preferred transcribe:
+   `gpt-4o-transcribe` else `gpt-4o-mini-transcribe`
+   else first `*transcribe*`. Preferred chat: first
+   live `*audio*` that is not transcribe, else `gpt-4o`.
+5. **GET audio** Storage GET, `responseFormat: file`,
+   `outputPropertyName: asset`. Gate
+   `binary.asset.data === 'filesystem-v2'`. A pin
+   stops the run.
+6. Fan-out HTTP Request, multipart `formBinaryData`
+   field `asset`, **no `language` key**. After the
+   filesystem-v2 gate a Code node copies binary
+   metadata only and sets `fileName` `clip.ogg`
+   (Telegram `.oga` is rejected by
+   `gpt-4o-transcribe`; Code does not read bytes).
+   - **A** `whisper-1` `response_format=verbose_json`
+   - **B** same + `prompt` naming LEAP, the loaded
+     `full_name`, and the loaded company
+   - **C** Pick models transcribe id,
+     `response_format=json` (`verbose_json` is
+     rejected on `gpt-4o-transcribe`)
+   - **D** `POST /v1/files` then Responses with
+     `file_id`. Live `gpt-audio` is not on
+     Responses; `gpt-4o` `input_file` rejects
+     audio. Inline base64 is not legal here.
+
+Last node **Report** reads A/B/C/D by name: raw text,
+detected language, segment field names, Latin/Arabic
+counts, English-survived, books-ask. Nothing is
+written to Postgres. Measured 16 Sep execs
+**486506** / **486521** / **486532**. **Archived**
+12.5j, not deleted. D is untested
+(`extractFromFile` `binaryToProperty` not tried),
+not impossible. Locked non-goals and the
+one-language-per-clip finding:
+`docs/plans/phase-15-transcription.md`.
 
 ---
 

@@ -1081,6 +1081,79 @@ Two design rules, locked (also `masterplan.md` §4):
 
 ---
 
+## Phase 15 — Transcription quality
+
+**Timing:** 16 Sep 2026. **Not a Phase 12 packet.**
+Home: `docs/plans/phase-15-transcription.md`.
+
+Throwaway `LNI-TEST-15.0-transcribe`. One real stored
+audio object (capture **#214** re-run). HTTP Request to
+OpenAI, **not** the Whisper node. No `language` key.
+Nothing live is PUT: WF-10 Transcribe stays
+`{resource:audio, operation:transcribe,
+binaryPropertyName:asset}` with language absent.
+No `verbose_json` on the live node.
+
+Four comparisons on that one clip:
+
+- **A** `whisper-1` `verbose_json` — detected language
+  and segment-level fields
+- **B** same + a prompt hint naming the expected
+  person, company, and event from the card
+- **C** live transcribe model from `GET /v1/models`
+  (do not trust a remembered id)
+- **D** audio-capable chat model, faithful transcript
+  **and** English rendering
+
+Input is a Storage GET (`responseFormat: file`,
+filesystem-v2). A pin is a different program
+(Phase 1). HEAD `Content-Length` must match
+`assets.size_bytes`.
+
+Recommend from the measurement. If none recover
+trilingual speech, the evidence pane stays the
+defence (12.5g). That is an acceptable answer when
+it is the true one.
+
+**Measured 16 Sep** (TEST execs 486506 / 486521 /
+486532). Packet **12.5j** records the numbers, not
+the conclusions alone:
+
+- **A** `whisper-1` `verbose_json`: claims **urdu**,
+  Latin **0** / Arabic **101**, `avg_logprob`
+  **-0.63**. English lost. Books ask lost.
+- **B** `whisper-1` + prompt hint: claims
+  **english**, Latin **101** / Arabic **0**,
+  `avg_logprob` **-0.30**. More confident and less
+  faithful. Invented a meeting request. Dropped
+  the books ask. Did not recover the hinted terms
+  LEAP or VirtueNetz.
+- **C** `gpt-4o-transcribe`: rejects `.oga`
+  (Telegram’s format), rejects `verbose_json`,
+  Latin **0** / Arabic **89**. English lost.
+- **D** audio chat: **not yet proven.** Blocked on
+  reading a filesystem-v2 binary from a Code node.
+  `extractFromFile` `binaryToProperty` is a node,
+  not Code, and is untested. Record as untested,
+  not impossible.
+
+Locked (reasons in
+`docs/plans/phase-15-transcription.md`): no
+`language` key; no Whisper prompt hint; no swap to
+`gpt-4o-transcribe` on the live path.
+
+Open finding, no build: transcription detects one
+language per clip. A follow-up block already
+accepts multiple audio assets. One language per
+voice note may preserve all three where one mixed
+note cannot. Owner to try on the next real
+follow-up.
+
+TEST `LNI-TEST-15.0-transcribe` **archived**, not
+deleted. No live PUT.
+
+---
+
 ## Field operations during LEAP
 
 - Verify Telegram permissions and bot responsiveness before leaving each day

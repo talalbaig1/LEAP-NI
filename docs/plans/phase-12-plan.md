@@ -416,6 +416,11 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0f** | Dry-run rewrite on throwaway clone. | none | **Nothing pushed.** C2=16 (8-char prefixes ate full version UUIDs). |
 | **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
+| **12.5a** | WF-10 owner from caller. 039 mailbox_linked. Class B inner owner_id. | **039 applied** (`20260916090802`) | WF-10 only. Rollback `e9204581`. Published `a4d02063`. No WF-01/02/03/05/06/09 PUT. |
+| **12.5d** | WF-10 last-node contract. Stop postgres `{success:true}` swallowing compose. | none | WF-10 only. Rollback `a4d02063`. Published `cca31bc9`. `e9204581` has the same defect. No WF-01/02/03/05/06/09 PUT. Rule 26. |
+| **12.5f** | `/followup` up to history contract. English lock, garble gate, D-I signature, D-F evidence. Prompt `wf10-v3`. | none | WF-10 only. Rollback `cca31bc9`. Published `eeb9dc09`. No WF-01/02/03/05/06/09 PUT. No Transcribe `language`. No picker / Voice disambiguate? change. follow_ups `96461882` not edited. |
+| **12.5g** | Sign-off rule on Extract draft. Caller sender name on both composers. Prompt `wf10-v4`. Garble gate cause-only. | none | WF-10 only. Rollback `eeb9dc09`. Published `844e1858`. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
+| **12.5h** | Omit-incoherent on both composers. Prompt `wf10-v5`. | none | WF-10 only. Rollback `844e1858`. Published `dfd35bfb`. No gate. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
 
@@ -682,6 +687,168 @@ Platform errors are owned by it, inside no tenant. D-O.
   C2 eaten-uuid count = 0. 12.5a C/D/E/G unstarted.
 - No WF-01 PUT. No canvas.
 
+## Acceptance (12.5a — applied 16 Sep)
+
+- Rollback named before PUT: `e9204581`. New published
+  `a4d02063` (172 nodes). POST `/activate`.
+- Self identify: `SELECT name FROM public.lni_instance`.
+  Gate `NIS`. No `owner_id` column. Inserts / CC use
+  **Normalize input** caller `owner_id`.
+- Catalog `039_mailbox_linked` (`20260916090802`). Live
+  owner only. Value `true`. Not platform. Not test tenant.
+- History email + `mailbox_linked=no` → copy-text, no
+  Gmail draft (exec **485692**, follow_ups `03928fb8`,
+  `gmail_message_id` null).
+- Missing caller `owner_id` → `WF-10 missing caller owner_id`
+  (exec **485693**).
+- Published WF-10: zero `LEAP 2026`.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06 `356a2d1f` /
+  draft `76840a2a`. Untouched.
+- G3 (phone `/followup` → Gmail draft) still on the owner.
+- WF-05 deferred kick still events owner (C5). Not fixed.
+
+## Acceptance (12.5d — applied 16 Sep)
+
+- Rollback named before PUT: `a4d02063`. `e9204581`
+  carries the same swallow — not a remedy.
+- New published `cca31bc9` (12.5d). POST
+  `/activate`.
+- `Return to caller` is a Set. Re-sources
+  `$('Sweep notify flag')` (`ok`, `reply_text`,
+  `reply_text_2`, `reply_markup`). Does not inherit
+  the previous item.
+- `Gate: followup status written` both outputs →
+  `Return to caller`. Status write is a side effect.
+- `History done` Set from `$('History evidence')`.
+  `History skipped` / `Deferred already complete`
+  Set `{ok:true, reply_text:''}`.
+- `Voice disambiguate?` unchanged.
+- Rule 26.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- Capture #214: follow_ups `96461882` recovered to
+  `draft_state='draft'` so `f7:p:` `Update draft`
+  matches. Confirm card prove is the owner retap of
+  picker message_id 1031.
+- 12.5b PART B still waiting.
+
+## Acceptance (12.5f — applied 16 Sep)
+
+- Rollback named before PUT: `cca31bc9` (12.5d).
+- New published `eeb9dc09` (12.5f). POST `/activate`.
+- `Extract draft` prompt `wf10-v3` carries the history
+  sibling English lock in the same words: `Write in
+  ENGLISH even if the transcript is Arabic, Urdu, or
+  mixed.`
+- Garble gate on Parse extract: explicit markers, or
+  neither person/company nor topic. Non-Latin is not a
+  reject. No `shahzad` special case.
+- `sender_profile.signature_block` appended as History
+  parse (HTML wrap). Load is LEFT JOIN on caller
+  `owner_id`. Gmail send `emailType=html`.
+- Compose confirm shows raw transcript beside the
+  draft (Telegram only). Garble WARNING when the gate
+  fires. Never inside the stored body (D-F).
+- `prompt_version='wf10-v3'` on Insert draft / Update
+  draft / Insert brief draft / Record script flags /
+  Record script.
+- Transcribe `language` still absent. `verbose_json`
+  still not requested. Session 08 handover-to-session-09
+  post-event item 3 still logged; not fixed here (D1).
+- follow_ups `96461882` not edited (C3).
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+- E2 (owner phone Urdu/mixed `/followup`) is the owner.
+
+## Finding (12.5f D2) — composer-fix fan-out
+
+Phase 10 composer fixes (English lock, garble
+heuristic, D-I signature, D-F evidence) were applied
+to the **history path only** (`Extract history draft`
+`wf10-hist-v4`, `History compose`, `History parse`,
+`History evidence`). Live `/followup` `Extract draft`
+stayed on `wf10-v2` and produced Urdu bodies
+(12.5e, follow_ups `96461882`).
+
+Any future compose fix must state explicitly which
+prompts it touches. A fix to one composer must name
+the other (`Extract draft` and `Extract history
+draft`). Divergent prompts are a defect unless a
+named packet chose the difference. Packet **12.5g**
+applied sender identity to both composers.
+
+## Acceptance (12.5g — applied 16 Sep)
+
+- Rollback named before PUT: `eeb9dc09` (12.5f).
+- New published `844e1858` (12.5g). POST `/activate`.
+- `Extract draft` carries history's sign-off rule in
+  the same words: `Do not append a bio or signature.
+  The channel signature is appended from sender_profile
+  after you.`
+- Both composers `wf10-v4`. Caller `sender_name` from
+  `lni_settings` `display_name`, else first line of
+  `sender_profile.signature_block`. No prompt literal
+  for the sender.
+- Garble gate **not changed**. Cause-only on
+  follow_ups `2fd8c529`: explicit markers are English
+  strings; second arm is neither-name-nor-topic.
+  `hasTopic` treats any 4+ letter including non-Latin
+  as a topic, so a substantial non-Latin transcript
+  always passes. Whisper has no language and no
+  confidence (`verbose_json` absent). No reliable
+  non-Latin garble signal exists. Evidence pane is
+  the only defence. Composer has no omit-over-smooth
+  rule for incoherent phrases.
+- `2fd8c529` and `96461882` not edited.
+- Transcribe `language` still absent.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+- D2 (owner phone, one sign-off) is the owner.
+
+## Acceptance (12.5h — applied 16 Sep)
+
+- Rollback named before PUT: `844e1858` (12.5g).
+- New published `dfd35bfb` (12.5h). POST `/activate`.
+- Both composers `wf10-v5`. Same omit-incoherent
+  words on `Extract draft` and `Extract history
+  draft`. No gate change. No Transcribe `language`.
+- Phone prove (C1–C4) is the owner: one `/followup`
+  with a mixed or partly unintelligible voice note.
+- `2fd8c529` and `96461882` not edited.
+- WF-01 `4836ffd8` / draft `e454df40`. WF-06
+  `356a2d1f` / draft `76840a2a`. Untouched.
+- 12.5b PART B still waiting.
+
+Packet **12.5i** is **not** a Phase 12 packet. It is
+logged as **Phase 15 — transcription quality**
+(`docs/plans/phase-15-transcription.md`). No WF-10
+PUT. No Transcribe change. No `language` key.
+
+Packet **12.5j** (16 Sep, docs + archive only).
+Phase 15 measurements recorded in `phases.md`.
+Locked: no `language`, no Whisper prompt, no live
+`gpt-4o-transcribe`. D recorded as untested
+(`extractFromFile` not tried), not impossible.
+TEST `LNI-TEST-15.0-transcribe` archived, not
+deleted. 12.5b PART B still waiting.
+
+## Test-tenant probe (12.5g D3 / 12.5h D)
+
+Permanent fixture, not a leak. People row `de10f49f`,
+full_name `D3probe`, email `example.invalid`, on the
+037 inert test tenant. Inserted 12.5g so
+executeWorkflow can prove caller `sender_name` is
+not the live owner's without minting a person at
+run time. MCP `execute_workflow` can only fire
+`Manual Trigger`; `When called` is executeWorkflow-
+only; that tenant has no `bot_state`, so no Telegram
+path. Standing harness input, same principle as
+capture #9. Do not treat as a real contact. Do not
+copy onto the live owner. Own packet if it should
+be deleted after a successful executeWorkflow prove.
+
 ## Logged, do not fix in 12.5a
 
 **WF-10 `Load callback follow_up` OR branch.**
@@ -690,6 +857,11 @@ returns the owner's latest draft rather than the tapped
 person. Owner-scoped, so not a cross-tenant leak — a
 correctness defect. Own packet. Published graph `<WF10_PUBLISHED>` (OR branch
 unchanged). Do not PUT this in 12.5a.
+
+**WF-05 `Kick WF-10 deferred` (12.4-class, found 12.5a C5).**
+Sends `$('Self-identify LEAP-NI').item.json.owner_id` —
+the events owner, not the capture's owner. WF-10 C/D/E
+does **not** cover this. Own packet. No WF-05 PUT here.
 
 ## Acceptance (later — do not execute here)
 
