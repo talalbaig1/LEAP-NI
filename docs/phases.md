@@ -1162,32 +1162,35 @@ Rollback named before each PUT. No canvas.
 
 ## Phase 13 — Enrichment read path
 
-**Timing:** after packet **12.2**, never before. Logged
-15 Sep. Architect-owned defect. No SELECT written in
-this packet. No PUT.
+**Status:** IN PROGRESS. Packet **13.1**. Docs-first.
+No migration apply. No n8n PUT this packet until
+architect read-back and this PR merges.
 
-`enrichment_records` is written by WF-06 and read by
-nothing. Verified 15 Sep: **85** rows, **40** real Apollo
-person reveals carrying title / seniority / headline /
-employment_history, **35** company records. Of **85**
-follow-up bodies belonging to an enriched person,
-Apollo's title differs from the card title in **75** and
-appears in the body in **2**; Apollo's headline appears
-in **0**. **18** people carry an Apollo-sourced
-`linkedin_url`; overlap with the 10 LinkedIn-channel
-draft recipients is **0**.
+12.2 isolation is live. WF-06 **writes**. The composer
+read is **not** the packet-13.1 function path yet.
 
-`/ask` exclusion was **DELIBERATE**
-(`docs/plans/phase-06-plan.md`). WF-10 was an
-**OMISSION** — no doc line decides it.
+Live SQL 17 Sep (agrees with the packet 88-line):
+**88** records — 46 apollo person / **40** distinct
+people entities, **4 hollow** (`btrim(payload->>'name')`
+empty; 3 of those are also `payload = '{}'`); 36 apollo
+company / **25** distinct company entities, **2 NULL
+`entity_id`**; 6 tavily. Table counts are higher
+(`people` 80, `companies` 50) — 40/25 are enrichment
+entities, not table n.
 
-Any enrichment SELECT written now would hardcode
-single-owner assumptions and become another 12.4 audit
-item. `enrichment_records` without an `owner_id`
-predicate leaks one tenant's contact intelligence into
-another's draft.
+A conflicting Phase 13 already landed on the instance
+and on PR **#97** (not this branch): catalog **045** is
+the unique index; WF-05 published `b6cd3894`; WF-10
+published `5f6ffbc9`. This packet’s names are 045 =
+`lni_enrichment_context`, 046 = that unique. **Do not
+re-apply or rename.** Architect owns the collision.
 
-Two design rules, locked (also `masterplan.md` §4):
+`/ask` exclusion is **DELIBERATE** (Phase 6) — **D-T**.
+WF-10 was an **OMISSION**. 13.1 is that read: owner-
+scoped function, fenced CONTEXT (D-R), Telegram
+evidence only (D-Q), confirm-card echo flag (D-S).
+
+Locked (also `masterplan.md` §4):
 
 - **D-P** Card is truth; enrichment is context. What the
   draft ASSERTS about a person comes from their card.
@@ -1198,9 +1201,46 @@ Two design rules, locked (also `masterplan.md` §4):
   their title.
 - **D-Q** Enrichment surfaces as evidence beside the
   draft in Telegram (D-F), never silently inside a body.
+- **D-R** Enrichment reaches the composer as a fenced
+  CONTEXT block the model may use for tone/relevance
+  only; it must not assert title, seniority, employer,
+  history or headline from it. (Replaces the PR #97
+  “channel stays the card” D-R.)
+- **D-S** If a draft repeats an Apollo title/headline
+  that differs from the card, the confirm card flags it.
+  The system never edits the draft silently.
+- **D-T** `/ask` stays enrichment-blind. WF-07 does not
+  read `enrichment_records`.
 
-**Out of this log.** Do not write the read path until
-12.2 isolation is live.
+### Gap register (architect session 13)
+
+Owner per row. G6 G7 G8 G10 G11 were **not** in the
+repo, handover, git history, or Project store — not
+invented.
+
+| Id | Gap | Owner |
+|---|---|---|
+| **G1** | After upsert, `person_id` comes from that upsert’s own result, never a name lookup. #46 `cc224878` interaction `5ae91209` bound `c747ab72` not minted `a21a803f`. #208 `06ddeeeb` interaction `5a90989d` bound `4151e101` not minted `3e442ace`. Upsert `inserted:1`; person_hit `full_name` join `LIMIT 1` no `ORDER BY`. #46/#208 **not repaired** (owner decision pending) | Cursor (PUT). Owner: data |
+| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call | Cursor |
+| **G3** | WF-04 Insert contact name suggestions `executeOnce`; SQL iterates Parse recordset with owner predicate per row (not Claim item 0) | Cursor |
+| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor |
+| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed | Cursor |
+| **G6** | **Unsourced** — architect must supply | — |
+| **G7** | **Unsourced** — architect must supply | — |
+| **G8** | **Unsourced** — architect must supply | — |
+| **G9** | WF-05 trgm candidates exclude the resolved id and `NOT EXISTS` pending `(candidate_entity_id, 'name_trgm')` | Cursor |
+| **G10** | **Unsourced** — architect must supply | — |
+| **G11** | **Unsourced** — architect must supply | — |
+
+S6 design = this packet (one interaction per resolved
+person + 046 unique). Packet text said **15** NULL-person
+interactions stay as evidence; live SQL is **20** (17 live
+owner + 3 test). Cite both. Do not backfill.
+
+Intended PUTs (not this turn): WF-04 `43f52217` · WF-05
+`743c7c78` · WF-06 `c0d7a773` · WF-07 `b9bd519c` ·
+WF-09 `b3dedb40` · WF-10 `465a037a`. Live already
+diverges on WF-05 (`b6cd3894`) and WF-10 (`5f6ffbc9`).
 
 ---
 

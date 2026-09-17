@@ -386,6 +386,21 @@ on an absorbed duplicate are deleted, not re-pointed.
 | `importance` | smallint | — | YES |
 | `created_at` | timestamptz | `now()` | NO |
 
+**Packet 13.1 planned unique (catalog name 046 — not
+applied this turn).** `CREATE UNIQUE INDEX
+interactions_capture_person_uniq ON public.interactions
+(capture_id, person_id) WHERE person_id IS NOT NULL`.
+030 stays embeddings.
+
+**LIVE COLLISION.** Catalog **045** already applied
+`20260917104401` is this same unique, named
+`045_interactions_capture_person_uniq` (PR #97). This
+packet wants 045 = `lni_enrichment_context` and 046 =
+the unique. **Do not re-apply. Do not RENAME.**
+Architect owns the numbering. NULL `person_id` rows
+stay legal. Do not backfill the 20 live NULL-person
+rows (packet text said 15).
+
 **`follow_ups`** — next actions.
 
 | Column | Type | Default | Null |
@@ -540,6 +555,32 @@ owner, applied 16 Sep), not this table.
 | `confidence` | numeric | — | YES |
 | `fetched_at` | timestamptz | `now()` | NO |
 | `created_at` | timestamptz | `now()` | NO |
+
+**Enrichment read (Phase 13, packet 13.1 — planned,
+not applied).** WF-06 writes this table. WF-10 is to
+read via `public.lni_enrichment_context(owner, person)`
+before Extract draft / Extract history draft — not by
+inlining vendor keys in History load. Unique is PK
+only; duplicates per entity are real; the function
+takes latest non-hollow. Never stringify `payload`.
+Never copy these fields into `follow_ups.body` (D-P /
+D-Q). Composer sees a fenced CONTEXT block (D-R).
+Confirm card flags an Apollo title/headline that
+differs from the card (D-S); never silent-edit.
+`/ask` and WF-07 do not read this table (D-T).
+
+Live SQL 17 Sep: **88** rows (46 person/apollo, 36
+company/apollo, 6 company/tavily). 4 person/apollo
+hollow (`btrim(name)` empty). 2 company/apollo
+`entity_id` NULL. Distinct entities: 40 people, 25
+companies.
+
+**LIVE COLLISION vs this packet.** A prior PUT (PR
+#97) already taught WF-10 `History load` /
+`Load voice person` / `Load picked person` to JOIN
+`enrichment_records` with curated laterals
+(published `5f6ffbc9`). Packet 13.1 target is the
+function, rollback `465a037a`. Do not PUT this turn.
 
 **`credit_ledger`** — Apollo spend guard.
 
@@ -1276,6 +1317,28 @@ wait. That is intended and safe.
 
 Apollo and Tavily output lands in `enrichment_records` **only**.
 
+**Read path (Phase 13, packet 13.1 — planned).**
+`public.lni_enrichment_context(p_owner uuid, p_person uuid)
+RETURNS jsonb`, `LANGUAGE sql STABLE SECURITY INVOKER`
+`SET search_path = public`. Owner-scoped. Zero person
+row → `'{}'`. Latest non-hollow person apollo, current
+`person_companies`, latest apollo company, latest
+tavily. Allowlist only (no email / phone / address /
+city / photo / social / raw payload). `REVOKE ALL FROM
+PUBLIC, anon, authenticated`. Planned catalog name
+**045**. **Not applied this turn.**
+
+WF-10 compose may read that jsonb into a fenced
+CONTEXT prompt (D-R) and a Telegram evidence pane
+(D-Q / D-S). It must not write those fields onto the
+person card or into a sendable body. `/ask` does not
+read this table (D-T).
+
+**LIVE COLLISION.** Applied 045 is
+`045_interactions_capture_person_uniq`
+(`20260917104401`), not this function. Do not
+re-apply. Do not RENAME.
+
 Enrichment **never** overwrites captured `people.email`, `people.full_name`,
 `people.title`, or `people.phone`. Card and voice are evidence; provider
 data is inference.
@@ -1428,6 +1491,9 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 042 | `042_bot_state_current_event` | Packet 12.9 applied 17 Sep 2026 (`20260917065325`). `bot_state.current_event_id` nullable. `events` UNIQUE `(owner_id, id)`. Composite FK `bot_state_owner_current_event_fk`. Backfill by owner, never by name. 030 stays Phase 6. |
 | 043 | `043_drop_assets_column_unique` | Packet 13.0 P1c applied 17 Sep 2026 (`20260917084212`). Drops TEMPORARY `assets_telegram_file_unique_id_key` after composite ON CONFLICT published. Keeps `assets_owner_id_telegram_file_unique_id_key`. 030 stays Phase 6. |
 | 044 | `044_tenant2_name_shaped_person` | Packet 14.0 A2 applied 17 Sep 2026 (`20260917093452`). One name-shaped person (Sara Alharbi, `example.invalid`) on the NIS test tenant that has `bot_state`. Does not touch existing fixture people. 030 stays Phase 6. |
+| 045 live | `045_interactions_capture_person_uniq` | **LIVE COLLISION.** Applied 17 Sep 2026 (`20260917104401`) by a conflicting Phase 13 (PR #97). Partial unique `interactions_capture_person_uniq` on `(capture_id, person_id) WHERE person_id IS NOT NULL`. Packet 13.1 wants this number for the enrichment-context function instead. **Do not re-apply. Do not RENAME.** Architect owns numbering. 030 stays Phase 6. |
+| 045 planned | `lni_enrichment_context` | Packet 13.1 **planned catalog name**, not applied this turn. `public.lni_enrichment_context(uuid, uuid)` STABLE SECURITY INVOKER, owner-scoped allowlist, latest non-hollow per entity. `REVOKE ALL FROM PUBLIC, anon, authenticated`. Blocked on live 045 collision. |
+| 046 planned | `interactions_capture_person_uniq` | Packet 13.1 **planned catalog name** for the unique that is **already live as 045**. Do not apply a second copy. |
 
 ### Connection policy — verified 25 Aug 2026
 
