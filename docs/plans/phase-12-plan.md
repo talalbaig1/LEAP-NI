@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.7b)
+**Date:** 14 Sep 2026 · **Amended:** 17 Sep 2026 (12.9 BUILD)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -300,6 +300,17 @@ Ceilings + `sender_profile`. **No `bot_state`.** **No
 is still 1. 12.2b-i is inert only. Give `bot_state` its
 own packet. Needed before 12.5 can pass.
 
+### Packet 12.9 — WF-01 / WF-02 event resolution (applied)
+
+Catalog **042** (`20260917065325`). C1 shipped as
+`bot_state.current_event_id` (explicit current). WF-02
+PUT `d7205734` (rollback `eddb0f11`). WF-01 PUT
+`16760629` (rollback `4160647a`). Zero `LEAP 2026`.
+Fingerprint `lni_instance` NIS. INSERT keeps
+`e.owner_id = $1`. NULL current event messages.
+E1 live-owner phone waits. Home:
+`docs/plans/packet-12-9-event-resolution.md`.
+
 ### Packet 12.4b — hourly fan-out N>1 (E1–E3)
 
 **Fixed in 12.4b.** WF-07 PUT `<WF07_PUBLISHED>` (named rollback
@@ -413,6 +424,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.2b-i** | Inert test tenant. `events` + ceilings + `sender_profile`. No `bot_state`. No `digest_email`. | **037 applied** (`20260916033502`) | none. D2d via existing TEST caller. |
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | **12.8** `041_tenant2_bot_state` applied `20260917060142` | none. No PUT. |
 | **12.8** | SECOND TENANT. IRREVERSIBLE. The 12.2b door. | **041 applied** (`20260917060142`) | **No PUT.** B1–B4 done. B5 picker not shown (cause only): WF-02 insert still fingerprints `events.name = 'LEAP 2026'`. Not a leak. No abort. Abort = delete tenant `bot_state`. |
+| **12.9** | WF-01 / WF-02 per-tenant event resolution. | **042 applied** (`20260917065325`) | WF-02 PUT `d7205734` (rollback `eddb0f11`). WF-01 PUT `16760629` (rollback `4160647a`). Zero `LEAP 2026`. E1 live-owner phone not yet run. |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `<WF07_PUBLISHED>` (rollback `<WF07_ROLLBACK>`). **Before 12.5.** |
@@ -874,6 +886,127 @@ unchanged). Do not PUT this in 12.5a.
 Sends `$('Self-identify LEAP-NI').item.json.owner_id` —
 the events owner, not the capture's owner. WF-10 C/D/E
 does **not** cover this. Own packet. No WF-05 PUT here.
+
+## Logged, post-12.8 queue (do not fix here)
+
+No PUT. No canvas. Recorded 17 Sep from packet 12.8
+B5 VERIFY, WF-10 exec **496525**. Tenant-2 followup
+capture #223. Picker was not shown.
+
+### Captures #224 #225 #226 — empty test-tenant follow-ups
+
+Harmless, permanent. Same event `042e02b7`. Do not
+delete. Do not reuse as picker proof. Do not leave
+the next `/followup` adopting an open block — none
+of these are open (`bot_state.open_capture_id` NULL).
+
+| # | Closed | How | `follow_ups` |
+|---|---|---|---|
+| 224 | 07:48:07Z | `/done` **496587** empty block | none |
+| 225 | 07:54:34Z | `/done` **496640** typed "Pro" then 429 extract | draft, `person_id` NULL |
+| 226 | 08:05:02Z | **sweep** WF-02 **496729** (typed `/followup pro` never `/done`); WF-10 **496730** wrote draft brief `pro` | draft, `person_id` NULL |
+
+#226 was still `processing` until the 08:05 inactivity
+sweep. Sweep dispatched WF-10 **496730**. Tenant-2
+`mode=normal`. No implementer UPDATE.
+
+### F1 — Whisper 429 reported as a content result
+
+`Transcribe block` returned
+`{error: "The service is receiving too many requests from you"}`.
+`Assemble brief`: `brief=""`, `transcript_count=0`.
+`Extract recipient` same 429. `recipient_ref=""`.
+`Recipient named?` false → `Compose no person` →
+"No person matches that note. Try /followup with a
+name or email."
+
+The note was never transcribed. The user is told
+MATCHING failed when TRANSCRIPTION failed. Same class
+as Urdu smoothing: a plausible wrong answer instead
+of an honest failure.
+
+The old voice path already has `Gate: transcript
+present` → `Compose transcribe fail`. The followup-
+block path does not. A provider error must produce
+its own message ("couldn't transcribe that, try
+again"), never a content verdict.
+
+Own packet after 12.8. Do not PUT WF-10 for this.
+
+### F3 — "Try /followup with a name or email" is false
+
+`Compose no person` tells the owner to type
+`/followup <name or email>`. Published WF-01 does not
+route that argument to WF-10. Classify sets
+`branch=command` `action=followup` `note_text=…` and
+Route type `command` calls WF-02 to **open a capture**.
+Kick WF-10 only on `/done` (`kick_wf10`). Route type
+output 11 (`followup` → `Followup payload` → Call WF-10)
+is leftover from packet 7.4 (`branch=followup`,
+`text` = the message). Classify has not emitted
+`branch=followup` since session 08 / 028 (follow-up
+is a capture). `Parse argument` / `Lookup people` are
+reached only when WF-10 `route=command` and
+`Has capture_id?` is false — live WF-01 never sends
+that for `/followup`. Same class as F1: the system
+tells the user to do something it cannot do. Do not
+PUT. Cause recorded 17 Sep (B5 TYPED **496645**).
+
+### Q1 cause — same OpenAI credential, not a second tier
+
+WF-03 `OpenAI transcribe` and WF-10 `Transcribe block`
+are the same node: `@n8n/n8n-nodes-langchain.openAi`
+v2.3, `resource=audio` `operation=transcribe`
+`binaryPropertyName=asset`, credential
+`ouWVjrmc8Ia4SRD2` / `OpenAi account`. Instance GET
+of `openAiApi` returns **one** credential. `retryOnFail:
+true`, `onError: continueRegularOutput`,
+`alwaysOutputData: true`, `maxTries` unset on both.
+No `language`. No model id (Whisper default).
+
+WF-10's node sits after `Split block audio`
+(`splitInBatches` v3, `batchSize: 1`). One clip is
+one call, not a fan-out burst. WF-03 has no split.
+WF-03 gates provider error. The followup-block path
+does not: a 429 continues, then `Extract recipient`
+(`gpt-4o-mini`, **same** credential) fires and 429s
+too.
+
+Job `a4e240f5` succeeded 07:07:40Z because the
+account was not limited then. 07:41 **496525**
+`Transcribe block` 429 is the same key later. Not a
+second-tier credential. Do not PUT.
+
+### F2 — `History load` live-owner person-id literal
+
+`History load` still `p.id NOT IN (…)` the packet-10.1
+`<CONTACT_3_NAME>` skip (the `<CONTACT_2_COMPANY>`
+duplicate row). It did **not** run on 496525.
+Harmless today because person ids differ across
+tenants — same shape as the 12.5g owner-name prompt
+literal.
+
+Proposed replacement (do not build yet): drop the
+uuid literal. Keep `p.owner_id = $2` (already caller
+`owner_id`). Until 12.3 `person_emails` merges the
+two `<CONTACT_3_NAME>` rows, hold any skip in
+`lni_settings` key `history_skip_person_ids` under
+**that** owner (`value` = comma-separated ids):
+
+```
+AND NOT (p.id = ANY (
+  SELECT NULLIF(btrim(x), '')::uuid
+  FROM public.lni_settings s,
+       unnest(string_to_array(s.value, ',')) AS x
+  WHERE s.owner_id = $2::uuid
+    AND s.key = 'history_skip_person_ids'
+))
+```
+
+Missing key → no skip (fail open for History, not
+a hardcoded other-tenant row). After 12.3 merge,
+delete the skip. Do not encode another tenant's
+row in the published graph.
 
 ## Acceptance (later — do not execute here)
 

@@ -855,6 +855,16 @@ fingerprint `events.name = 'LEAP 2026'`, so
 tenant-2 INSERT returns 0 rows. Not a leak.
 No abort. No PUT.
 
+### Packet 12.9 — WF-01 / WF-02 event resolution (applied)
+
+Catalog **042** (`20260917065325`). WF-02 PUT
+`d7205734` (rollback `eddb0f11`). WF-01 PUT
+`16760629` (rollback `4160647a`). Capture INSERT
+binds `bot_state.current_event_id`. Fingerprint
+`lni_instance` NIS. Zero `LEAP 2026`. Owner
+predicate kept. E1 live-owner phone waits.
+Details: `docs/plans/packet-12-9-event-resolution.md`.
+
 ### Packet 12.3 — `person_emails` (deferred)
 
 One human, several emails/phones/titles. <CONTACT_3_NAME>
