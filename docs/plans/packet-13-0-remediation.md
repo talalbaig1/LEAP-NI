@@ -1,15 +1,15 @@
 # Packet 13.0 — WF-01 / WF-10 isolation leftovers
 
 **Date:** 17 Sep 2026
-**Status:** P1 + P1c + P2 applied. STOP for main-phone
-photo + voice + `/done` before P3. No canvas.
+**Status:** P1 + P1c + P2 + P3 applied. P4 last.
+No canvas. Rollback named before each PUT.
 **Home:** this file. Also `phases.md`.
 
 034's composite unique on assets is live. P1 published
 owner-scoped Duplicate check + composite ON CONFLICT
 (`bf28621a`). P1c dropped 038's TEMPORARY column unique.
 Cross-tenant STORE proved (#229 / #230). P2 published
-`0c9c5a5d`. Then P3/P4.
+`0c9c5a5d`. P3 published `8e170e68`. P4 last.
 
 ## Order (locked)
 
@@ -186,9 +186,87 @@ on Call WF-02/07/08/10.
 
 **STOP for main-phone photo + voice + `/done`.** Then P3.
 
-## P3 / P4
+**P2 PASS** (architect-verified). Capture **#232** chain
+complete in 16s, `entity_resolution` succeeded. WF-01
+`0c9c5a5d`, 129 nodes. Requeued `aa963264` succeeded.
+Enrichment `0a3ce88b` succeeded (tenant 2).
 
-Not this PUT.
+## P3 PUT
+
+Rollback **before** PUT: WF-10 `f5f3852c`.
+Published **after** PUT: `8e170e68` (17 Sep).
+GET name `LNI WF-10 - Follow-up drafting`.
+Node count 172 → 167 (delete 6, add 1 gate).
+DIFF vs `f5f3852c`: only 3a/3b/3c/3d.
+
+**3a.** `History load`: dropped the five-name
+blocklist and person uuid `ba037ac0`. Skip is now
+`lni_settings` key `history_skip_person_ids` (comma
+uuids), `s.owner_id = $2` = caller. Missing key =
+empty `NOT IN` = no skip. **Not seeded for anyone.**
+Live owner's history path will include those five
+people (`<CONTACT_12_NAME>`, `<CONTACT_13_NAME>`,
+`<CONTACT_11_NAME>`, `<CONTACT_51_NAME>`,
+`<CONTACT_20_NAME>`) and the <CONTACT_3_NAME>
+<CONTACT_2_COMPANY> row again until 12.3
+`person_emails`. The `ba037ac0` skip is a 12.3
+decision, not 13.0.
+
+**3b.** `Load incomplete draft`: dropped
+`AND f.id <> $3::uuid` and the locked follow_up
+literal. That exclusion was a belt on `5df341f8`
+(live owner, `awaiting_confirm`, never-touch).
+The query already requires `draft_state='draft'`,
+so `5df341f8` never matched. Removing `$3` does
+**not** change live-owner behaviour unless that
+row is later flipped to `draft`.
+
+**3c.** Named then deleted: `Compose usage`,
+`Load candidate assets` (7.4 leftover, **not**
+`Load candidate assets 20`), `Load owner cc`,
+`Whisper?`, `Followup status written`,
+`Followup status skipped`.
+Live attach KEPT: `Load candidate assets 20`,
+`GET attach 0`. Reachability 167/167.
+
+**3d.** New `Gate: block transcript present` after
+`Transcribe block` (reads `$('Transcribe block').item.json.text`
+notEmpty). False → existing `Compose transcribe fail`.
+True → `Split block audio`. A 429/empty transcript
+replies "Could not transcribe that note…", never
+"No person matches that note."
+
+**3e.** Prove without Whisper quota. MCP cannot
+fire `When called`. test_workflow exec **497330**:
+`source=done` on #231, `Transcribe block` pinned to
+empty json (zero-byte missing object
+`prove/packet-13-0-p3/zero-byte-missing`, Fetch not
+live). Gate false → `Compose transcribe fail` →
+Return to caller `reply_text` = Could not transcribe.
+`Compose no person` did not run. Throwaway asset
+`1842915a` inserted then deleted.
+
+**3f survival.** `LEAP 2026` count 0. Self identify
+`SELECT name FROM public.lni_instance LIMIT 1`.
+`Row returned?` name equals `NIS`. Normalize throws
+if caller `owner_id` missing. `wf10-v5` on
+`Extract draft` and `Extract history draft`.
+`errorWorkflow` WF-00. timezone `Asia/Riyadh`.
+`availableInMCP` true. No `language` on either
+Transcribe node.
+
+## P4
+
+Not this PUT. LNI strings on WF-07/09; record
+project ref in Upload/HEAD URLs, do not change.
+
+## WF-01 leftover (next WF-01 PUT)
+
+`Followup payload` is an inert Set. P2 removed
+Route type rule 11; its only in-edge died. Still
+present, still wired to `Call WF-10`. Do not leave
+undocumented. Delete on the next WF-01 touch
+(rollback `0c9c5a5d`), not a second PUT in P3.
 
 ## Fixture
 
@@ -196,12 +274,15 @@ Not this PUT.
 fixture (`card_vision` / failed / attempts 3 / capture
 **#217** / `error_code=packet_126_c3` / `asset_id` NULL).
 Watchdog reporting it is correct. Do not requeue.
-`aa963264` was a real 429; requeued 17 Sep to `queued`
-attempts 0 on asset `a5d5867e`.
+`aa963264` was a real 429; requeued 17 Sep, succeeded
+09:00:07 on asset `a5d5867e`.
 
-## Still owed (not blocking P2/P3)
+## Still owed
 
-B5 picker. Keyboard only renders when the spoken name
-matches a person that tenant owns. Last try named a
-person tenant 2 does not have — "no person matches"
-was correct. Owner retries with "probe".
+B5 picker. #231 **was** the retry (08:51–08:53,
+tenant 2). Typed note (not voice): "follow up with
+probe about the demo" twice. Zero audio. WF-10
+**497138** `Extract recipient` → `none named` →
+Compose no person. Draft `d9aafe37` `person_id` NULL.
+Keyboard never rendered — Lookup people is the
+spoken path. Owner must **say** "probe", not type it.

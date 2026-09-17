@@ -2827,13 +2827,15 @@ are unreliable (D-F).
   Interaction backfill proposed, not written.
 - Exclude `<CONTACT_1_EMAIL>` (D-K). Exclude the four D-H
   manuals. <CONTACT_3_NAME>: one compose, two To: addresses (D-J).
-  History load still skips <CONTACT_3_NAME> <CONTACT_2_COMPANY> row `ba037ac0`
-  (not merged — Phase 12 `person_emails`). After 10.1
-  merges, do **not** skip the <CONTACT_6_NAME> / <CONTACT_37_NAME> / <CONTACT_39_NAME> /
-  <CONTACT_42_NAME> / <CONTACT_43_NAME> survivors; they were empty 09-01/09-02
-  rows and now hold the contact. Name skips unchanged:
-  `<CONTACT_12_NAME>`, `<CONTACT_13_NAME>`, `<CONTACT_11_NAME>`, `<CONTACT_51_NAME>`,
-  `<CONTACT_20_NAME>`.
+  History load skips via owner-scoped `lni_settings`
+  `history_skip_person_ids` (packet 13.0 P3). Missing
+  key = no skip. Not seeded. The five-name blocklist
+  and `ba037ac0` are gone — live owner history includes
+  those people again until 12.3 `person_emails`. After
+  10.1 merges, do **not** skip the <CONTACT_6_NAME> /
+  <CONTACT_37_NAME> / <CONTACT_39_NAME> /
+  <CONTACT_42_NAME> / <CONTACT_43_NAME> survivors; they
+  were empty 09-01/09-02 rows and now hold the contact.
 
 **Reuses**
 

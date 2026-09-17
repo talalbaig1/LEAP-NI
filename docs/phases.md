@@ -1058,9 +1058,16 @@ Cross-tenant PASS: same file under both owners
 P2 published `0c9c5a5d` (rollback `bf28621a`).
 139 → 129 nodes. Dead await gone. Flag owner-scoped.
 Route type `followup` rule removed; fallback `[11]`.
+P2 PASS #232.
 
-**STOP** for main-phone photo + voice + `/done`.
-Then P3, then P4. Home:
+P3 published `8e170e68` (rollback `f5f3852c`).
+172 → 167. History skip via `lni_settings`
+`history_skip_person_ids` (not seeded). Incomplete
+draft `$3` gone. Block-path transcribe gate.
+`Followup payload` on WF-01 still orphaned — next
+WF-01 PUT.
+
+P4 last. Home:
 `docs/plans/packet-13-0-remediation.md`.
 
 Rollback named before each PUT. No canvas.
