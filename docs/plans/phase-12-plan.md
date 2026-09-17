@@ -8,7 +8,9 @@ applied as named. Login surface **12.6** is not built.
 need architect design. Phase 13 enrichment read path:
 `docs/plans/phase-13-plan.md`. **13.1 / 13.2 LIVE**
 (WF-10 `5f6ffbc9`, WF-05 `b6cd3894`, catalog **045**
-`20260917104401`). Packet **13.3** is WF-06 / WF-09.
+`20260917104401`). Packet **13.3-R** continues on live
+(WF-06 / WF-09 / WF-05 STOP-1 / WF-04 / WF-07 / WF-10 D-U;
+proofs without phone).
 Highest applied migration is
 `045_interactions_capture_person_uniq` (catalog `20260917104401`).
 **030 stays Phase 6 embeddings.** Do not add a migration

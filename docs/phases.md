@@ -1162,11 +1162,19 @@ Rollback named before each PUT. No canvas.
 
 ## Phase 13 — Enrichment read path
 
-**Status:** 13.1 / 13.2 **LIVE**. Packet **13.3**
-(WF-06 + WF-09). Docs on this PR. No migration.
-No WF-04 / WF-05 / WF-07 / WF-10 PUT this packet.
-Home: `docs/plans/phase-13-plan.md`. PR **#97**
-closed (superseded).
+**Status:** 13.1 / 13.2 **LIVE**. Packet **13.3-R**
+(delta on live; proofs without phone). Home:
+`docs/plans/phase-13-plan.md`. PR **#97** closed
+(superseded; remote branch gone). No migration.
+
+**Rule 6 phone-prove SUSPENDED** for this packet
+(owner instruction). Phone regression **T1–T4,
+P1–P3** deferred to one batch before Phase 13 is
+called closed. Substitutions: F13-* fixtures in the
+test tenant only; `executeWorkflow` / scheduled ticks;
+clone `LNI-TEST-13.1-credits` for the unreachable
+credits host. Never write fixtures into the live
+owner.
 
 **LIVE, not planned:**
 
@@ -1212,11 +1220,12 @@ Locked (also `masterplan.md` §4; wording from the
 - **D-U** Echo flag, never silent edit. **Not built.**
   Withdrawn 13.1 numbered this D-S.
 
-Packet **13.3** PUTs (named rollbacks): WF-06
-`c0d7a773` (G2 credit-read gate + `$10` never NaN;
-G4 no-email park). WF-09 `b3dedb40` (stuck
-enrichment → `park_ids`, never requeue; G5
-`current_event_id` JOIN). Rules 27–29.
+Packet **13.3-R** PUTs (named rollbacks = live
+baselines): WF-06 `c0d7a773` · WF-09 `b3dedb40` ·
+WF-05 `b6cd3894` (STOP-1 before PUT) · WF-04
+`43f52217` · WF-07 `b9bd519c` · WF-10 `5f6ffbc9`
+(D-U only). Rules 27–29. **STOP-1** is the only
+pause: rewritten WF-05 SQL posted before that PUT.
 
 ### Gap register (architect session 13)
 
@@ -1225,16 +1234,22 @@ G6–G11 quoted from the architect:
 | Id | Gap | Owner |
 |---|---|---|
 | **G1** | After upsert, `person_id` comes from that upsert’s own result, never a name lookup. Live fan-out: no-email name binds **every** same-name person (sim 3 rows). #46 / #208 **not repaired** | Cursor (later). Owner: data |
-| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call. WF-06 unreadable credits must not call Apollo; unknown delta = 1 never NaN | Cursor (13.3) |
+| **G2** | Watchdog never requeues an enrichment job. Stuck spend parked `needs_review`; recovery never repeats a provider call. WF-06 unreadable credits must not call Apollo; unknown delta = 1 never NaN | Cursor (13.3-R) |
 | **G3** | WF-04 Insert contact name suggestions `executeOnce`; SQL iterates Parse recordset with owner predicate per row (not Claim item 0) | Cursor |
-| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor (13.3) |
-| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed | Cursor (13.3 WF-09) |
+| **G4** | WF-06 “No email terminal” must park `needs_review` `error_code=no_email`, not `stopAndError` | Cursor (13.3-R) |
+| **G5** | WF-09 List owners / Scan findings resolve event via `bot_state.current_event_id`. Owner without `bot_state` is not listed. WF-07 digest same event bind | Cursor (13.3-R) |
 | **G6** | literals (WF-05 follow_up uuid; WF-09 capture_no 9; WF-03 Fetch object bytes project ref) | Architect sourced. Cursor later |
 | **G7** | WF-04 dead node "Resolution already queued"; Insert extraction_runs NOT EXISTS same prompt_version keeps stale runs | Architect sourced. Cursor later |
 | **G8** | WF-05 job needs_review on informational non-Latin flag while capture goes ready | Architect sourced. Cursor later |
 | **G9** | WF-05 trgm candidates exclude the resolved id and `NOT EXISTS` pending `(candidate_entity_id, 'name_trgm')` | Cursor |
 | **G10** | WF-06 settings.binaryMode present | Architect sourced. Strip on PUT |
 | **G11** | WF-07/WF-09 single Gmail credential for all tenants | Architect sourced. Out of this packet |
+
+**Deferred phone batch** (not this packet): T1 two-name
+no-email note; T2 namesake re-run; T3 live card with
+email; T4 “Sara Alharbi” note without email; P1 live
+owner titles differ; P2 test-tenant unenriched; P3 live
+no enrichment.
 
 ---
 

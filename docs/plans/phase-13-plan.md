@@ -5,11 +5,13 @@
 `5f6ffbc9` (rollback `465a037a`). 13.2 published
 `b6cd3894` (rollback `743c7c78`). Catalog **045**
 `045_interactions_capture_person_uniq`
-(`20260917104401`). Packet **13.3** (this PR): WF-06
-rollback `c0d7a773` (G2/G4) and WF-09 rollback
-`b3dedb40` (enrichment park + G5). No migration.
-GET-verified 17 Sep. No canvas. PR **#97** closed;
-this branch supersedes it.
+(`20260917104401`). Packet **13.3-R** (this PR):
+delta on live; proofs without phone. No migration.
+PR **#97** closed; this branch supersedes it.
+
+**Rule 6 phone-prove SUSPENDED** (owner). Deferred
+batch before Phase 13 closed: T1–T4, P1–P3.
+Substitutions: F13-* in the test tenant only.
 **Home:** this file. Also `phases.md`, `architecture.md`
 § enrichment read, `workflows.md` WF-05 / WF-06 /
 WF-09 / WF-10, `masterplan.md` D-P D-Q D-R D-S D-T
@@ -52,7 +54,7 @@ Two packets, one deliverable each, sequential:
 |---|---|---|---|
 | **13.1** | Enrichment on WF-10 compose + Telegram evidence | none | WF-10 only — **LIVE** `5f6ffbc9` |
 | **13.2** | One interaction per extracted person (S6/S9) | **045** | WF-05 only — **LIVE** `b6cd3894` |
-| **13.3** | WF-06 credit-read gate + no-email park; WF-09 never requeues enrichment + G5 `current_event_id` | none | WF-06 + WF-09. No WF-04/05/07/10 PUT. No migration |
+| **13.3-R** | G2/G4 WF-06; G2/G5 WF-09; G1/S6 WF-05 (STOP-1); G3 WF-04; G5 WF-07; D-U WF-10 | none | All six. Proofs = F13 + ticks, not phone |
 
 030 stays Phase 6 embeddings. Next schema after 045 is
 not this packet. Do not apply_migration.
