@@ -696,6 +696,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    PUT rejects). Re-GET: `active` true, `versionId` =
    `activeVersionId` = `<WF00_PUBLISHED>`.
    Telegram owner alert text: 4 real newlines, 0 literal `\n`.
+   First line **NIS repeated failure** (packet 14.0 B1).
    Logic otherwise unchanged.
 
    **Packet 4.11 measured (28 Aug 2026, after the cast).** Messages
@@ -980,9 +981,15 @@ WF-04 → Call WF-05 (both enqueue branches).
 
 ### Enqueue exclusions (live, one statement, WF-02 and WF-09)
 
-`Enqueue asset jobs` / `Enqueue sweep jobs` / WF-09
-`Enqueue orphan jobs`. Same four lines. Do not write a second
-variant.
+`Enqueue asset jobs` / `Enqueue sweep jobs` /
+`Enqueue closed standard` / WF-09 `Enqueue orphan jobs`.
+Same four asset-exclusion lines. **Packet 14.0:** the
+note-only `UNION ALL` extraction (typed_note, no stored
+non-vcard asset, no existing extraction job, capture_mode
+distinct from followup) is on all four. Before 14.0 it
+lived only on `Enqueue asset jobs`, so a note-only
+capture closed by the sweep or by follow-up supersede
+never extracted.
 
 ```
 AND NOT (c.capture_mode = 'followup' AND a.kind = 'audio')
@@ -1788,13 +1795,13 @@ without touching `wf04-v3`.
    present in the name field'`. That flag **alone** no longer blocks
    `ready`. Every other flag still does. (`failed` is not set here.)
 
-   **Verified 5 Sep (10.2c STOP).** Live node `Set capture status`
-   (`<WF05_PUBLISHED>`) is `UPDATE captures SET status = ready|needs_review
-   WHERE id = $1`. **No prior-status predicate.** It writes `ready`
-   on `status='open'`. Standalone contact (#134 #160) depends on
-   that. A reused open block must not Call WF-05 until the block
-   is closed, or the pointer dies mid-capture. Do not PUT WF-05
-   in 10.2c.
+   **Packet 14.0.** Live node `Set capture status` is
+   `UPDATE captures SET status = ready|needs_review
+   WHERE id = $1 AND status IS DISTINCT FROM 'open'`
+   (published `743c7c78`, rollback `12b9e2bc`). It
+   cannot write `ready` onto `open`. Kick-split stays
+   as discipline. Standalone contact still closes
+   before WF-05.
    Packet 3.6 / 3.7 owner ruling: a non-Latin `full_name` is accepted
    as identity. `'Non-Latin script present in the name field'` stays in
    `flag_reasons` as information only. An Arabic-only `full_name` is
@@ -2249,7 +2256,7 @@ transcripts. `queryReplacement` is one array expression.
 Compose text in a Code node from that named query. Shape:
 
 ```
-LNI day close (Riyadh date)
+NIS day close (Riyadh date)
 captured N · clean N · flagged N · failed N · stuck N
 #12 needs_review: No name extracted
 #59 needs_review: No email and no phone
@@ -2294,7 +2301,9 @@ not treat either line as a bug.
 
 Compose. No LLM. `Compose digest` emits `reply_text` (plain, for Gmail
 and the `/digest` return) and `telegram_text` (HTML-escaped `&` then
-`<` then `>`). `Telegram digest` sends `telegram_text` with
+`<` then `>`). First lines: `NIS day close (date)` / `NIS morning
+briefing (date)`. Gmail subject matches (packet 14.0 B1).
+`Telegram digest` sends `telegram_text` with
 `additionalFields.parse_mode: HTML`. Gmail stays `emailType: text` on
 `reply_text`. Absent `parse_mode` is not plain text on this build
 (`workflows.md` §1 trap; exec 254927).
@@ -2621,7 +2630,8 @@ Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 ### Alert (independent of digest)
 
 If any finding is non-zero: compose a short text (counts + up to 10
-`capture_no` / `job_type` lines). Telegram `parse_mode` is **HTML**
+`capture_no` / `job_type` lines). First line and Gmail subject are
+**NIS watchdog** (packet 14.0 B1; D-N). Telegram `parse_mode` is **HTML**
 explicit — default Markdown treats `_` in `failed_24h` as an unclosed
 italic (`can't parse entities`). Email still delivers in that case;
 set HTML anyway so Telegram is not a paper tiger. `Compose findings`
@@ -3062,8 +3072,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     has `person_id`, skip the ladder and continue from **Has
     email?** using that id. If not, ladder on `recipient_ref`.
     `"none named"` and empty →
-    **Compose nobody named** (`No person named. Try /followup <name or email>.`)
-    → Return.
+    **Compose nobody named** (`No person matches that note. Inside /followup, send a voice note that names the person, then /done.`)
+    → Return. Typed `/followup <name>` is discarded by
+    WF-01; the argument is not a lookup. Packet 14.0 B2.
 
 **Callback path**
 

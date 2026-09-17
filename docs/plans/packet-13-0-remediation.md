@@ -1,7 +1,8 @@
 # Packet 13.0 — WF-01 / WF-10 isolation leftovers
 
 **Date:** 17 Sep 2026
-**Status:** P1 + P1c + P2 + P3 applied. P4 last.
+**Status:** P1 + P1c + P2 + P3 applied. P4 absorbed
+into packet 14.0 (`docs/plans/packet-14-0-remainder.md`).
 No canvas. Rollback named before each PUT.
 **Home:** this file. Also `phases.md`.
 
@@ -9,7 +10,7 @@ No canvas. Rollback named before each PUT.
 owner-scoped Duplicate check + composite ON CONFLICT
 (`bf28621a`). P1c dropped 038's TEMPORARY column unique.
 Cross-tenant STORE proved (#229 / #230). P2 published
-`0c9c5a5d`. P3 published `8e170e68`. P4 last.
+`0c9c5a5d`. P3 published `8e170e68`. P4 absorbed into 14.0.
 
 ## Order (locked)
 
@@ -79,7 +80,8 @@ loader. Live siblings: `Load owner cc voice`,
 `Gate: followup status written` is the live gate.
 
 **4a.** "LNI watchdog" / "LNI morning briefing" are
-not in WF-01. They sit on WF-09 / WF-07. P4 last.
+not in WF-01. They sat on WF-09 / WF-07. Packet 14.0
+B1 changed those user-facing strings to NIS.
 
 ## P1 PUT
 
@@ -257,16 +259,10 @@ Transcribe node.
 
 ## P4
 
-Not this PUT. LNI strings on WF-07/09; record
-project ref in Upload/HEAD URLs, do not change.
-
-## WF-01 leftover (next WF-01 PUT)
-
-`Followup payload` is an inert Set. P2 removed
-Route type rule 11; its only in-edge died. Still
-present, still wired to `Call WF-10`. Do not leave
-undocumented. Delete on the next WF-01 touch
-(rollback `0c9c5a5d`), not a second PUT in P3.
+Absorbed into packet **14.0**. NIS copy on WF-00/07/09/10.
+Project ref in Upload/HEAD recorded, not moved.
+`Followup payload` deleted on WF-01 published `a1738536`
+(rollback `0c9c5a5d`).
 
 ## Fixture
 
@@ -279,10 +275,7 @@ Watchdog reporting it is correct. Do not requeue.
 
 ## Still owed
 
-B5 picker. #231 **was** the retry (08:51–08:53,
-tenant 2). Typed note (not voice): "follow up with
-probe about the demo" twice. Zero audio. WF-10
-**497138** `Extract recipient` → `none named` →
-Compose no person. Draft `d9aafe37` `person_id` NULL.
-Keyboard never rendered — Lookup people is the
-spoken path. Owner must **say** "probe", not type it.
+B5 picker. #231 **was** the typed retry. Cause is A1
+in packet 14.0 (fixture, not Extract recipient).
+044 landed Sara Alharbi. A3 owner voice prove is
+still owed.

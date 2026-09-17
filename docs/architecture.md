@@ -96,12 +96,13 @@ These are invariants. Violating one is a defect regardless of test results.
 UUID primary keys. `timestamptz` throughout. `owner_id` and RLS on every
 user-owned table. Launch is one owner (`<OWNER_ID>`). **Phase 12 (D-L
 ACCEPTED): tenant = `owner_id`.** No `tenants` table. No parallel
-`tenant_id`. Isolation is already the column; n8n still resolves the
-owner from `events.name = 'LEAP 2026'` until packet 12.2. Instance
-fingerprint after 12.1 is `lni_instance` (034 live, not owner-scoped), not a
-tenant's event row. Text config home is `lni_settings` (034). Product
-name is NIS; `LNI` is the legacy internal code prefix (D-N). Design:
-`docs/plans/phase-12-plan.md`.
+`tenant_id`. Isolation is already the column. Packet **12.2** split
+self-identify onto `lni_instance` name `NIS`; owner comes from the
+caller / `bot_state`, never `events.name = 'LEAP 2026'`. Text config
+home is `lni_settings` (034). Product name is NIS; `LNI` is the
+legacy internal code prefix (D-N). User-facing Telegram/Gmail copy
+is NIS as of packet 14.0. Login surface (12.6) is not built.
+Design: `docs/plans/phase-12-plan.md`.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
 on 27 August 2026, plus packet 4.1 migrations `018`–`021`.** Every column
@@ -433,10 +434,11 @@ are unreliable — D-F.
 WF-10 `Extract draft` writes `subject` / `body`. Terminals:
 
 - email → Gmail Draft (`draft_state=gmail_draft`).
-  LNI does not send. Owner sends from Gmail.
+  NIS does not send. Owner sends from Gmail.
 - whatsapp / linkedin → Telegram copy-text
-  (`draft_state=gmail_draft` until a later `handed_off`
-  value is added). Owner pastes.
+  (`draft_state=handed_off` after 040; 39 WA/LI/unlinked
+  rows still carry `gmail_draft` until the 14.0 D1
+  backfill is approved). Owner pastes.
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
@@ -852,7 +854,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031). `handed_off` not added |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031) \| `handed_off` (040). 14.0 D1 backfill proposed, not run |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 

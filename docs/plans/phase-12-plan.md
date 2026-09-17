@@ -1,36 +1,20 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4e)
+**Date:** 14 Sep 2026 · **Amended:** 17 Sep 2026 (packet 14.0)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
-Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
-`20260916022806`). Packet **12.2 applied** (catalog
-`035_operator_chat`, `20260916024816`). Packet **12.2a
-applied** (catalog `036_digest_email`,
-`20260916030417`). Packet **12.3c / 12.2b-i applied**
-(catalog `037_test_tenant`, `20260916033502`) — inert
-test tenant, **no `bot_state`**. Packet **12.4b applied**
-(WF-07 `<WF07_PUBLISHED>`, rollback `<WF07_ROLLBACK>`). Packet **12.4e
-applied** (catalog `038_restore_assets_single_unique`,
-`20260916043514`) — column-only assets unique restored
-TEMPORARY so published WF-01 Insert asset can infer.
-**Dropped 17 Sep** by packet 13.0 P1c catalog
-`043_drop_assets_column_unique` (`20260917084212`)
-after composite ON CONFLICT published and a real
-photo stored. No WF-01 PUT in 12.4e. E1–E3 fixed.
-Kind on demand `source` literal `call`. WF-01 / WF-06
-drafts untouched. Full
-cross-tenant isolation is **not** proven here (12.5).
-**Home:** this file. Contracts also in `phases.md` Phase 12,
-`architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
-`workflows.md` §1 owner-resolution.
-
-Packet 10.1 closed. Highest applied migration is
-`043_drop_assets_column_unique` (catalog `20260917084212`).
+Packets **12.1–12.5 / 12.6 drain / 12.7–12.9 / 13.0 / 14.0**
+applied as named. Login surface **12.6** is not built.
+`person_emails` **12.3** and `entity_candidates` **12.4**
+need architect design. Phase 13 enrichment read path is
+a new chat.
+Highest applied migration is
+`044_tenant2_name_shaped_person` (catalog `20260917093452`).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
 `LNI` is the legacy internal code prefix (D-N). Internal
-identifiers do not change.
+identifiers do not change. User-facing Telegram/Gmail
+copy is NIS as of packet 14.0.
 
 ---
 
@@ -65,15 +49,15 @@ workflows to NIWL credentials.
 | Fact | Value |
 |---|---|
 | `auth.users` | 3 (owner + two Phase 0 RLS probes) |
-| `bot_state` / `events` / `sender_profile` | 1 row each, all `<OWNER_ID>` |
-| `people.owner_id` distinct | 1 |
-| `lni_config` | 3 integer keys (Apollo daily 60, lifetime 2200, Tavily 1000) |
+| `bot_state` / `events` / `sender_profile` | live owner + NIS test tenant (041). Platform owner has none (D-O) |
+| `people.owner_id` distinct | 2 |
+| `lni_config` | 3 integer keys per tenant with ceilings (live + test) |
 | `person_emails` / `tenants` | **absent** |
 | `lni_settings` / `lni_instance` | **live 16 Sep (034)** |
-| Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) |
+| Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) at 14 Sep; 12.4 still deferred |
 | `assets_telegram_file_unique_id_key` | **dropped 17 Sep 13.0 P1c** (043 `20260917084212`). Was TEMPORARY 038. Live unique is `(owner_id, telegram_file_unique_id)`. |
 | `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
-| WF-01 published | `<WF01_PUBLISHED>` · draft still `<WF01_DRAFT>` (30 Aug autosave) |
+| WF-01 published | `a1738536` (14.0 B3). Draft still unpublished if present |
 | WF-06 published | `<WF06_PUBLISHED>` · draft still `<WF06_DRAFT>` (30 Aug autosave) |
 
 If either unpublished draft id changes, someone wrote
@@ -420,7 +404,13 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5a-0g** | Map fix: full UUIDs above 8-char prefixes. Second dry-run. Squash-merge #83 (2c). | none | **Nothing pushed.** C2=0. |
 | **12.5a-0h** | Real rewrite. Backup, resolve #82, filter-repo, force-push main. | none | **No PUT. No canvas.** 12.5a C/D/E/G still unstarted. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
-| **12.6** | Minimal login surface | named then | none until 12.5 proven |
+| **12.6 drain** | Owner resolution off the fingerprint. Login surface itself **not** built | **041** `bot_state` | WF-01/02 owner from allowlist / `bot_state` |
+| **12.7** | `handed_off` + destination-less WF-09 kick | **040 applied** | WF-09 / WF-10 as named |
+| **12.8** | Second tenant B5 cause. Not a leak | none | proof |
+| **12.9** | Per-tenant event | **042 applied** | WF-02 / WF-01 |
+| **13.0** | WF-01/10 isolation leftovers. Drop 038 column unique | **043 applied** | WF-01 `0c9c5a5d` then 14.0 `a1738536`; WF-10 `8e170e68` then 14.0 `465a037a` |
+| **14.0** | Remainder except Phase 13. Fixture Sara Alharbi. NIS copy. S3/S8. C2 cause only | **044 applied** (`20260917093452`) | WF-00 `86b51053`, WF-07 `b9bd519c`, WF-09 `b3dedb40`, WF-02 `f35f1b3d`, WF-01 `a1738536`, WF-10 `465a037a`, WF-05 `743c7c78` |
+| **12.6 login** | Minimal login surface | named then | **not built.** Own design. First exercise of the 20 RLS policies |
 
 One packet at a time. Architect verifies live SQL / live
 JSON. Implementer report is not evidence.
@@ -435,7 +425,7 @@ No `tenants` table. D-L ACCEPTED.
 **Q2. Second owner.** AMENDED. Permanent test tenant, not
 a throwaway. Schema in 12.1. **12.2b-i applied** (037):
 inert `events` + ceilings + `sender_profile`. Live second
-`bot_state` **still slipped** — packet **12.2b**. Never
+`bot_state` **applied 12.8 / 041**. Never
 deleted. Never frozen. Standing cross-tenant regression
 harness, same principle as capture #9.
 
@@ -714,9 +704,23 @@ unchanged). Do not PUT this in 12.5a.
   exec **483257**. N=2 successful delivery to two real
   chats is **not** proven — that is 12.5.
 - 12.5: isolation proven with two real accounts.
-- 12.6: login surface only after 12.5. Seed `events` and
-  ceilings at tenant creation (12.6 E1 / E2). Owner IU
-  Microsoft account reserved Phase 14, not the harness
-  (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
-  (12.6 E4). 034/037 are tokenised as of 12.5a-0h and
-  are not re-runnable — do not re-apply them.
+- 12.6 login: **not built.** Own design.
+- 12.6 drain / 12.7–12.9 / 13.0 / 14.0: applied. See
+  `docs/plans/packet-14-0-remainder.md` and
+  `docs/sessions/session-12-multitenancy.md`.
+- Fixture catalogue (tenant 2) lives in that session log.
+
+## Tenant 2 fixtures (permanent)
+
+Owner is resolved as `events.name = 'NIS test tenant'`
+AND `bot_state` exists. Do not hardcode the uuid.
+
+| Row | Why |
+|---|---|
+| `events` + ceilings + `sender_profile` (037) | Inert then live harness |
+| `bot_state` (041) | Second allowlist |
+| `7cee0027` NIS mailbox prove | D-M. Not name-shaped |
+| `de10f49f` D3probe | 12.8 B5 typed probe. Not name-shaped |
+| `d2c90b68` | Cross-tenant card copy, capture **#230** |
+| `d62b48f7` Sara Alharbi (044) | Name-shaped B5 picker. `example.invalid` |
+| `7c72371f` | Deliberate `card_vision` failed / `packet_126_c3` / capture **#217**. Watchdog keeps reporting it |
