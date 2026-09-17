@@ -833,14 +833,12 @@ Catalog **037_test_tenant** (`20260916033502`). Auth user
 `List due owners`, WF-01 allowlist, and every cron. D2d
 fixture. Never deleted, never frozen (Q2).
 
-### Packet 12.2b — permanent test tenant `bot_state` (still slipped)
+### Packet 12.2b — permanent test tenant `bot_state` (12.8 applied)
 
-12.2 did not insert a second `bot_state`. Live count
-is still 1. 12.2b-i is the inert fixture only. Do not
-assert a second allowlist row. The door is **packet
-12.8** (`041_tenant2_bot_state`), gated on job
-`7c72371f` aging out of `failed_24h`
-(`2026-09-17 11:07:59Z`).
+The door is **packet 12.8** (`041_tenant2_bot_state`,
+catalog `20260917060142`). Live `bot_state` count is
+**2**. 0a wait withdrawn: `7c72371f` stays as the
+B7 `failed_24h` finding.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

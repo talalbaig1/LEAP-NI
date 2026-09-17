@@ -1,25 +1,27 @@
 # Packet 12.8 — second tenant `bot_state`
 
 **Date:** 17 Sep 2026
-**Status:** gated. PART 0 recorded. 041 **not
-applied**. `bot_state` count still 1.
+**Status:** PART A applied (`20260917060142`). `bot_state`
+count **2**. B1 waiting on account 2. B7 opportunistic
+on the next WF-09 tick (~06:15Z). 06:00 tick **495695**
+was before 041 — not B7.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
 un-shown. No PUT. No canvas. No fixture cleanup.
 No backfill.
 
-This is slipped **12.2b**. Gate: job `7c72371f`
-`last_transition_at + 24h` =
-`2026-09-17 11:07:59Z`. Do not start early.
+This is slipped **12.2b**. 0a wait **withdrawn**:
+job `7c72371f` is a real `failed_24h` finding and
+is the B7 probe. Do not age it out.
 
 ## 12.8-pre (agreed keep-list)
 
-Keep every row. Resolve the alert by **waiting**,
-not by mutating `7c72371f`.
+Keep every row. Do not mutate `7c72371f`. It is
+the B7 `failed_24h` finding.
 
 | Row | Decision |
 |---|---|
-| job `7c72371f` | KEEP. Wait until aged out of `failed_24h`. |
+| job `7c72371f` | KEEP. B7 finding. Do not mutate. |
 | job `78371b74` | KEEP. `needs_review` is not a finding. |
 | job `af6c0217` | KEEP. Terminal. |
 | job `b47ddee0` | KEEP. Terminal. |
@@ -60,23 +62,29 @@ plant.
 `<OWNER_ID>`, `mode=normal`, `open_capture_id`
 NULL. Test tenant still 0.
 
-## PART A — 041 (not applied)
+## PART A — 041 applied 17 Sep 06:01:42Z
 
-`041_tenant2_bot_state`. GUC
-`lni.tenant2_telegram_user_id` via
-`current_setting(..., true)`. RAISE missing /
-empty. Owner from `events.name = 'NIS test
-tenant'`. Failed_24h guard inside the INSERT
-path. Assert 034 unique still holds. After
-apply: 2 rows, distinct owners, distinct
-telegram ids. No `digest_email`.
+Catalog `041_tenant2_bot_state` `20260917060142`.
+GUC `lni.tenant2_telegram_user_id` via
+`current_setting(..., true)` in the same session.
+Owner from `events.name = 'NIS test tenant'`.
+Telegram id is not in git.
 
-Apply only after 0a. Same-session `SET LOCAL`
-then the file. Telegram id is not in git.
+**A3.** `bot_state_telegram_user_id_key` and
+`bot_state_owner_id_telegram_user_id_key` both
+present.
 
-## PART B — not started
+**A4.** 2 rows. Distinct owners. Distinct telegram
+ids. Test `<TEST_TENANT_ID>` `mode=normal`
+`open_capture_id` NULL. Live `<OWNER_ID>` unchanged.
+No `digest_email` on the test tenant.
 
-B1 `/ask` from account 2 after the door exists.
-Pause after B1 and report. B2 waits for architect
-wording. STOP at the first leak → PART C (delete
-the tenant `bot_state` row first).
+Post-A 0c = pre-A 0c. Live owner did not move.
+
+## PART B — B1 waiting; B7 on the next tick
+
+B1 `/ask` from account 2. Pause after B1. B2 waits
+for architect wording.
+B7: next WF-09 after 041 (not **495695** at 06:00).
+If that alert lands on the live owner's chat —
+PART C abort.
