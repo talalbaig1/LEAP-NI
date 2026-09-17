@@ -403,7 +403,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.2a** | `digest_email` door. WF-07 Load digest lookup. Record N>1 fan-out as 12.4b. WF-06 Apollo ceiling cause only. | **036 applied** (`20260916030417`) | WF-07 only. **No unpublished-draft publish.** No WF-06 PUT. |
 | **12.2b-i** | Inert test tenant. `events` + ceilings + `sender_profile`. No `bot_state`. No `digest_email`. | **037 applied** (`20260916033502`) | none. D2d via existing TEST caller. |
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | **12.8** `041_tenant2_bot_state` applied `20260917060142` | none. No PUT. |
-| **12.8** | SECOND TENANT. IRREVERSIBLE. The 12.2b door. | **041 applied** (`20260917060142`) | **No PUT.** B1/B2a/B7 verified. B2b next. Abort = delete tenant `bot_state`. |
+| **12.8** | SECOND TENANT. IRREVERSIBLE. The 12.2b door. | **041 applied** (`20260917060142`) | **No PUT.** B1/B2a/B2b/B7 verified. STOP before B3. Abort = delete tenant `bot_state`. |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `<WF07_PUBLISHED>` (rollback `<WF07_ROLLBACK>`). **Before 12.5.** |

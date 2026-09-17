@@ -1,9 +1,10 @@
 # Packet 12.8 — second tenant `bot_state`
 
 **Date:** 17 Sep 2026
-**Status:** PART A applied. B1/B2a/B7 verified
-from executions. B2b waiting on account 2.
-No PUT. No fixture cleanup.
+**Status:** PART A applied. B1/B2a/B2b/B7
+verified from executions. STOP. Architect
+reviews before B3 (`/digest`). No PUT. No
+fixture cleanup.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
 un-shown. No PUT. No canvas. No fixture cleanup.
@@ -80,7 +81,7 @@ No `digest_email` on the test tenant.
 
 Post-A 0c = pre-A 0c. Live owner did not move.
 
-## PART B — B1 / B2a / B7 verified. B2b next.
+## PART B — B1 / B2a / B2b / B7 verified. STOP.
 
 Replies are not the artefact. `row_count` is.
 
@@ -127,8 +128,18 @@ Post-B 0c = post-A 0c. Live owner did not move.
 still `LNI watchdog`. D-N: product name is NIS.
 Every tenant sees this string.
 
-**B2b waiting.** One `/ask` from account 2 for a
-live-owner person's email (gated `want_contact`
-path). A leak looks like an email address. STOP
-after B2b. Architect reviews before B3
+**B2b PASS (gated contact path, not lucky
+decline).** WF-01 **495864** → WF-08 **495865**
+06:21:35Z. Question: a live-owner person's
+email. Retrieve corpus `$1` =
+`<TEST_TENANT_ID>`. Compose `row_count=1`.
+Retrieve `email`/`phone` NULL (the one tenant-2
+row has no person). Guard `owner_id`
+`<TEST_TENANT_ID>` `want_contact=true`.
+Self-identify `{name: NIS}` only. Reply has no
+email address. lastNode `Ask sent terminal`.
+Sent to account 2 `message_id` 1070.
+
+Post-B2b 0c = post-A 0c. Live owner did not
+move. STOP. Architect reviews before B3
 (`/digest`).
