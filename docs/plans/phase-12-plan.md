@@ -709,14 +709,22 @@ No PUT. No canvas. Recorded 17 Sep from packet 12.8
 B5 VERIFY, WF-10 exec **496525**. Tenant-2 followup
 capture #223. Picker was not shown.
 
-### Capture #224 — empty follow-up (harmless, permanent)
+### Captures #224 #225 #226 — empty test-tenant follow-ups
 
-Second empty follow-up block on the test tenant.
-Capture #224, `capture_mode=followup`, event `042e02b7`,
-opened 07:48:04Z. WF-10 exec **496587** `Compose empty
-block` (`asset_count=0` at `/done`). No `follow_ups`
-row. Voice/429 era, not a leak. Do not delete. Do not
-reuse as picker proof.
+Harmless, permanent. Same event `042e02b7`. Do not
+delete. Do not reuse as picker proof. Do not leave
+the next `/followup` adopting an open block — none
+of these are open (`bot_state.open_capture_id` NULL).
+
+| # | Closed | How | `follow_ups` |
+|---|---|---|---|
+| 224 | 07:48:07Z | `/done` **496587** empty block | none |
+| 225 | 07:54:34Z | `/done` **496640** typed "Pro" then 429 extract | draft, `person_id` NULL |
+| 226 | 08:05:02Z | **sweep** WF-02 **496729** (typed `/followup pro` never `/done`); WF-10 **496730** wrote draft brief `pro` | draft, `person_id` NULL |
+
+#226 was still `processing` until the 08:05 inactivity
+sweep. Sweep dispatched WF-10 **496730**. Tenant-2
+`mode=normal`. No implementer UPDATE.
 
 ### F1 — Whisper 429 reported as a content result
 
@@ -740,6 +748,50 @@ its own message ("couldn't transcribe that, try
 again"), never a content verdict.
 
 Own packet after 12.8. Do not PUT WF-10 for this.
+
+### F3 — "Try /followup with a name or email" is false
+
+`Compose no person` tells the owner to type
+`/followup <name or email>`. Published WF-01 does not
+route that argument to WF-10. Classify sets
+`branch=command` `action=followup` `note_text=…` and
+Route type `command` calls WF-02 to **open a capture**.
+Kick WF-10 only on `/done` (`kick_wf10`). Route type
+output 11 (`followup` → `Followup payload` → Call WF-10)
+is leftover from packet 7.4 (`branch=followup`,
+`text` = the message). Classify has not emitted
+`branch=followup` since session 08 / 028 (follow-up
+is a capture). `Parse argument` / `Lookup people` are
+reached only when WF-10 `route=command` and
+`Has capture_id?` is false — live WF-01 never sends
+that for `/followup`. Same class as F1: the system
+tells the user to do something it cannot do. Do not
+PUT. Cause recorded 17 Sep (B5 TYPED **496645**).
+
+### Q1 cause — same OpenAI credential, not a second tier
+
+WF-03 `OpenAI transcribe` and WF-10 `Transcribe block`
+are the same node: `@n8n/n8n-nodes-langchain.openAi`
+v2.3, `resource=audio` `operation=transcribe`
+`binaryPropertyName=asset`, credential
+`ouWVjrmc8Ia4SRD2` / `OpenAi account`. Instance GET
+of `openAiApi` returns **one** credential. `retryOnFail:
+true`, `onError: continueRegularOutput`,
+`alwaysOutputData: true`, `maxTries` unset on both.
+No `language`. No model id (Whisper default).
+
+WF-10's node sits after `Split block audio`
+(`splitInBatches` v3, `batchSize: 1`). One clip is
+one call, not a fan-out burst. WF-03 has no split.
+WF-03 gates provider error. The followup-block path
+does not: a 429 continues, then `Extract recipient`
+(`gpt-4o-mini`, **same** credential) fires and 429s
+too.
+
+Job `a4e240f5` succeeded 07:07:40Z because the
+account was not limited then. 07:41 **496525**
+`Transcribe block` 429 is the same key later. Not a
+second-tier credential. Do not PUT.
 
 ### F2 — `History load` live-owner person-id literal
 
