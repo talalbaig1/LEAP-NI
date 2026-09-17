@@ -845,9 +845,11 @@ Copy pass: user-facing still `LNI watchdog` (D-N).
 Do not fix now. B2b gated `want_contact` path
 PASS (`row_count=1`, no email in the reply).
 B3 `/digest` WF-01 **495886** / WF-07 **495887**:
-not silent in n8n (Telegram `message_id` 1074).
-`Email skipped` is scheduled-only. STOP before
-B4/B5.
+Telegram `ok=true` `message_id` 1074 (not assumed
+on-device). B4 Hourly tick **495953** N=2 with
+destinations: live Telegram+Gmail; tenant 2
+Telegram + `Email skipped`. Timezones restored.
+STOP before B5.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

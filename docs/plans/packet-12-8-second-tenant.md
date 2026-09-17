@@ -2,9 +2,10 @@
 
 **Date:** 17 Sep 2026
 **Status:** PART A applied. B1/B2a/B2b/B7
-verified. B3 `/digest` cause-only: not silent
-in n8n. STOP before B4/B5. No PUT. No fixture
-cleanup.
+verified. B3 Telegram `ok=true` `message_id`
+1074 (not assumed on-device). B4 N=2
+scheduled briefing PASS. STOP before B5.
+No PUT. No fixture cleanup.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
 un-shown. No PUT. No canvas. No fixture cleanup.
@@ -188,5 +189,49 @@ Post-B3 0c = post-A 0c. Live owner did not move.
 Copy pass also: user-facing `LNI morning
 briefing`. Do not fix now.
 
-STOP. Architect reviews before B4 (briefing) and
-B5 (picker).
+**B3 delivery (do not assume).** WF-01 **495886**
+`Send digest reply` Telegram `ok=true`
+`result.message_id` 1074 `result.date`
+1789626237 (`2026-09-17T06:23:57Z`) chat =
+account 2. This agent cannot read the Telegram
+client. (a) vs (b) is the owner's eyes. If 1074
+is absent after looking, that is (b) and its
+own packet.
+
+## B4 — N=2 scheduled briefing (forced local hour 7)
+
+**B4a.** `events.timezone` verbatim: live
+`Asia/Riyadh`; tenant 2 `Pacific/Auckland`.
+
+**B4b.** Both set to `Etc/GMT-1`. SELECT before
+tick: both `local_hour=7` `kind=brief`.
+
+**B4c.** WF-07 **495953** Hourly tick
+06:32:04Z lastNode `Fan-out done` success.
+Self identify `{name: NIS}` only.
+
+List due owners (both, `source=schedule`):
+live `<OWNER_ID>` local_hour 7 kind brief;
+test `<TEST_TENANT_ID>` local_hour 7 kind brief.
+On demand digest did not run. Load digest `$1`
+= `List due owners` owner (loop). Run 0 people
+43 chat live. Run 1 people 2 chat account 2.
+
+Live: Telegram `message_id` 1075 AND Gmail
+`1a0ae10b454c3d49`. Tenant 2: Telegram
+`message_id` 1076, `Email skipped` reached,
+Gmail digest did **not** run for that branch
+(Gmail node ran once, live only).
+
+`Any delivered?` run 0 = 1075 + Gmail id;
+run 1 = 1076, no Gmail id. Not owner 1's
+result for both (12.4b E1/E2 under N=2 with
+destinations). Content isolated (43/26 vs 2/0).
+
+**B4d.** Restored. SELECT: live `Asia/Riyadh`
+local_hour 9; tenant 2 `Pacific/Auckland`
+local_hour 18.
+
+Post-B4 0c = post-A 0c. Live owner did not move.
+
+STOP. Architect reviews before B5 (picker).
