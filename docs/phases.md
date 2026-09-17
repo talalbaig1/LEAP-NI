@@ -849,7 +849,11 @@ Telegram `ok=true` `message_id` 1074 (not assumed
 on-device). B4 Hourly tick **495953** N=2 with
 destinations: live Telegram+Gmail; tenant 2
 Telegram + `Email skipped`. Timezones restored.
-STOP before B5.
+B5 picker **not shown** (cause only). WF-02
+Insert followup capture / resolve_target still
+fingerprint `events.name = 'LEAP 2026'`, so
+tenant-2 INSERT returns 0 rows. Not a leak.
+No abort. No PUT.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

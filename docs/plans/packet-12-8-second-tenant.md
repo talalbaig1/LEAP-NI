@@ -4,7 +4,8 @@
 **Status:** PART A applied. B1/B2a/B2b/B7
 verified. B3 Telegram `ok=true` `message_id`
 1074 (not assumed on-device). B4 N=2
-scheduled briefing PASS. STOP before B5.
+scheduled briefing PASS. B5 picker **not
+shown** (cause only). Not a leak. No abort.
 No PUT. No fixture cleanup.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
@@ -234,4 +235,84 @@ local_hour 18.
 
 Post-B4 0c = post-A 0c. Live owner did not move.
 
-STOP. Architect reviews before B5 (picker).
+## B5 — follow-up picker. Not shown. Cause only.
+
+Not a leak. Do not abort. Do not delete
+tenant-2 `bot_state`. Do not tap Send. No PUT.
+WF-10 was not called. Keyboard was not sent.
+
+Account 2 sent `/followup` then 3s voice then
+`/done`. WF-10 executions after 06:32Z: **none**.
+
+**`/followup`.** WF-01 **495987** 06:36:42Z
+lastNode `Command no-send terminal`. Allowlist
+`<TEST_TENANT_ID>` `mode=normal`. Classify
+`action=followup`. Call WF-02 **495988**
+returned `{}`. `Kick WF-10?` did not run.
+
+WF-02 **495988** lastNode `Followup missing
+terminal`. Inspect open followup: `mode=normal`
+`open_capture_id` NULL. Followup gate `open`.
+Insert followup capture OUTPUT `{}`.
+`Followup row returned?` false.
+
+Insert SQL (live GET, published WF-02):
+
+```
+WITH ev AS (
+  SELECT e.id AS event_id FROM public.events e
+  WHERE e.name = 'LEAP 2026'
+    AND e.owner_id = $1::uuid LIMIT 1
+)
+INSERT … SELECT $1::uuid, ev.event_id, …
+  'open', 'followup' … FROM ev
+```
+
+`$1` = `<TEST_TENANT_ID>`. That owner’s event
+is `NIS test tenant` (`042e02b7`), not
+`LEAP 2026` (`389ed098`, live owner). `ev`
+empty → INSERT 0 rows → `alwaysOutputData`
+`{}`. Compose followup open did not run.
+No `capture_followup_open` audit row.
+
+**Voice.** WF-01 **495994** 06:37:28Z ERROR
+lastNode `Resolve failed terminal`
+`corr=ea80c282` `file=AgAD8B0AAgnfWVE`.
+Allowlist still `<TEST_TENANT_ID>`
+`mode=normal` (no open capture). Classify
+`branch=voice`. Call WF-02 resolve
+**495995** `ok=false`
+`error_code=write_returned_no_row`.
+
+WF-02 **495995** lastNode `New missing
+terminal`. Action resolve_target:
+`capture_id` NULL `adopted=false`. Same
+fingerprint: `events.name = 'LEAP 2026'
+AND owner_id = $1`. No open capture, cannot
+insert a `standard` row either. Voice did
+not attach. No new asset.
+
+WF-00 **495996** lastNode `No alert`.
+`audit_log` `30b9ea6e` `workflow_error`
+owner = platform (`c95224e6`). Live chat
+was not pinged.
+
+**`/done`.** WF-01 **495997** 06:37:31Z
+lastNode `Command sent terminal`. WF-02
+**495998** lastNode `Nothing-open terminal`.
+Action done: `closed_ids=[]` `item_count=0`.
+Reply `nothing open` Telegram `message_id`
+1080 to account 2. `Kick WF-10?` false
+(`kick_wf10` absent).
+
+Post-B5 0c = post-A 0c. Live owner did not
+move. Tenant-2 still capture `#217` only.
+`bot_state` n=2 both `mode=normal`
+`open_capture_id` NULL.
+
+B5 picker prove is **not complete**. The
+same `/followup` will miss again until
+Insert followup capture (and resolve_target)
+bind `event_id` from the caller’s owner,
+not `events.name = 'LEAP 2026'`. Architect
+decides. No retry invented here.
