@@ -1037,6 +1037,26 @@ the harness. See phase-12-plan 12.6 E1–E4.
 
 ---
 
+## Packet 13.0 — WF-01 / WF-10 isolation leftovers
+
+**Timing:** 17 Sep. After 034/038. Not the enrichment
+read path (Phase 13 below).
+
+WF-01 still duplicates and conflicts on
+`telegram_file_unique_id` alone. 038's column unique
+is TEMPORARY. Packet 13.0: owner-scope Duplicate
+check + Insert asset, then drop 038, then dead await /
+Flag owner / Route type 11, then WF-10 History skip
+and F1 provider-error message.
+
+Order locked: P1 PUT + real photo, then 043, then P2,
+then P3, then P4. Home:
+`docs/plans/packet-13-0-remediation.md`.
+
+Rollback named before each PUT. No canvas.
+
+---
+
 ## Phase 13 — Enrichment read path
 
 **Timing:** after packet **12.2**, never before. Logged
