@@ -1081,6 +1081,85 @@ the harness. See phase-12-plan 12.6 E1–E4.
 
 ---
 
+## Packet 13.0 — WF-01 / WF-10 isolation leftovers
+
+**Timing:** 17 Sep. After 034/038. Not the enrichment
+read path (Phase 13 below).
+
+P1 published `bf28621a` (rollback `16760629`).
+1d PASS: #228 / #229 stored; same-owner resend
+Duplicate terminal.
+
+P1c applied: catalog **043_drop_assets_column_unique**
+(`20260917084212`). Column unique
+`assets_telegram_file_unique_id_key` dropped.
+Composite `assets_owner_id_telegram_file_unique_id_key`
+kept. 030 stays Phase 6.
+
+Cross-tenant PASS: same file under both owners
+(#229 live / #230 tenant 2). P1 closed.
+
+P2 published `0c9c5a5d` (rollback `bf28621a`).
+139 → 129 nodes. Dead await gone. Flag owner-scoped.
+Route type `followup` rule removed; fallback `[11]`.
+P2 PASS #232.
+
+P3 published `8e170e68` (rollback `f5f3852c`).
+172 → 167. History skip via `lni_settings`
+`history_skip_person_ids` (not seeded). Incomplete
+draft `$3` gone. Block-path transcribe gate.
+`Followup payload` on WF-01 still orphaned — next
+WF-01 PUT.
+
+P4 absorbed into **packet 14.0**. Home:
+`docs/plans/packet-13-0-remediation.md`.
+
+Rollback named before each PUT. No canvas.
+
+---
+
+## Packet 14.0 — remainder (not Phase 13)
+
+**Timing:** 17 Sep. After 13.0. Home:
+`docs/plans/packet-14-0-remainder.md`.
+Session log: `docs/sessions/session-12-multitenancy.md`.
+
+A2 catalog **044_tenant2_name_shaped_person**
+(`20260917093452`). Sara Alharbi on the NIS test
+tenant that has `bot_state`. `de10f49f` /
+`7cee0027` untouched. Extract recipient not
+changed (A1 is a fixture defect).
+
+A3 owner voice prove on account 2 **not run**.
+
+B1 user-facing Telegram/Gmail LNI → NIS (D-N).
+B2 copy: typed `/followup` argument is discarded;
+reply now tells the owner to send a voice note
+inside the block, then `/done`.
+B3 WF-01 `Followup payload` deleted (rollback
+`0c9c5a5d`, published `a1738536`, 128 nodes).
+B4 project ref in Upload/HEAD/GET attach recorded,
+not moved.
+
+C1 note-only extraction UNION on sweep / closed
+standard / WF-09 orphan. C2 S6 cause recorded,
+**not built**. C3 WF-05 `Set capture status`
+`AND status IS DISTINCT FROM 'open'` (rollback
+`12b9e2bc`, published `743c7c78`). C4/C5
+reported, not backfilled. D1 `handed_off`
+predicate proposed, not run.
+
+Published: WF-00 `86b51053` (rollback `be1e7b71`),
+WF-07 `b9bd519c` (`ca2f3d35`), WF-09 `b3dedb40`
+(`ffbb20e4`), WF-02 `f35f1b3d` (`d7205734`),
+WF-10 `465a037a` (`8e170e68`).
+
+Phase 13 / 12.3 / 12.4 / 12.6 login stay out.
+
+Rollback named before each PUT. No canvas.
+
+---
+
 ## Phase 13 — Enrichment read path
 
 **Timing:** after packet **12.2**, never before. Logged

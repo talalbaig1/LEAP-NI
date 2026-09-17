@@ -1,42 +1,20 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 17 Sep 2026 (12.9 BUILD)
+**Date:** 14 Sep 2026 · **Amended:** 17 Sep 2026 (packet 14.0)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
-Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
-`20260916022806`). Packet **12.2 applied** (catalog
-`035_operator_chat`, `20260916024816`). Packet **12.2a
-applied** (catalog `036_digest_email`,
-`20260916030417`). Packet **12.3c / 12.2b-i applied**
-(catalog `037_test_tenant`, `20260916033502`) — inert
-test tenant, **no `bot_state`**. Packet **12.4b applied**
-(WF-07 `<WF07_PUBLISHED>`, rollback `<WF07_ROLLBACK>`). Packet **12.4e
-applied** (catalog `038_restore_assets_single_unique`,
-`20260916043514`) — column-only assets unique restored
-TEMPORARY so published WF-01 Insert asset can infer.
-No WF-01 PUT. E1–E3 fixed.
-Packet **12.7 applied** (catalog `040_follow_ups_handed_off`,
-`20260916114531`) — `handed_off` on
-`follow_ups_draft_state_check`; WF-10 History copy
-insert writes it; WF-01 Driver ingest PUT last.
-Packet **12.7b proven** (no PUT): destination-less
-owner still gets the WF-09 kick. Kick and alert
-are independent.
-Kind on demand `source` literal `call`. WF-01 / WF-06
-drafts untouched. Full
-cross-tenant isolation is **not** proven here (12.5).
-**Home:** this file. Contracts also in `phases.md` Phase 12,
-`architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
-`workflows.md` §1 owner-resolution.
-
-Packet 10.1 closed. Highest applied numbered
-migration is `040_follow_ups_handed_off` (catalog
-`20260916114531`). `mailbox_linked` is live as
-catalog `20260916090802` (not 039-prefixed).
+Packets **12.1–12.5 / 12.6 drain / 12.7–12.9 / 13.0 / 14.0**
+applied as named. Login surface **12.6** is not built.
+`person_emails` **12.3** and `entity_candidates` **12.4**
+need architect design. Phase 13 enrichment read path is
+a new chat.
+Highest applied migration is
+`044_tenant2_name_shaped_person` (catalog `20260917093452`).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
 `LNI` is the legacy internal code prefix (D-N). Internal
-identifiers do not change.
+identifiers do not change. User-facing Telegram/Gmail
+copy is NIS as of packet 14.0.
 
 ---
 
@@ -71,15 +49,15 @@ workflows to NIWL credentials.
 | Fact | Value |
 |---|---|
 | `auth.users` | 3 (owner + two Phase 0 RLS probes) |
-| `bot_state` / `events` / `sender_profile` | 1 row each, all `<OWNER_ID>` |
-| `people.owner_id` distinct | 1 |
-| `lni_config` | 3 integer keys (Apollo daily 60, lifetime 2200, Tavily 1000) |
+| `bot_state` / `events` / `sender_profile` | live owner + NIS test tenant (041). Platform owner has none (D-O) |
+| `people.owner_id` distinct | 2 |
+| `lni_config` | 3 integer keys per tenant with ceilings (live + test) |
 | `person_emails` / `tenants` | **absent** |
 | `lni_settings` / `lni_instance` | **live 16 Sep (034)** |
-| Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) |
-| `assets_telegram_file_unique_id_key` | **restored 16 Sep 12.4e** (038 `20260916043514`). TEMPORARY. Coexists with UNIQUE `(owner_id, telegram_file_unique_id)`. Drop in 12.2 remainder WF-01 PUT. |
+| Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) at 14 Sep; 12.4 still deferred |
+| `assets_telegram_file_unique_id_key` | **dropped 17 Sep 13.0 P1c** (043 `20260917084212`). Was TEMPORARY 038. Live unique is `(owner_id, telegram_file_unique_id)`. |
 | `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
-| WF-01 published | `<WF01_PUBLISHED>` · draft still `<WF01_DRAFT>` (30 Aug autosave) |
+| WF-01 published | `a1738536` (14.0 B3). Draft discarded by 12.7 PUT, never published |
 | WF-06 published | `<WF06_PUBLISHED>` · `<WF06_DRAFT>` discarded as the unpublished tip by the 12.6 PUT, never published |
 
 If WF-01 unpublished draft id `<WF01_DRAFT>` changes, someone wrote
@@ -429,7 +407,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `<WF07_PUBLISHED>` (rollback `<WF07_ROLLBACK>`). **Before 12.5.** |
 | **12.4c** | Reconcile `<WF07_PUBLISHED>`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
-| **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
+| **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Column unique **dropped 13.0 P1c** (043 `20260917084212`) after composite ON CONFLICT published. |
 | **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `<WF10_ROLLBACK>`. 12.5a C/D/E/G wait. |
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
@@ -444,9 +422,14 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5g** | Sign-off rule on Extract draft. Caller sender name on both composers. Prompt `wf10-v4`. Garble gate cause-only. | none | WF-10 only. Rollback `eeb9dc09`. Published `844e1858`. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5h** | Omit-incoherent on both composers. Prompt `wf10-v5`. | none | WF-10 only. Rollback `844e1858`. Published `dfd35bfb`. No gate. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
-| **12.6** | Minimal login surface | named then | none until 12.5 proven |
+| **12.6 drain** | Owner resolution off the fingerprint. Login surface itself **not** built | none | WF-03/04/05/06/09. Home `docs/plans/packet-12-6-drain-owner.md` |
 | **12.7** | `handed_off` + Driver ingest | **040 applied** (`20260916114531`) | WF-10 then WF-01 last. Draft `<WF01_DRAFT>` discarded, authorised, never published. |
 | **12.7b** | Prove WF-09 kick for a destination-less owner | none | **No PUT.** Plant + wait two ticks. Kick and `Alert no destination` both fired. |
+| **12.8** | Second tenant B5 cause. Not a leak | **041 applied** | proof |
+| **12.9** | Per-tenant event | **042 applied** | WF-02 / WF-01 |
+| **13.0** | WF-01/10 isolation leftovers. Drop 038 column unique | **043 applied** | WF-01 `0c9c5a5d` then 14.0 `a1738536`; WF-10 `8e170e68` then 14.0 `465a037a` |
+| **14.0** | Remainder except Phase 13. Fixture Sara Alharbi. NIS copy. S3/S8. C2 cause only | **044 applied** (`20260917093452`) | WF-00 `86b51053`, WF-07 `b9bd519c`, WF-09 `b3dedb40`, WF-02 `f35f1b3d`, WF-01 `a1738536`, WF-10 `465a037a`, WF-05 `743c7c78` |
+| **12.6 login** | Minimal login surface | named then | **not built.** Own design. First exercise of the 20 RLS policies |
 
 One packet at a time. Architect verifies live SQL / live
 JSON. Implementer report is not evidence.
@@ -461,7 +444,7 @@ No `tenants` table. D-L ACCEPTED.
 **Q2. Second owner.** AMENDED. Permanent test tenant, not
 a throwaway. Schema in 12.1. **12.2b-i applied** (037):
 inert `events` + ceilings + `sender_profile`. Live second
-`bot_state` **still slipped** — packet **12.2b**. Never
+`bot_state` **applied 12.8 / 041**. Never
 deleted. Never frozen. Standing cross-tenant regression
 harness, same principle as capture #9.
 
@@ -636,9 +619,10 @@ Platform errors are owned by it, inside no tenant. D-O.
   Coexists with `assets_owner_id_telegram_file_unique_id_key`.
 - Zero duplicate `telegram_file_unique_id` at apply (191/191).
 - No WF-01 PUT. Drafts `<WF01_DRAFT>` / `<WF06_DRAFT>` unpublished.
-- Drop the column-only unique in **12.2 remainder** when
-  WF-01 Insert asset is PUT to
-  `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+- Column unique **dropped 13.0 P1c** catalog
+  `043_drop_assets_column_unique` (`20260917084212`)
+  after composite ON CONFLICT published and a real
+  photo stored.
 - STEP 2: WF-01 **483617** success photo `57b0e023`
   stored 91339; **483620** success voice `cdccd64e`
   stored 16378. assets 191 → 193.
@@ -1010,10 +994,11 @@ row in the published graph.
 
 ## Acceptance (later — do not execute here)
 
-- 12.2 remainder: PUT WF-01 Insert asset
-  `ON CONFLICT (owner_id, telegram_file_unique_id)`
-  then DROP `assets_telegram_file_unique_id_key`.
-  Also: `capture_no` lookups include `owner_id`
+- 13.0 P1c **done:** catalog `043_drop_assets_column_unique`
+  (`20260917084212`) dropped
+  `assets_telegram_file_unique_id_key` after P1 PUT
+  `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+  Also remaining: `capture_no` lookups include `owner_id`
   on WF-01/02; storage path read-back.
 - 12.2b: permanent test tenant `bot_state` live. Not
   asserted today.
@@ -1032,33 +1017,10 @@ row in the published graph.
   C2 drained 16 Sep 11:40Z (asset `ed29a4a0`,
   job `b47ddee0` succeeded). leftover_processing
   `#217` spent. C1 owner phone still owed.
-- **Test tenant fixtures — permanent.**
-  Tenant `<TEST_TENANT_ID>` (`2678f157`) is
-  **never deleted**. Every row in it stays.
-  Do not clean up.
-
-  | Row | What | Why it stays |
-  |---|---|---|
-  | capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted (12.7). |
-  | job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h` finding. Proves skip-send when `chat_id` and `digest_email` are empty. |
-  | job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. No Apollo spend. |
-  | job `b47ddee0` | `card_vision` **`succeeded`** attempt 1 on asset `ed29a4a0` | C2 drain. `image_type=other`. Permanent. |
-  | job `446fd76c` | `extraction` `succeeded` | C2 chain. Capture `#217`. Test-tenant owner. |
-  | job `44093639` | `entity_resolution` `needs_review` | C2 chain. Capture `#217`. |
-  | extraction_run `82ffa9c8` | capture `#217` | C2 chain. Test-tenant owner. |
-  | asset `ed29a4a0` | `kind=photo` `stored` 8335 B HEAD, sha256 from stored GET | C2 bytes. Path first segment is the test tenant. |
-  | person `de10f49f` | D3probe | C4 enrichment probe. |
-  | person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
-
-  No test-tenant `bot_state`. Empty chat /
-  digest → skip send, never fall back.
-- 12.6-login: login surface only after 12.5.
-  Seed `events` and
-  ceilings at tenant creation (12.6 E1 / E2). Owner IU
-  Microsoft account reserved Phase 14, not the harness
-  (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
-  (12.6 E4). 034/037 are tokenised as of 12.5a-0h and
-  are not re-runnable — do not re-apply them.
+- 12.6 login: **not built.** Own design.
+- 12.6 drain / 12.7–12.9 / 13.0 / 14.0: applied. See
+  `docs/plans/packet-14-0-remainder.md` and
+  `docs/sessions/session-12-multitenancy.md`.
 
 ## Acceptance (12.7 — applied 16 Sep)
 
@@ -1099,29 +1061,25 @@ row in the published graph.
 - WF-09 **487437** (12:30) no kick (`stuck_queued`
   0). Alert no destination still.
 - Live-owner counts unchanged. No test-tenant
-  `bot_state`. Not a 12.8 blocker.
-- RESULT 17 Sep: traces 487322 / 487324 still
-  live (~16h). WF-07 **490614** (22:00 close) and
-  **494770** (07:00 brief) fan-out: `List due
-  owners` = `<OWNER_ID>` only; live owner Telegram
-  + Gmail; test tenant nothing. WF-09 67 ticks
-  12:15–04:45 all success; no alerts sent
-  (`audit_log` empty).
+  `bot_state` **at 12.7b**. 12.8 added it.
 
-**Test tenant fixtures — permanent.** Tenant
-`<TEST_TENANT_ID>` is **never deleted**. Every row
-in it stays. Do not clean up.
+## Tenant 2 fixtures (permanent)
 
-| Row | What | Why it stays |
-|---|---|---|
-| capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after 12.6 C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted. |
-| job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h`. |
-| job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. |
-| asset `ed29a4a0` | `kind=photo` `stored` | C2 bytes. Path first segment is the test tenant. |
-| job `af6c0217` | `card_vision` `succeeded` attempt 1 `image_type=other` | 12.7b WF-09 kick. Claimed by WF-03 **487324** parent **487322**. |
-| asset `daabf581` | `kind=photo` `stored` | 12.7b bytes. Path first segment is the test tenant. Capture `#217`. |
-| person `de10f49f` | D3probe | C4 enrichment probe. |
-| person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
+Owner is resolved as `events.name = 'NIS test tenant'`
+AND `bot_state` exists. Do not hardcode the uuid.
+`<TEST_TENANT_ID>` is **never deleted**.
 
-No test-tenant `bot_state`. That is the next
-packet and it is the irreversible one.
+| Row | Why |
+|---|---|
+| `events` + ceilings + `sender_profile` (037) | Inert then live harness |
+| `bot_state` (041) | Second allowlist |
+| capture `#217` `6bcc2fe1` | spent leftover_processing; `needs_review` after 12.6 C2 drain |
+| job `7c72371f` | Deliberate `card_vision` failed / `packet_126_c3`. Watchdog keeps reporting it |
+| job `78371b74` | C4 ceiling-0 drain. Person `de10f49f` |
+| asset `ed29a4a0` | C2 bytes. Path first segment is the test tenant |
+| job `af6c0217` | 12.7b WF-09 kick. Claimed by WF-03 **487324** |
+| asset `daabf581` | 12.7b bytes. Capture `#217` |
+| `7cee0027` NIS mailbox prove | D-M. Not name-shaped |
+| `de10f49f` D3probe | 12.8 B5 typed probe. Not name-shaped |
+| `d2c90b68` | Cross-tenant card copy, capture **#230** |
+| `d62b48f7` Sara Alharbi (044) | Name-shaped B5 picker. `example.invalid` |

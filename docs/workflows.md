@@ -555,6 +555,10 @@ LNI bot only and must not disturb any ElderWise webhook.
    `/flag` is a named Route type output **appended** after `vcard`.
    Do not renumber existing outputs. Unknown commands still fall through
    to `Unknown type terminal` (silent NoOp).
+   **Packet 13.0 P2:** removed dead named output `followup`
+   (Classify already sets `branch=command` `action=followup`).
+   Live map: `[10]` flag → Flag arg empty?; `[11]` fallback →
+   Unknown type terminal. 10-node dead await chain gone.
 
    **Telegram `contact` — Phase 9.** `Classify update` sets
    `branch = 'contact'` and copies `raw_contact`. WF-01 calls
@@ -704,6 +708,7 @@ LNI bot only and must not disturb any ElderWise webhook.
    PUT rejects). Re-GET: `active` true, `versionId` =
    `activeVersionId` = `<WF00_PUBLISHED>`.
    Telegram owner alert text: 4 real newlines, 0 literal `\n`.
+   First line **NIS repeated failure** (packet 14.0 B1).
    Logic otherwise unchanged.
 
    **Packet 4.11 measured (28 Aug 2026, after the cast).** Messages
@@ -988,9 +993,15 @@ WF-04 → Call WF-05 (both enqueue branches).
 
 ### Enqueue exclusions (live, one statement, WF-02 and WF-09)
 
-`Enqueue asset jobs` / `Enqueue sweep jobs` / WF-09
-`Enqueue orphan jobs`. Same four lines. Do not write a second
-variant.
+`Enqueue asset jobs` / `Enqueue sweep jobs` /
+`Enqueue closed standard` / WF-09 `Enqueue orphan jobs`.
+Same four asset-exclusion lines. **Packet 14.0:** the
+note-only `UNION ALL` extraction (typed_note, no stored
+non-vcard asset, no existing extraction job, capture_mode
+distinct from followup) is on all four. Before 14.0 it
+lived only on `Enqueue asset jobs`, so a note-only
+capture closed by the sweep or by follow-up supersede
+never extracted.
 
 ```
 AND NOT (c.capture_mode = 'followup' AND a.kind = 'audio')
@@ -1791,13 +1802,13 @@ without touching `wf04-v3`.
    present in the name field'`. That flag **alone** no longer blocks
    `ready`. Every other flag still does. (`failed` is not set here.)
 
-   **Verified 5 Sep (10.2c STOP).** Live node `Set capture status`
-   (`<WF05_PUBLISHED>`) is `UPDATE captures SET status = ready|needs_review
-   WHERE id = $1`. **No prior-status predicate.** It writes `ready`
-   on `status='open'`. Standalone contact (#134 #160) depends on
-   that. A reused open block must not Call WF-05 until the block
-   is closed, or the pointer dies mid-capture. Do not PUT WF-05
-   in 10.2c.
+   **Packet 14.0.** Live node `Set capture status` is
+   `UPDATE captures SET status = ready|needs_review
+   WHERE id = $1 AND status IS DISTINCT FROM 'open'`
+   (published `743c7c78`, rollback `12b9e2bc`). It
+   cannot write `ready` onto `open`. Kick-split stays
+   as discipline. Standalone contact still closes
+   before WF-05.
    Packet 3.6 / 3.7 owner ruling: a non-Latin `full_name` is accepted
    as identity. `'Non-Latin script present in the name field'` stays in
    `flag_reasons` as information only. An Arabic-only `full_name` is
@@ -2253,7 +2264,7 @@ transcripts. `queryReplacement` is one array expression.
 Compose text in a Code node from that named query. Shape:
 
 ```
-LNI day close (Riyadh date)
+NIS day close (Riyadh date)
 captured N · clean N · flagged N · failed N · stuck N
 #12 needs_review: No name extracted
 #59 needs_review: No email and no phone
@@ -2298,7 +2309,9 @@ not treat either line as a bug.
 
 Compose. No LLM. `Compose digest` emits `reply_text` (plain, for Gmail
 and the `/digest` return) and `telegram_text` (HTML-escaped `&` then
-`<` then `>`). `Telegram digest` sends `telegram_text` with
+`<` then `>`). First lines: `NIS day close (date)` / `NIS morning
+briefing (date)`. Gmail subject matches (packet 14.0 B1).
+`Telegram digest` sends `telegram_text` with
 `additionalFields.parse_mode: HTML`. Gmail stays `emailType: text` on
 `reply_text`. Absent `parse_mode` is not plain text on this build
 (`workflows.md` §1 trap; exec 254927).
@@ -2638,7 +2651,8 @@ Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 ### Alert (independent of digest)
 
 If any finding is non-zero: compose a short text (counts + up to 10
-`capture_no` / `job_type` lines). Telegram `parse_mode` is **HTML**
+`capture_no` / `job_type` lines). First line and Gmail subject are
+**NIS watchdog** (packet 14.0 B1; D-N). Telegram `parse_mode` is **HTML**
 explicit — default Markdown treats `_` in `failed_24h` as an unclosed
 italic (`can't parse entities`). Email still delivers in that case;
 set HTML anyway so Telegram is not a paper tiger. `Compose findings`
@@ -2671,7 +2685,15 @@ include them.
 The Phase 2 deliberate forced-failure job (`transcription` / `failed` /
 `attempt_count` 3 / capture #36) sits inside the 24-hour failed window
 until `last_transition_at + 24h`. Do **not** touch that row, requeue it,
-or retarget it. Under the scan alone, a 15-minute cron would re-alert
+or retarget it.
+
+The packet 12.6 C3 deliberate failure fixture is the same
+class: `card_vision` / `failed` / `attempt_count` 3 / job
+`7c72371f` / capture **#217** / `error_code=packet_126_c3` /
+`asset_id` NULL. Watchdog reporting it is correct. Do **not**
+requeue it, attach an asset, or mark it succeeded. Tenant-2
+`aa963264` was a real provider 429 and was requeued 17 Sep
+(packet 13.0). Under the scan alone, a 15-minute cron would re-alert
 that unchanged set until it ages out (~56 messages). The owner would
 mute the watchdog and it would protect nothing.
 
@@ -2730,7 +2752,8 @@ The alert is what is suppressed, not the kicker.
 
 **Must not:** log PII; rewrite vision job `1564abc3`; auto-merge;
 delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
->= 3`; mutate the Phase 2 forced-failure transcription job.
+>= 3`; mutate the Phase 2 forced-failure transcription job;
+mutate the packet 12.6 C3 fixture `7c72371f`.
 
 ---
 
@@ -2864,13 +2887,15 @@ are unreliable (D-F).
   Interaction backfill proposed, not written.
 - Exclude `<CONTACT_1_EMAIL>` (D-K). Exclude the four D-H
   manuals. <CONTACT_3_NAME>: one compose, two To: addresses (D-J).
-  History load still skips <CONTACT_3_NAME> <CONTACT_2_COMPANY> row `ba037ac0`
-  (not merged — Phase 12 `person_emails`). After 10.1
-  merges, do **not** skip the <CONTACT_6_NAME> / <CONTACT_37_NAME> / <CONTACT_39_NAME> /
-  <CONTACT_42_NAME> / <CONTACT_43_NAME> survivors; they were empty 09-01/09-02
-  rows and now hold the contact. Name skips unchanged:
-  `<CONTACT_12_NAME>`, `<CONTACT_13_NAME>`, `<CONTACT_11_NAME>`, `<CONTACT_51_NAME>`,
-  `<CONTACT_20_NAME>`.
+  History load skips via owner-scoped `lni_settings`
+  `history_skip_person_ids` (packet 13.0 P3). Missing
+  key = no skip. Not seeded. The five-name blocklist
+  and `ba037ac0` are gone — live owner history includes
+  those people again until 12.3 `person_emails`. After
+  10.1 merges, do **not** skip the <CONTACT_6_NAME> /
+  <CONTACT_37_NAME> / <CONTACT_39_NAME> /
+  <CONTACT_42_NAME> / <CONTACT_43_NAME> survivors; they
+  were empty 09-01/09-02 rows and now hold the contact.
 
 **Reuses**
 
@@ -3185,8 +3210,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     has `person_id`, skip the ladder and continue from **Has
     email?** using that id. If not, ladder on `recipient_ref`.
     `"none named"` and empty →
-    **Compose nobody named** (`No person named. Try /followup <name or email>.`)
-    → Return.
+    **Compose nobody named** (`No person matches that note. Inside /followup, send a voice note that names the person, then /done.`)
+    → Return. Typed `/followup <name>` is discarded by
+    WF-01; the argument is not a lookup. Packet 14.0 B2.
 
 **Callback path**
 

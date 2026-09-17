@@ -96,12 +96,13 @@ These are invariants. Violating one is a defect regardless of test results.
 UUID primary keys. `timestamptz` throughout. `owner_id` and RLS on every
 user-owned table. Launch is one owner (`<OWNER_ID>`). **Phase 12 (D-L
 ACCEPTED): tenant = `owner_id`.** No `tenants` table. No parallel
-`tenant_id`. Isolation is already the column; n8n still resolves the
-owner from `events.name = 'LEAP 2026'` until packet 12.2. Instance
-fingerprint after 12.1 is `lni_instance` (034 live, not owner-scoped), not a
-tenant's event row. Text config home is `lni_settings` (034). Product
-name is NIS; `LNI` is the legacy internal code prefix (D-N). Design:
-`docs/plans/phase-12-plan.md`.
+`tenant_id`. Isolation is already the column. Packet **12.2** split
+self-identify onto `lni_instance` name `NIS`; owner comes from the
+caller / `bot_state`, never `events.name = 'LEAP 2026'`. Text config
+home is `lni_settings` (034). Product name is NIS; `LNI` is the
+legacy internal code prefix (D-N). User-facing Telegram/Gmail copy
+is NIS as of packet 14.0. Login surface (12.6) is not built.
+Design: `docs/plans/phase-12-plan.md`.
 
 **§4 reconciled against live `information_schema.columns` / `pg_constraint`
 on 27 August 2026, plus packet 4.1 migrations `018`–`021`.** Every column
@@ -443,13 +444,13 @@ WF-10 `Extract draft` writes `subject` / `body`. Terminals
 
 - email **and mailbox linked** → Gmail Draft
   (`draft_state=gmail_draft`). A real Gmail Draft with
-  `gmail_message_id` exists. LNI does not send. Owner
+  `gmail_message_id` exists. NIS does not send. Owner
   sends from Gmail. **History insert**.
 - whatsapp / linkedin / email **mailbox unlinked** →
   composed-and-handed-to-the-owner
-  (`draft_state=handed_off`). Channel-agnostic. No
-  Gmail Draft. **History copy insert**. Owner pastes
-  (Telegram) or otherwise sends themselves.
+  (`draft_state=handed_off` after 040; 39 WA/LI/unlinked
+  rows still carry `gmail_draft` until the 14.0 D1
+  backfill). **History copy insert**. Owner pastes.
 
 Voice-path picker and `awaiting_confirm` are untouched.
 
@@ -877,7 +878,7 @@ These values are cross-workflow contracts; WF-01 through WF-09 all read them.
 | `bot_state.mode` | `normal` \| `batch` |
 | `follow_ups.status` | `open` \| `done` \| `cancelled` |
 | `follow_ups.priority` | `low` \| `medium` \| `high` |
-| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031, real Gmail Draft id) \| `handed_off` (040, composed-and-handed-to-the-owner, channel-agnostic) |
+| `follow_ups.draft_state` | `draft` \| `awaiting_voice` \| `awaiting_confirm` \| `sending` \| `sent` \| `failed` \| `cancelled` \| `gmail_draft` (031, real Gmail Draft id) \| `handed_off` (040). 14.0 D1 backfill proposed, not run |
 | `enrichment_records.provider` | `apollo` \| `tavily` |
 | `audit_log.actor_type` | `user` \| `ai` \| `system` |
 
@@ -1425,6 +1426,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 040 | `040_follow_ups_handed_off` | Packet 12.7 applied 16 Sep 2026 (`20260916114531`). Adds `handed_off` to `follow_ups_draft_state_check`. Keeps every existing value. No backfill. Does not alter `follow_ups_status_check`. Does not alter `follow_ups_person_channel_live_uniq` (`draft_state <> 'cancelled'` already treats `handed_off` as live). 030 stays Phase 6 embeddings. |
 | 041 | `041_tenant2_bot_state` | Packet 12.8 applied 17 Sep 2026 (`20260917060142`). Inserts ONE `bot_state` for the test tenant (`mode=normal`, `open_capture_id` NULL). `telegram_user_id` from `current_setting('lni.tenant2_telegram_user_id', true)` — RAISE missing/empty. Owner from `events.name = 'NIS test tenant'`. Never a hardcoded uuid or telegram id. Asserts 034 `bot_state_telegram_user_id_key`. No `digest_email`. `7c72371f` kept as `failed_24h` for B7. 030 stays Phase 6. |
 | 042 | `042_bot_state_current_event` | Packet 12.9 applied 17 Sep 2026 (`20260917065325`). `bot_state.current_event_id` nullable. `events` UNIQUE `(owner_id, id)`. Composite FK `bot_state_owner_current_event_fk`. Backfill by owner, never by name. 030 stays Phase 6. |
+| 043 | `043_drop_assets_column_unique` | Packet 13.0 P1c applied 17 Sep 2026 (`20260917084212`). Drops TEMPORARY `assets_telegram_file_unique_id_key` after composite ON CONFLICT published. Keeps `assets_owner_id_telegram_file_unique_id_key`. 030 stays Phase 6. |
+| 044 | `044_tenant2_name_shaped_person` | Packet 14.0 A2 applied 17 Sep 2026 (`20260917093452`). One name-shaped person (Sara Alharbi, `example.invalid`) on the NIS test tenant that has `bot_state`. Does not touch existing fixture people. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 
