@@ -84,6 +84,7 @@ not in WF-01. They sit on WF-09 / WF-07. P4 last.
 ## P1 PUT
 
 Rollback **before** PUT: WF-01 `16760629`.
+Published **after** PUT: `bf28621a` (17 Sep).
 
 - Duplicate check: `AND owner_id = $2::uuid`.
   `$2` = `$('Attach correlation').item.json.owner_id`.
@@ -91,8 +92,16 @@ Rollback **before** PUT: WF-01 `16760629`.
 - Insert asset:
   `ON CONFLICT (owner_id, telegram_file_unique_id)`.
 
-Do not drop `assets_telegram_file_unique_id_key` in
-the same breath. 038 still infers if we roll back.
+GET name `LNI WF-01 - Telegram ingest router`.
+`LEAP 2026` count 0. vcard `download:true` survived.
+Trigger `download:false` survived. Main getFile still
+has no `download` key (same as `16760629`).
+
+Do not drop `assets_telegram_file_unique_id_key` yet.
+038 still infers if we roll back.
+
+**STOP for 1d.** Owner phone. Both cases separately.
+Then 043. Then P2.
 
 ### Prove (1d) — both cases, separately
 
