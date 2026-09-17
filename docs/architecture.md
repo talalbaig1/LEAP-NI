@@ -156,6 +156,14 @@ fixture. Full second allowlist row is still 12.2b.
 | `created_at` | timestamptz | `now()` | NO |
 | `awaiting_followup_id` | uuid → `follow_ups` | — | YES |
 | `awaiting_followup_until` | timestamptz | — | YES |
+| `current_event_id` | uuid → `events` | — | YES |
+
+**`bot_state.current_event_id` (042 / 12.9).** Nullable.
+The event a new capture binds to. Composite FK
+`bot_state_owner_current_event_fk`
+`(owner_id, current_event_id) → events(owner_id, id)`
+so a tenant cannot point at another tenant's event.
+NULL → workflows must message, not silence.
 
 **`captures`** — one `/new`…`/done` unit, or one `/followup` block.
 UNIQUE `capture_no`. `capture_mode='followup'` is a capture, not a
@@ -602,12 +610,12 @@ policy `lni_instance_select` for `authenticated`; writes are
 owner migrations / table-owner. After 12.2 the string
 `LEAP 2026` appears nowhere in workflow logic — only in
 one tenant's `events` row (Q4). Do not put the fingerprint
-on `events`. **12.9 audit:** Q4 is met on WF-00 / 07 / 08
-and WF-03…10 (zero hits). It is **not** met on published
-WF-01 `4160647a` and WF-02 `eddb0f11`: Self-identify still
-gates `events.name = 'LEAP 2026'`, and four WF-02 INSERT
-CTEs filter that name **and** `owner_id = $1` (DATA PATH,
-not fingerprint). Home:
+on `events`. **12.9 BUILD:** Q4 now holds on published WF-01
+`16760629` and WF-02 `d7205734` (zero `LEAP 2026`;
+Self-identify is `lni_instance` name `NIS`). Capture
+INSERT binds `bot_state.current_event_id` (042) with
+`AND e.owner_id = $1` kept. Rollbacks `4160647a` /
+`eddb0f11`. Home:
 `docs/plans/packet-12-9-event-resolution.md`.
 
 | Column | Type | Default | Null |
@@ -1400,6 +1408,8 @@ Phase 0 applies **numbered forward-only migrations**, not a single dump:
 | 036 | `036_digest_email` | Packet 12.2a applied 16 Sep 2026 (`20260916030417`). Seeds `lni_settings` key `digest_email` for the live owner only; value = that owner's `auth.users.email` (resolved, not hardcoded). RAISE if `bot_state` empty or email empty. Does not seed the platform owner (D-O). Mailbox linkage until Phase 14 per-tenant OAuth. 030 stays Phase 6. |
 | 037 | `037_test_tenant` | Packet 12.3c / 12.2b-i applied 16 Sep 2026 (`20260916033502`). Permanent **inert** test tenant. Owner resolved by exact email `<TEST_TENANT_EMAIL>` (009 RAISE: 0 / many / unconfirmed). Never a hardcoded uuid. Seeds `events` name `NIS test tenant` (not `LEAP 2026`, timezone `Pacific/Auckland`), `lni_config` apollo daily + lifetime ceilings, `sender_profile`. **No `bot_state`.** **No `digest_email`** (D2d fixture). Never deleted, never frozen (Q2). 030 stays Phase 6. |
 | 038 | `038_restore_assets_single_unique` | Packet 12.4e applied 16 Sep 2026 (`20260916043514`). Restores UNIQUE `(telegram_file_unique_id)` as `assets_telegram_file_unique_id_key` TEMPORARY. Keeps `assets_owner_id_telegram_file_unique_id_key`. Zero duplicates asserted. Phone proof: WF-01 483617 photo + 483620 voice, assets 191→193. Drop in packet 12.2 remainder (WF-01 Insert asset ON CONFLICT PUT). 12.4e STEP 3: no other published bind or live FK depends on the 034/038 uniques. Rule 24 (`rules.md`) is the standing check before any future constraint drop. 030 stays Phase 6. |
+| 041 | `041_tenant2_bot_state` | Packet 12.8 applied 17 Sep 2026 (`20260917060142`). Inserts ONE `bot_state` for the test tenant (`mode=normal`, `open_capture_id` NULL). `telegram_user_id` from `current_setting('lni.tenant2_telegram_user_id', true)` — RAISE missing/empty. Owner from `events.name = 'NIS test tenant'`. Never a hardcoded uuid or telegram id. Asserts 034 `bot_state_telegram_user_id_key`. No `digest_email`. `7c72371f` kept as `failed_24h` for B7. 030 stays Phase 6. |
+| 042 | `042_bot_state_current_event` | Packet 12.9 applied 17 Sep 2026 (`20260917065325`). `bot_state.current_event_id` nullable. `events` UNIQUE `(owner_id, id)`. Composite FK `bot_state_owner_current_event_fk`. Backfill by owner, never by name. 030 stays Phase 6. |
 
 ### Connection policy — verified 25 Aug 2026
 

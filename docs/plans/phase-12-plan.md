@@ -291,22 +291,15 @@ Ceilings + `sender_profile`. **No `bot_state`.** **No
 is still 1. 12.2b-i is inert only. Give `bot_state` its
 own packet. Needed before 12.5 can pass.
 
-### Packet 12.9 — WF-01 / WF-02 event resolution (audit)
+### Packet 12.9 — WF-01 / WF-02 event resolution (applied)
 
-No PUT. 12.4d Class C mixed fingerprint with DATA
-PATH. Published WF-01 `4160647a` / WF-02 `eddb0f11`
-are the only remaining `LEAP 2026` workflows
-(WF-03…10 = 0). Four INSERT CTEs
-(`Action new`, `Action resolve_target`,
-`Insert followup capture`, `Action ingest_contact`)
-filter `events.name = 'LEAP 2026' AND owner_id = $1`.
-Tenant 2 cannot open a capture. First photo never
-reaches Insert asset. Fail-closed (no leak) is a
-defect, not an incident. Fingerprint still gates
-`events` / `Asia/Riyadh`, not `lni_instance` NIS.
-Product: which event when N>1 is C1 (recommend
-explicit current). Zero events is C2 (message, not
-silence; 12.6 E1). Home:
+Catalog **042** (`20260917065325`). C1 shipped as
+`bot_state.current_event_id` (explicit current). WF-02
+PUT `d7205734` (rollback `eddb0f11`). WF-01 PUT
+`16760629` (rollback `4160647a`). Zero `LEAP 2026`.
+Fingerprint `lni_instance` NIS. INSERT keeps
+`e.owner_id = $1`. NULL current event messages.
+E1 live-owner phone waits. Home:
 `docs/plans/packet-12-9-event-resolution.md`.
 
 ### Packet 12.4b — hourly fan-out N>1 (E1–E3)
@@ -421,7 +414,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.2a** | `digest_email` door. WF-07 Load digest lookup. Record N>1 fan-out as 12.4b. WF-06 Apollo ceiling cause only. | **036 applied** (`20260916030417`) | WF-07 only. **No unpublished-draft publish.** No WF-06 PUT. |
 | **12.2b-i** | Inert test tenant. `events` + ceilings + `sender_profile`. No `bot_state`. No `digest_email`. | **037 applied** (`20260916033502`) | none. D2d via existing TEST caller. |
 | **12.2b** | Permanent test tenant `bot_state` (slipped from 12.2) | named then | none until named |
-| **12.9** | WF-01 / WF-02 event resolution. Audit. 12.4d Class C was too narrow. | none | **No PUT.** Published WF-01 `4160647a` / WF-02 `eddb0f11`. A1: tenant 2 cannot capture a first photo. Four INSERT CTEs are DATA PATH. Fingerprint still `events` not `lni_instance`. |
+| **12.9** | WF-01 / WF-02 per-tenant event resolution. | **042 applied** (`20260917065325`) | WF-02 PUT `d7205734` (rollback `eddb0f11`). WF-01 PUT `16760629` (rollback `4160647a`). Zero `LEAP 2026`. E1 live-owner phone not yet run. |
 | **12.3** | `person_emails` | 035-class, named then | WF-05 / WF-10 only if the packet says so |
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `<WF07_PUBLISHED>` (rollback `<WF07_ROLLBACK>`). **Before 12.5.** |

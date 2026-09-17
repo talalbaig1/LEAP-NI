@@ -30,7 +30,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
-| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. Cron: every **tenant** `bot_state.owner_id` (never the platform owner). Fingerprint: `lni_instance` (12.1), **not** `events.name = 'LEAP 2026'` | Q4 locked as the **rule**. **12.9 audit:** WF-00 / 07 / 08 and WF-03…10 have zero `LEAP 2026`. Published WF-01 `4160647a` and WF-02 `eddb0f11` still gate Self-identify on that name; WF-02 four INSERT CTEs also filter it with `owner_id = $1` (DATA PATH — tenant 2 cannot open a capture). Do not hardcode `<OWNER_ID>`. Do not take owner from `$env`. Inert test tenant (037 / 12.2b-i) has `events` but **no `bot_state` until 12.2b / 12.8**: invisible to `List due owners`, WF-01 allowlist, and every cron until then. `/digest` Load digest `$1` still returns a row from `events`. Missing `digest_email` → `owner_email` `''` → `Email skipped` (D2d). |
+| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. Cron: every **tenant** `bot_state.owner_id` (never the platform owner). Fingerprint: `lni_instance` (12.1), **not** `events.name = 'LEAP 2026'` | Q4 locked. **12.9 BUILD:** WF-01 `16760629` / WF-02 `d7205734` Self-identify `lni_instance` NIS. Capture INSERT uses `bot_state.current_event_id` JOIN `events` `AND e.owner_id = $1` (042). Rollbacks `4160647a` / `eddb0f11`. Do not hardcode `<OWNER_ID>`. Do not take owner from `$env`. `/digest` Load digest `$1` still returns a row from `events`. Missing `digest_email` → `owner_email` `''` → `Email skipped` (D2d). |
 | Credentials (Phase 12) | **Fail closed.** No linked mailbox → no Gmail draft, no digest email (Telegram copy-text, D-E). No Apollo ceiling row → ceiling 0 | Q3 / D-M. A second tenant's drafts in the live owner's mailbox is a privacy defect. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -1054,11 +1054,11 @@ the signal; it is visible in review.
 ### `/new`
 1. If an open capture exists, close it (`status` leaves `open`,
    `close_reason = superseded`).
-2. Insert a new `captures` row, `status = open`, `event_id` from
-   the caller's `events` row. **12.9:** published WF-02 Action new
-   still uses `WHERE e.name = 'LEAP 2026' AND e.owner_id = $1`.
-   A tenant whose event is not that name gets 0 rows. No PUT yet.
-   `capture_mode` / `card_only` follow current `bot_state.mode`.
+2. Insert a new `captures` row, `status = open`, `event_id` =
+   `bot_state.current_event_id` for that owner (042 / 12.9).
+   Owner predicate `e.owner_id = $1` stays. Missing current
+   event → reply, not silence. `capture_mode` / `card_only`
+   follow current `bot_state.mode`.
 3. Update `bot_state.open_capture_id` and `last_activity_at`. `RETURNING`
    `id`, `capture_no`.
 4. `reply_text` uses `captures.capture_no`, never the uuid:

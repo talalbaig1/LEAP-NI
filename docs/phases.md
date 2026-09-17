@@ -839,14 +839,15 @@ fixture. Never deleted, never frozen (Q2).
 is still 1. 12.2b-i is the inert fixture only. Do not
 assert a second allowlist row.
 
-### Packet 12.9 — WF-01 / WF-02 event resolution (audit)
+### Packet 12.9 — WF-01 / WF-02 event resolution (applied)
 
-No PUT. Tenant 2 cannot capture a first photo:
-WF-02 INSERT still requires `events.name =
-'LEAP 2026' AND owner_id = $1`. Fail-closed, not
-a leak. Fingerprint on those two workflows is
-still `events`, not `lni_instance`. Details:
-`docs/plans/packet-12-9-event-resolution.md`.
+Catalog **042** (`20260917065325`). WF-02 PUT
+`d7205734` (rollback `eddb0f11`). WF-01 PUT
+`16760629` (rollback `4160647a`). Capture INSERT
+binds `bot_state.current_event_id`. Fingerprint
+`lni_instance` NIS. Zero `LEAP 2026`. Owner
+predicate kept. E1 live-owner phone waits.
+Details: `docs/plans/packet-12-9-event-resolution.md`.
 
 ### Packet 12.3 — `person_emails` (deferred)
 

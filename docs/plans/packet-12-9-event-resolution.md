@@ -1,8 +1,10 @@
 # Packet 12.9 — WF-01 / WF-02 event resolution
 
 **Date:** 17 Sep 2026
-**Status:** AUDIT. No PUT. No canvas. No owner
-test. No `bot_state` delete.
+**Status:** BUILD applied. No canvas. E1–E5
+waiting on the owner’s main phone first.
+Rollback: WF-02 `<WF02_ROLLBACK>` = `eddb0f11`.
+WF-01 `<WF01_ROLLBACK>` = `4160647a`.
 
 12.4d Class C looked for "owner derived from
 `events`" and called the rest fingerprint.
@@ -246,7 +248,89 @@ and not an incident (no leak). Do not
 "fix" it by dropping `AND owner_id = $1`
 and keeping the name.
 
-0c unchanged by this audit. No PUT.
-Architect decides C1 and the PUT packet.
-Do not have the owner send a photo until
-that PUT exists.
+0c unchanged by this audit.
+
+## BUILD — 17 Sep 2026. E1 not run yet.
+
+### PART A — before any change
+
+GET by name first.
+
+| WF | name | `activeVersionId` |
+|---|---|---|
+| WF-01 | LNI WF-01 - Telegram ingest router | `4160647a` |
+| WF-02 | LNI WF-02 - Capture lifecycle | `eddb0f11` |
+
+Matches expect. Named rollbacks are those ids.
+
+### PART B — 042 applied `20260917065325`
+
+B1. `bot_state.current_event_id` uuid NULLABLE
+`REFERENCES events(id)`.
+B2. `events_owner_id_id_key` UNIQUE `(owner_id, id)`.
+`bot_state_owner_current_event_fk`
+`(owner_id, current_event_id) → events(owner_id, id)`.
+B3. Backfill by owner, not by name. Read-back:
+
+| owner8 | event8 | same_owner | event |
+|---|---|---|---|
+| `2678f157` | `042e02b7` | true | `NIS test tenant` |
+| `a79b744e` | `389ed098` | true | `LEAP 2026` |
+
+B4. Cross-tenant UPDATE caught in a PL/pgSQL
+inner block (rolled back). SQLSTATE `23503`:
+`insert or update on table "bot_state" violates
+foreign key constraint "bot_state_owner_current_event_fk"`.
+Read-back after prove: both rows unchanged.
+
+### PART C — WF-02 PUT
+
+Rollback `eddb0f11`. New published `d7205734`.
+Active. `sanitize_for_put` from `activeVersion`.
+`LEAP 2026` count in published graph: **0**.
+Self-identify `SELECT name FROM public.lni_instance
+LIMIT 1`. Gate name equals `NIS`. No timezone,
+no `owner_id`. Four INSERT CTEs read
+`bot_state.current_event_id` JOIN `events`
+`AND e.owner_id = $1`. Owner predicate kept.
+NULL `current_event_id` →
+`reply_text` `No active event is set. Contact support.`
+(`error_code` `no_active_event`). Settings
+unchanged (`Asia/Riyadh`, WF-00 errorWorkflow,
+`availableInMCP` true, timeout 300).
+
+### PART D — WF-01 PUT
+
+Rollback `4160647a`. New published `16760629`.
+Active. `LEAP 2026` count: **0**.
+
+DIFF vs `4160647a` (every difference):
+
+| Kind | What |
+|---|---|
+| CHANGE | Self-identify query → `lni_instance` name only |
+| CHANGE | Reached LEAP-NI? `rightValue` `NIS` |
+| CHANGE | Allowlist SELECT adds `current_event_id` |
+| CONN | Media capture present? false → `Resolve has reply?` (was Resolve failed terminal) |
+| ADD | `Resolve has reply?`, `Send resolve reply`, `Resolve no-capture sent terminal` (C4/E4: photo with no event must message, not `stopAndError`) |
+| POS | Resolve failed terminal `[3136,688]` → `[3360,800]` |
+| REMOVED | none |
+
+Survival: Telegram getFile vcard `download: true`
+`operation: get`. Telegram Trigger
+`additionalFields.download: false`. Upload
+`responseFormat: json`. HEAD `responseFormat:
+text`. Allowlist `operation: executeQuery`.
+Main Telegram getFile still has no `download`
+key (same as `4160647a` — not invented).
+No `batchSize` and no top-level `responseMode`
+on this workflow before or after. Settings
+unchanged.
+
+### PART E — STOP
+
+Do not send tenant-2 traffic until **E1**
+(live owner photo + voice + `/done`) completes
+on the working product. If E1 regresses, PUT
+WF-01 `4160647a` and WF-02 `eddb0f11` before
+anything else. E2–E5 wait.
