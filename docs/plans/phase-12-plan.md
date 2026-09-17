@@ -709,6 +709,15 @@ No PUT. No canvas. Recorded 17 Sep from packet 12.8
 B5 VERIFY, WF-10 exec **496525**. Tenant-2 followup
 capture #223. Picker was not shown.
 
+### Capture #224 — empty follow-up (harmless, permanent)
+
+Second empty follow-up block on the test tenant.
+Capture #224, `capture_mode=followup`, event `042e02b7`,
+opened 07:48:04Z. WF-10 exec **496587** `Compose empty
+block` (`asset_count=0` at `/done`). No `follow_ups`
+row. Voice/429 era, not a leak. Do not delete. Do not
+reuse as picker proof.
+
 ### F1 — Whisper 429 reported as a content result
 
 `Transcribe block` returned
