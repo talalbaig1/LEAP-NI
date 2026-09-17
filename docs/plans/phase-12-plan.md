@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4e)
+**Date:** 14 Sep 2026 · **Amended:** 17 Sep 2026 (12.9 BUILD; packet 12.8 B5 findings)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -702,6 +702,66 @@ returns the owner's latest draft rather than the tapped
 person. Owner-scoped, so not a cross-tenant leak — a
 correctness defect. Own packet. Published graph `<WF10_PUBLISHED>` (OR branch
 unchanged). Do not PUT this in 12.5a.
+
+## Logged, post-12.8 queue (do not fix here)
+
+No PUT. No canvas. Recorded 17 Sep from packet 12.8
+B5 VERIFY, WF-10 exec **496525**. Tenant-2 followup
+capture #223. Picker was not shown.
+
+### F1 — Whisper 429 reported as a content result
+
+`Transcribe block` returned
+`{error: "The service is receiving too many requests from you"}`.
+`Assemble brief`: `brief=""`, `transcript_count=0`.
+`Extract recipient` same 429. `recipient_ref=""`.
+`Recipient named?` false → `Compose no person` →
+"No person matches that note. Try /followup with a
+name or email."
+
+The note was never transcribed. The user is told
+MATCHING failed when TRANSCRIPTION failed. Same class
+as Urdu smoothing: a plausible wrong answer instead
+of an honest failure.
+
+The old voice path already has `Gate: transcript
+present` → `Compose transcribe fail`. The followup-
+block path does not. A provider error must produce
+its own message ("couldn't transcribe that, try
+again"), never a content verdict.
+
+Own packet after 12.8. Do not PUT WF-10 for this.
+
+### F2 — `History load` live-owner person-id literal
+
+`History load` still `p.id NOT IN (…)` the packet-10.1
+`<CONTACT_3_NAME>` skip (the `<CONTACT_2_COMPANY>`
+duplicate row). It did **not** run on 496525.
+Harmless today because person ids differ across
+tenants — same shape as the 12.5g owner-name prompt
+literal.
+
+Proposed replacement (do not build yet): drop the
+uuid literal. Keep `p.owner_id = $2` (already caller
+`owner_id`). Until 12.3 `person_emails` merges the
+two `<CONTACT_3_NAME>` rows, hold any skip in
+`lni_settings` key `history_skip_person_ids` under
+**that** owner (`value` = comma-separated ids):
+
+```
+AND NOT (p.id = ANY (
+  SELECT NULLIF(btrim(x), '')::uuid
+  FROM public.lni_settings s,
+       unnest(string_to_array(s.value, ',')) AS x
+  WHERE s.owner_id = $2::uuid
+    AND s.key = 'history_skip_person_ids'
+))
+```
+
+Missing key → no skip (fail open for History, not
+a hardcoded other-tenant row). After 12.3 merge,
+delete the skip. Do not encode another tenant's
+row in the published graph.
 
 ## Acceptance (later — do not execute here)
 
