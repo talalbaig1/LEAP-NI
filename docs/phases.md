@@ -1164,3 +1164,11 @@ WF-02), claimed `af6c0217`. Job `succeeded`
 kick. Live-owner counts unchanged. Not a 12.8
 blocker. E1 / C1 still owed. No test-tenant
 `bot_state`.
+
+RESULT 17 Sep (traces retrieved before prune):
+WF-07 **490614** 22:00 close and **494770** 07:00
+brief — first per-owner fan-out since 12.4b.
+`List due owners` returned only `<OWNER_ID>`.
+Live owner Telegram + Gmail both hours. Test
+tenant nothing. WF-09 67 ticks overnight, no
+alerts sent. `audit_log` empty.

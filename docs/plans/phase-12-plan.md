@@ -767,6 +767,13 @@ unchanged). Do not PUT this in 12.5a.
   0). Alert no destination still.
 - Live-owner counts unchanged. No test-tenant
   `bot_state`. Not a 12.8 blocker.
+- RESULT 17 Sep: traces 487322 / 487324 still
+  live (~16h). WF-07 **490614** (22:00 close) and
+  **494770** (07:00 brief) fan-out: `List due
+  owners` = `<OWNER_ID>` only; live owner Telegram
+  + Gmail; test tenant nothing. WF-09 67 ticks
+  12:15–04:45 all success; no alerts sent
+  (`audit_log` empty).
 
 **Test tenant fixtures — permanent.** Tenant
 `<TEST_TENANT_ID>` is **never deleted**. Every row

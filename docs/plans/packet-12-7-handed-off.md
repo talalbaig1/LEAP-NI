@@ -86,5 +86,48 @@ independent. Destination-less did not skip the kick.
 | Live owner | Unchanged 199 / 540 / 74 / 128 / 153 / 83 / 111. |
 | Test tenant | `bot_state` 0. `lni_settings` 0. |
 
+## 12.7b RESULT — traces retrieved 17 Sep ~04:46Z (before prune)
+
+None of 487322 / 487324 / 490614 / 494770 were
+pruned. `audit_log` since plant is empty (no
+`watchdog_alert` write — Alert no destination does
+not insert; Silent clean does not insert).
+
+SQL still: `af6c0217` `succeeded` 12:15:05.834871Z
+owner `<TEST_TENANT_ID>` attempt 1 `image_type=other`.
+
+Live-owner counts still match the 12:02 plant:
+199 / 540 / 74 / 128 / 153 / 83 / 111.
+Live owner: 0 new assets / jobs / people /
+interactions / extraction_runs / entity_candidates /
+follow_ups. 0 job transitions.
+
+### WF-07 first per-owner fan-out since 12.4b
+
+Hourly tick, timezone `Asia/Riyadh`. `List due
+owners` returns **only** `<OWNER_ID>` (test tenant
+has no `bot_state` — invisible). Test tenant: no
+chat, no mail.
+
+| Exec | Local | kind | Telegram | Gmail |
+|---|---|---|---|---|
+| **490614** 19:00:00Z | 22:00 close | `kind=close` | `message_id` 1053 | id `1a0ab971b896e3ea` SENT |
+| **494770** 04:00:00Z | 07:00 brief | `kind=brief` | `message_id` 1054 | id `1a0ad857e3ee1751` SENT |
+
+Close body: captured 5 · clean 3 · flagged 2
+(#213 #218 `needs_review`). Brief: people 43 ·
+companies 26 · unreviewed 73 · stuck 4.
+
+### WF-09 overnight
+
+67 ticks 12:15Z–04:45Z inclusive, all `success`,
+none pruned. Only WF-03 after the plant is
+**487324**. Sampled 12:45 **487551**, 19:00
+**490615**, 04:00 **494768**, 04:45 **495112**:
+test tenant `failed_24h` 1 (`7c72371f`)
+`kick_needed=false` → Alert no destination (no
+send). Live owner `finding_count=0` Silent clean.
+No alerts sent. Silence recorded.
+
 E1 owner phone after the WF-01 PUT is still owed.
 C1 still owed. No test-tenant `bot_state`.
