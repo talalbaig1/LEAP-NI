@@ -1042,15 +1042,18 @@ the harness. See phase-12-plan 12.6 E1–E4.
 **Timing:** 17 Sep. After 034/038. Not the enrichment
 read path (Phase 13 below).
 
-WF-01 still duplicates and conflicts on
-`telegram_file_unique_id` alone. 038's column unique
-is TEMPORARY. Packet 13.0: owner-scope Duplicate
-check + Insert asset, then drop 038, then dead await /
-Flag owner / Route type 11, then WF-10 History skip
-and F1 provider-error message.
+P1 published `bf28621a` (rollback `16760629`).
+1d PASS: #228 / #229 stored; same-owner resend
+Duplicate terminal.
 
-Order locked: P1 PUT + real photo, then 043, then P2,
-then P3, then P4. Home:
+P1c applied: catalog **043_drop_assets_column_unique**
+(`20260917084212`). Column unique
+`assets_telegram_file_unique_id_key` dropped.
+Composite `assets_owner_id_telegram_file_unique_id_key`
+kept. 030 stays Phase 6.
+
+**STOP** for cross-tenant same-photo STORE under
+tenant 2. Then P2, then P3, then P4. Home:
 `docs/plans/packet-13-0-remediation.md`.
 
 Rollback named before each PUT. No canvas.

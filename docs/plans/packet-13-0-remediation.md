@@ -1,15 +1,14 @@
 # Packet 13.0 — WF-01 / WF-10 isolation leftovers
 
 **Date:** 17 Sep 2026
-**Status:** P1 in flight. No canvas. Rollback named
-before each PUT.
+**Status:** P1 + P1c applied. STOP for cross-tenant
+photo. No canvas. Rollback named before each PUT.
 **Home:** this file. Also `phases.md`.
 
-034's composite unique on assets is live. Published
-WF-01 still checks and conflicts on the column alone.
-038 restored the column unique TEMPORARY so capture
-could infer. This packet makes 034 real, then the
-other leftovers.
+034's composite unique on assets is live. P1 published
+owner-scoped Duplicate check + composite ON CONFLICT
+(`bf28621a`). P1c dropped 038's TEMPORARY column unique.
+Cross-tenant STORE is now testable. Then P2/P3/P4.
 
 ## Order (locked)
 
@@ -97,35 +96,41 @@ GET name `LNI WF-01 - Telegram ingest router`.
 Trigger `download:false` survived. Main getFile still
 has no `download` key (same as `16760629`).
 
-Do not drop `assets_telegram_file_unique_id_key` yet.
-038 still infers if we roll back.
+**1d PASS** (architect-verified, 17 Sep):
 
-**STOP for 1d.** Owner phone. Both cases separately.
-Then 043. Then P2.
+- **B** new photos: capture **#228** asset `38bf7e95`
+  (167588 B) and **#229** asset `557c665a` (165401 B).
+  Stored. Composite ON CONFLICT inferred. No 42P10.
+- **A** same-owner resend: ZERO new assets, ZERO new
+  captures. Duplicate terminal. `/done` "nothing open".
 
-### Prove (1d) — both cases, separately
+## P1c — 043 (applied)
 
-**Same owner, photo already stored.** Duplicate check
-finds the row (`owner_id` match). Duplicate terminal.
-Not a second asset.
+Catalog **043_drop_assets_column_unique**
+(`20260917084212`). Forward-only. Idempotent.
 
-**Same file_unique_id, different owner.** Duplicate
-check misses (other tenant's row). Insert proceeds.
-While 038 column unique still exists this INSERT
-raises unique_violation — that is why 043 waits.
-After 043: stores under the caller `owner_id`.
+GET name `LNI WF-01 - Telegram ingest router` first.
+Published `bf28621a` Insert asset contains
+`ON CONFLICT (owner_id, telegram_file_unique_id)`
+and does **not** contain the single-column form.
+Then DROP.
 
-A **new** photo (fresh `file_unique_id`) must store
-under the caller before 043. That is the inference
-prove for the composite `ON CONFLICT`.
+Read-back:
 
-## P1c — 043
+- `assets_telegram_file_unique_id_key` — **gone**
+- `assets_owner_id_telegram_file_unique_id_key` —
+  UNIQUE `(owner_id, telegram_file_unique_id)` **kept**
 
-Drop `assets_telegram_file_unique_id_key` only.
-Keep `assets_owner_id_telegram_file_unique_id_key`.
-Dependents check (034 shape). 030 stays Phase 6.
-Not applied in P1.
+030 stays Phase 6.
+
+**STOP for cross-tenant prove.** Same photo from the
+MAIN phone into tenant 2's chat. Must STORE, not
+Duplicate terminal. First time the 034 capture-loss
+defect is testable.
+
+Then P2 (same WF-01). Then main-phone photo + voice
++ `/done`. Then P3.
 
 ## P2 / P3 / P4
 
-Not this PUT.
+Not this step.

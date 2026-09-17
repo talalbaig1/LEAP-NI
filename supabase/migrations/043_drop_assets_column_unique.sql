@@ -1,5 +1,6 @@
 -- 043_drop_assets_column_unique
 -- Packet 13.0 P1c. Forward-only. Idempotent.
+-- Catalog 20260917084212 (applied 17 Sep).
 -- Drop TEMPORARY UNIQUE (telegram_file_unique_id) restored by 038.
 -- ONLY after WF-01 Insert asset ON CONFLICT (owner_id, telegram_file_unique_id)
 -- is published AND a real photo has stored on that graph.

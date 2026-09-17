@@ -13,7 +13,10 @@ test tenant, **no `bot_state`**. Packet **12.4b applied**
 applied** (catalog `038_restore_assets_single_unique`,
 `20260916043514`) — column-only assets unique restored
 TEMPORARY so published WF-01 Insert asset can infer.
-No WF-01 PUT. E1–E3 fixed.
+**Dropped 17 Sep** by packet 13.0 P1c catalog
+`043_drop_assets_column_unique` (`20260917084212`)
+after composite ON CONFLICT published and a real
+photo stored. No WF-01 PUT in 12.4e. E1–E3 fixed.
 Kind on demand `source` literal `call`. WF-01 / WF-06
 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -22,7 +25,7 @@ cross-tenant isolation is **not** proven here (12.5).
 `workflows.md` §1 owner-resolution.
 
 Packet 10.1 closed. Highest applied migration is
-`038_restore_assets_single_unique` (catalog `20260916043514`).
+`043_drop_assets_column_unique` (catalog `20260917084212`).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
@@ -68,7 +71,7 @@ workflows to NIWL credentials.
 | `person_emails` / `tenants` | **absent** |
 | `lni_settings` / `lni_instance` | **live 16 Sep (034)** |
 | Pending `entity_candidates` | 77 (61 pre-window + 16 in-window) |
-| `assets_telegram_file_unique_id_key` | **restored 16 Sep 12.4e** (038 `20260916043514`). TEMPORARY. Coexists with UNIQUE `(owner_id, telegram_file_unique_id)`. Drop in 12.2 remainder WF-01 PUT. |
+| `assets_telegram_file_unique_id_key` | **dropped 17 Sep 13.0 P1c** (043 `20260917084212`). Was TEMPORARY 038. Live unique is `(owner_id, telegram_file_unique_id)`. |
 | `bot_state` unique | `(owner_id, telegram_user_id)` **and** `(telegram_user_id)` |
 | WF-01 published | `<WF01_PUBLISHED>` · draft still `<WF01_DRAFT>` (30 Aug autosave) |
 | WF-06 published | `<WF06_PUBLISHED>` · draft still `<WF06_DRAFT>` (30 Aug autosave) |
@@ -407,7 +410,7 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.4** | `entity_candidates` pair + human reasons | named then | WF-05 |
 | **12.4b** | Fix E1–E3 hourly fan-out for N>1. Revert Kind on demand `source` to literal `call`. | none | WF-07 PUT `<WF07_PUBLISHED>` (rollback `<WF07_ROLLBACK>`). **Before 12.5.** |
 | **12.4c** | Reconcile `<WF07_PUBLISHED>`. PUT history, rollback, versions_diff, D3 success, 12.3c D2d errors. | none | **No PUT.** |
-| **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Drop the column-only unique in **12.2 remainder** when WF-01 Insert asset is PUT to `(owner_id, telegram_file_unique_id)`. |
+| **12.4e** | Restore capture. Re-CREATE UNIQUE `(telegram_file_unique_id)` TEMPORARY. Keep composite unique. No WF-01 PUT. | **038 applied** (`20260916043514`) | **No PUT.** Column unique **dropped 13.0 P1c** (043 `20260917084212`) after composite ON CONFLICT published. |
 | **12.5a-0** | Close WF-10 public History webhook. Normalize: no owner_id fallback. | none | WF-10 only. Rollback `<WF10_ROLLBACK>`. 12.5a C/D/E/G wait. |
 | **12.5a-0b** | Archive two ACTIVE `LNI-TEST- 10.4b` webhooks. Cause-only on WF-01 `Driver ingest`. Full-history repo literal audit. | none | TEST 10.4b ×2: deactivate then archive (do not delete). **No WF-01 PUT.** 12.5a C/D/E/G wait. |
 | **12.5a-0c** | Close public signup. Plan history scrub (no rewrite). Rule 25 + CI. Correct NIWL-privacy claim. | none | **No PUT. No rewrite. No force-push.** 12.5a C/D/E/G wait. |
@@ -607,9 +610,10 @@ Platform errors are owned by it, inside no tenant. D-O.
   Coexists with `assets_owner_id_telegram_file_unique_id_key`.
 - Zero duplicate `telegram_file_unique_id` at apply (191/191).
 - No WF-01 PUT. Drafts `<WF01_DRAFT>` / `<WF06_DRAFT>` unpublished.
-- Drop the column-only unique in **12.2 remainder** when
-  WF-01 Insert asset is PUT to
-  `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+- Column unique **dropped 13.0 P1c** catalog
+  `043_drop_assets_column_unique` (`20260917084212`)
+  after composite ON CONFLICT published and a real
+  photo stored.
 - STEP 2: WF-01 **483617** success photo `57b0e023`
   stored 91339; **483620** success voice `cdccd64e`
   stored 16378. assets 191 → 193.
@@ -693,10 +697,11 @@ unchanged). Do not PUT this in 12.5a.
 
 ## Acceptance (later — do not execute here)
 
-- 12.2 remainder: PUT WF-01 Insert asset
-  `ON CONFLICT (owner_id, telegram_file_unique_id)`
-  then DROP `assets_telegram_file_unique_id_key`.
-  Also: `capture_no` lookups include `owner_id`
+- 13.0 P1c **done:** catalog `043_drop_assets_column_unique`
+  (`20260917084212`) dropped
+  `assets_telegram_file_unique_id_key` after P1 PUT
+  `ON CONFLICT (owner_id, telegram_file_unique_id)`.
+  Also remaining: `capture_no` lookups include `owner_id`
   on WF-01/02; storage path read-back.
 - 12.2b: permanent test tenant `bot_state` live. Not
   asserted today.
