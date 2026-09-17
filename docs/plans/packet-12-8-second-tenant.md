@@ -2,9 +2,9 @@
 
 **Date:** 17 Sep 2026
 **Status:** PART A applied. B1/B2a/B2b/B7
-verified from executions. STOP. Architect
-reviews before B3 (`/digest`). No PUT. No
-fixture cleanup.
+verified. B3 `/digest` cause-only: not silent
+in n8n. STOP before B4/B5. No PUT. No fixture
+cleanup.
 
 IRREVERSIBLE. A cross-tenant leak cannot be
 un-shown. No PUT. No canvas. No fixture cleanup.
@@ -141,5 +141,52 @@ email address. lastNode `Ask sent terminal`.
 Sent to account 2 `message_id` 1070.
 
 Post-B2b 0c = post-A 0c. Live owner did not
-move. STOP. Architect reviews before B3
-(`/digest`).
+move.
+
+**Bare `/ask` 06:22:47Z (09:22 Riyadh).** WF-01
+**495876** → WF-08 **495877**. Empty question.
+Usage hint. Guard `owner_id` `<TEST_TENANT_ID>`
+`want_contact=false`. Self-identify `{name: NIS}`
+only. Sent to account 2 `message_id` 1072.
+
+## B3 `/digest` — cause only. Not a leak. No abort.
+
+WF-01 **495886** 06:23:56Z lastNode `Digest sent
+terminal`. WF-07 **495887** lastNode `Return to
+WF-01`. WF-00 did not run. `audit_log` since
+06:15Z is still only B7 `bbeb5e57`. On-demand
+does not write a digest audit row — empty
+`audit_log` is not silence.
+
+Load digest `$1` is
+`$('On demand digest').item.json.owner_id` when
+that trigger `isExecuted`. On demand digest
+OUTPUT `owner_id` = `<TEST_TENANT_ID>`. Self
+identify OUTPUT `{name: NIS}` only — no
+`owner_id`, cannot be `$1`. Load digest OUTPUT
+is a row (`kind=brief` `source=call` people 2
+`owner_email` `''` chat = account 2), not `{}`.
+No CTE emptied it.
+
+Call path: `Scheduled send?` false (`source` is
+literal `call`) → `Return to WF-01`. `Email
+present?` / `Email skipped` / `Gmail digest` did
+not run. Live mailbox was not used. `Email
+skipped` is scheduled-only (compare WF-07
+**490614** / **494770**, which took Gmail). A
+tenant with `bot_state` and no `digest_email`
+differs on the cron path, not on `/digest`.
+
+Return to caller `reply_text` non-empty. WF-01
+`Send digest reply` Telegram `message_id` 1074
+to account 2. Not `Empty digest terminal`. Not
+`Undeliverable digest`. Not `stopAndError`. No
+second defect on WF-00.
+
+Post-B3 0c = post-A 0c. Live owner did not move.
+
+Copy pass also: user-facing `LNI morning
+briefing`. Do not fix now.
+
+STOP. Architect reviews before B4 (briefing) and
+B5 (picker).

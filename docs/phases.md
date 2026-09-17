@@ -844,7 +844,10 @@ alerted account 2 only; live owner Silent clean.
 Copy pass: user-facing still `LNI watchdog` (D-N).
 Do not fix now. B2b gated `want_contact` path
 PASS (`row_count=1`, no email in the reply).
-STOP before B3.
+B3 `/digest` WF-01 **495886** / WF-07 **495887**:
+not silent in n8n (Telegram `message_id` 1074).
+`Email skipped` is scheduled-only. STOP before
+B4/B5.
 
 ### Packet 12.3 — `person_emails` (deferred)
 
