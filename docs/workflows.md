@@ -283,10 +283,14 @@ C2 drain 11:40Z: WF-03 **487040** `When called`
 `b47ddee0` succeeded `image_type=other`.
 Not Manual. See packet-12-6-drain-owner C2.
 
-**12.5a-0b.** Published WF-01 `<WF01_PUBLISHED>` still has
+**12.5a-0b.** Published WF-01 `<WF01_PUBLISHED>` still had
 webhook node `Driver ingest` (unauthenticated, wired
 into Allowlist). Cause-only; **no PUT**. Two
 `LNI-TEST- 10.4b` throwaways archived (not deleted).
+**12.7** PUT last: removed `Driver ingest`. Published
+`<WF01_PUBLISHED_12_7>`. Rollback `<WF01_PUBLISHED>`.
+Unpublished draft `<WF01_DRAFT>` **discarded by the PUT,
+authorised, never published.**
 
 **Owner regression 29 Aug 11:12–11:19 Riyadh (08:12–08:19Z).**
 
@@ -2618,6 +2622,14 @@ Input contract matches the workers: `owner_id`, `correlation_id`
 `onError: continueRegularOutput` explicit. Workers claim from
 Postgres. One call per worker, not per job.
 
+**Kick is independent of destination.** `Kick needed?` runs
+**before** `Any destination?`. Empty `chat_id` and empty
+`digest_email` still Call WF-03. The alert NoOp (`Alert no
+destination`) does not skip the kick. Proven packet 12.7b:
+WF-09 **487322** Kick needed? TRUE then Alert no destination
+on the same test-tenant item; WF-03 **487324** parent was
+that tick, not a WF-02 dispatch.
+
 Publish-order: WF-03/04/05 are already active. Do not deactivate them.
 
 ### Alert (independent of digest)
@@ -2767,9 +2779,11 @@ merge lesson).
 
 Design: `docs/plans/packet-10-4-history-outreach.md`.
 D-A…D-K locked. Decision 12: this branch never sends.
-Published **`dfd35bfb`**
-after packet **12.5h** (omit-incoherent, prompt
-`wf10-v5`). Rollback **`844e1858`** (12.5g).
+Published **`<WF10_PUBLISHED_12_7>`**
+(172 nodes) after packet **12.7** (`History copy insert`
+writes `handed_off`). Rollback **`<WF10_ROLLBACK_12_7>`**.
+Prior **12.5h** graph **`dfd35bfb`**
+(omit-incoherent, prompt `wf10-v5`). Rollback **`844e1858`** (12.5g).
 Prior **12.5g** graph **`844e1858`**.
 Prior rollback **`eeb9dc09`** (12.5f).
 Prior **12.5f** graph **`eeb9dc09`**.
@@ -2867,14 +2881,16 @@ are unreliable (D-F).
 **Writes**
 
 - One `follow_ups` row per person per channel (Q3).
-  Email: `to_email` frozen, `cc_email` = owner, `subject`,
+  Email **mailbox linked**: `to_email` frozen, `cc_email` = owner, `subject`,
   `body`, `attachment_asset_ids`, `prompt_version`,
   `person_id`, `interaction_id`, `capture_id`.
   `draft_state='gmail_draft'`. `gmail_message_id`
-  from `draft.create`.
-- WhatsApp / LinkedIn: `body` = copy-text,
-  `draft_state='gmail_draft'` (031 has no `handed_off`).
-  Telegram delivery.
+  from `draft.create`. **History insert**.
+- WhatsApp / LinkedIn / email **mailbox unlinked**:
+  `body` = copy-text, `draft_state='handed_off'` (040).
+  Composed-and-handed-to-the-owner, channel-agnostic.
+  **History copy insert**. Telegram delivery when a
+  `chat_id` exists. No Gmail Draft.
 - `status` stays `open`.
 - Audit: draft-created / handed-off. No email body, no
   transcript in the log.

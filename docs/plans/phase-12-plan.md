@@ -1,6 +1,6 @@
 # Phase 12 — Multi-tenancy
 
-**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.4e)
+**Date:** 14 Sep 2026 · **Amended:** 16 Sep 2026 (packet 12.7b)
 **Status:** Q1–Q5 LOCKED. D-L ACCEPTED. D-M D-N D-O locked.
 Packet **12.1 applied** (catalog `034_multitenancy_foundation`,
 `20260916022806`). Packet **12.2 applied** (catalog
@@ -14,6 +14,13 @@ applied** (catalog `038_restore_assets_single_unique`,
 `20260916043514`) — column-only assets unique restored
 TEMPORARY so published WF-01 Insert asset can infer.
 No WF-01 PUT. E1–E3 fixed.
+Packet **12.7 applied** (catalog `040_follow_ups_handed_off`,
+`20260916114531`) — `handed_off` on
+`follow_ups_draft_state_check`; WF-10 History copy
+insert writes it; WF-01 Driver ingest PUT last.
+Packet **12.7b proven** (no PUT): destination-less
+owner still gets the WF-09 kick. Kick and alert
+are independent.
 Kind on demand `source` literal `call`. WF-01 / WF-06
 drafts untouched. Full
 cross-tenant isolation is **not** proven here (12.5).
@@ -21,8 +28,10 @@ cross-tenant isolation is **not** proven here (12.5).
 `architecture.md` §4, `masterplan.md` D-L…D-Q, `prd.md` §8c,
 `workflows.md` §1 owner-resolution.
 
-Packet 10.1 closed. Highest applied migration is
-`038_restore_assets_single_unique` (catalog `20260916043514`).
+Packet 10.1 closed. Highest applied numbered
+migration is `040_follow_ups_handed_off` (catalog
+`20260916114531`). `mailbox_linked` is live as
+catalog `20260916090802` (not 039-prefixed).
 **030 stays Phase 6 embeddings.**
 
 Product name is **Networking Intelligence System (NIS)**.
@@ -423,6 +432,8 @@ re-runnable is 12.6, not a re-apply of 034/037.
 | **12.5h** | Omit-incoherent on both composers. Prompt `wf10-v5`. | none | WF-10 only. Rollback `844e1858`. Published `dfd35bfb`. No gate. No Transcribe `language`. No edit of `2fd8c529` / `96461882`. |
 | **12.5** | Isolation proven with two real accounts | none | proof, not a PUT |
 | **12.6** | Minimal login surface | named then | none until 12.5 proven |
+| **12.7** | `handed_off` + Driver ingest | **040 applied** (`20260916114531`) | WF-10 then WF-01 last. Draft `<WF01_DRAFT>` discarded, authorised, never published. |
+| **12.7b** | Prove WF-09 kick for a destination-less owner | none | **No PUT.** Plant + wait two ticks. Kick and `Alert no destination` both fired. |
 
 One packet at a time. Architect verifies live SQL / live
 JSON. Implementer report is not evidence.
@@ -914,3 +925,69 @@ does **not** cover this. Own packet. No WF-05 PUT here.
   (12.6 E3). Fresh-deploy seeds use `009` `current_setting`
   (12.6 E4). 034/037 are tokenised as of 12.5a-0h and
   are not re-runnable — do not re-apply them.
+
+## Acceptance (12.7 — applied 16 Sep)
+
+- catalog `040_follow_ups_handed_off` (`20260916114531`);
+  030 still absent. No backfill. Unique
+  `follow_ups_person_channel_live_uniq` unchanged.
+- WF-10 published `<WF10_PUBLISHED_12_7>` (172 nodes).
+  Rollback `<WF10_ROLLBACK_12_7>` named before PUT.
+  `History copy insert` writes `handed_off`.
+  `History insert` keeps `gmail_draft`.
+- WF-01 PUT last, from published `<WF01_PUBLISHED>`
+  not draft `<WF01_DRAFT>`. **Draft `<WF01_DRAFT>`
+  discarded by the PUT, authorised, never
+  published.** `Driver ingest` removed. Nothing
+  else. DIFF vs published: exactly one node and
+  one connection. TriggerCount 2 → 1. Still
+  ACTIVE. New published `<WF01_PUBLISHED_12_7>`.
+  No unpublished draft. POST old production URL
+  404.
+- `leftover_processing` capture `#217` `6bcc2fe1`
+  **spent** (`needs_review`). Not replanted.
+
+## Acceptance (12.7b — proven 16 Sep, no PUT)
+
+- Job `af6c0217` planted `queued` attempt 0 at
+  12:02:41Z. Nothing else: no `/done`, no MCP
+  execute, no TEST caller.
+- WF-09 **487322** (12:15 Watchdog schedule) found
+  it. Test-tenant Compose: `chat_id` empty,
+  `owner_email` empty, `kick_needed=true`,
+  `call_wf03=true`. **Kick needed?** TRUE. **Call
+  WF-03** **487324**. Then **Alert no destination**.
+  The two branches are independent.
+- WF-03 **487324** When called, parent WF-09
+  **487322**, not a WF-02 dispatch. Claimed
+  `af6c0217` owner `<TEST_TENANT_ID>`. Succeeded
+  attempt 1, `image_type=other`.
+- WF-09 **487437** (12:30) no kick (`stuck_queued`
+  0). Alert no destination still.
+- Live-owner counts unchanged. No test-tenant
+  `bot_state`. Not a 12.8 blocker.
+- RESULT 17 Sep: traces 487322 / 487324 still
+  live (~16h). WF-07 **490614** (22:00 close) and
+  **494770** (07:00 brief) fan-out: `List due
+  owners` = `<OWNER_ID>` only; live owner Telegram
+  + Gmail; test tenant nothing. WF-09 67 ticks
+  12:15–04:45 all success; no alerts sent
+  (`audit_log` empty).
+
+**Test tenant fixtures — permanent.** Tenant
+`<TEST_TENANT_ID>` is **never deleted**. Every row
+in it stays. Do not clean up.
+
+| Row | What | Why it stays |
+|---|---|---|
+| capture `#217` `6bcc2fe1` | **spent.** Was `processing` leftover_processing; now `needs_review` after 12.6 C2 drain. | Catalogue must not claim a fixture that no longer exists. Not replanted. |
+| job `7c72371f` | `card_vision` `failed` attempt 3 `error_code=packet_126_c3` | C3 `failed_24h`. |
+| job `78371b74` | `enrichment` `needs_review` `ceiling_reached` | C4 ceiling-0 drain. Person `de10f49f`. |
+| asset `ed29a4a0` | `kind=photo` `stored` | C2 bytes. Path first segment is the test tenant. |
+| job `af6c0217` | `card_vision` `succeeded` attempt 1 `image_type=other` | 12.7b WF-09 kick. Claimed by WF-03 **487324** parent **487322**. |
+| asset `daabf581` | `kind=photo` `stored` | 12.7b bytes. Path first segment is the test tenant. Capture `#217`. |
+| person `de10f49f` | D3probe | C4 enrichment probe. |
+| person `7cee0027` | NIS mailbox prove | Mailbox prove. Not a live owner contact. |
+
+No test-tenant `bot_state`. That is the next
+packet and it is the irreversible one.

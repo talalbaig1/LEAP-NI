@@ -1183,3 +1183,83 @@ deleted. No live PUT.
 - Check the 10 PM close for `failed` and `stuck`. Non-zero on day one is
   investigated that night, not on day four
 - No schema refactors or provider swaps during event days
+
+### Packet 12.7 — `handed_off` + Driver ingest (16 Sep)
+
+Order: migration 040, then WF-10, then WF-01 last
+alone. Lowest blast radius last is wrong here —
+WF-01 is the capture router.
+
+**040** `040_follow_ups_handed_off`
+(`20260916114531`). Adds `handed_off` to
+`follow_ups_draft_state_check`. Keeps every
+existing value. **No backfill** of the 61
+`gmail_draft` rows. Unique
+`follow_ups_person_channel_live_uniq` unchanged
+(`draft_state <> 'cancelled'` already treats
+`handed_off` as live). 030 stays embeddings.
+`mailbox_linked` catalog `20260916090802` already
+existed (not 039-prefixed).
+
+**WF-10** PUT from `activeVersion`
+`<WF10_ROLLBACK_12_7>`. `History copy insert`
+writes `handed_off` (WA, LinkedIn, mailbox-unlinked
+email). `History insert` keeps `gmail_draft` (real
+Gmail Draft id). Published
+`<WF10_PUBLISHED_12_7>`. No unpublished draft.
+Reader sweep after PUT: WF-00…WF-09 equal
+`gmail_draft` **zero**. Only writers: History
+insert (`gmail_draft`) and History copy insert
+(`handed_off`).
+
+**WF-01** PUT from published `<WF01_PUBLISHED>`
+only (not top-level draft `<WF01_DRAFT>`). The PUT
+**discards** unpublished draft `<WF01_DRAFT>`. Unavoidable — any PUT replaces the
+top-level draft — and **authorised**. That draft
+was guarded since Phase 10 because it must never
+be **published**, not because it must be
+preserved. It was not published. Removed `Driver
+ingest` and its connection to Allowlist. Nothing
+else. DIFF vs `<WF01_PUBLISHED>`: exactly one node
+removed and one connection removed. Serializer
+flags survived (`download:true` on vcard getFile,
+explicit `operation` on every node that had one;
+no remaining webhook so `responseMode` left with
+Driver ingest; zero `splitInBatches` before and
+after). TriggerCount 2 → 1 (Telegram Trigger
+remains). POST `/activate`. Still ACTIVE.
+Published `<WF01_PUBLISHED_12_7>`. No unpublished
+draft. POST old production URL 404.
+
+**E1** owner phone photo + voice + `/done` after
+the WF-01 PUT is the only proof the capture
+router survived. Inspection is not proof.
+
+**leftover_processing** fixture (capture `#217`
+`6bcc2fe1`) **spent**. Capture left `processing`
+and is `needs_review` (12.6 C2 drain consumed
+it). Not replanted. Do not claim it exists.
+
+### Packet 12.7b — destination-less WF-09 kick (16 Sep)
+
+**No PUT.** Second `#217` `card_vision` fixture
+`af6c0217` / asset `daabf581`. No `/done`, no MCP
+execute, no TEST caller. Two ticks waited.
+
+**PASS.** WF-09 **487322** Kick needed? TRUE and
+Alert no destination on the same test-tenant item
+(`chat_id` empty, `digest_email` empty). WF-03
+**487324** When called, parent **487322** (not
+WF-02), claimed `af6c0217`. Job `succeeded`
+`image_type=other`. Second tick **487437** no
+kick. Live-owner counts unchanged. Not a 12.8
+blocker. E1 / C1 still owed. No test-tenant
+`bot_state`.
+
+RESULT 17 Sep (traces retrieved before prune):
+WF-07 **490614** 22:00 close and **494770** 07:00
+brief — first per-owner fan-out since 12.4b.
+`List due owners` returned only `<OWNER_ID>`.
+Live owner Telegram + Gmail both hours. Test
+tenant nothing. WF-09 67 ticks overnight, no
+alerts sent. `audit_log` empty.
