@@ -37,6 +37,13 @@ not by mutating `7c72371f`.
 **495535** (`Hi`) lastNode `Not allowlisted
 terminal`. Allowlist returned `{}`. No send.
 `audit_log` names no sender for those runs.
+Owner confirmed the sender is his own second
+personal Telegram account
+(`<TENANT2_TELEGRAM_USER_ID>`). Telegram
+`first_name` at 0b was ElderWise — that is the
+**account label**, not the ElderWise project
+reaching LNI. Renamed after 0b to
+`<TENANT2_DISPLAY_NAME>`. 0b/0c/0d accepted.
 
 **0c. Control snapshot** (per `owner_id`):
 
@@ -70,6 +77,6 @@ then the file. Telegram id is not in git.
 ## PART B — not started
 
 B1 `/ask` from account 2 after the door exists.
-B2 waits for architect wording. STOP at the
-first leak → PART C (delete the tenant
-`bot_state` row first).
+Pause after B1 and report. B2 waits for architect
+wording. STOP at the first leak → PART C (delete
+the tenant `bot_state` row first).
