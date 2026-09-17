@@ -2,8 +2,9 @@
 -- Packet 12.8. Forward-only. Idempotent.
 -- The door: ONE bot_state row for the permanent test tenant.
 -- IRREVERSIBLE once a real message is processed. A leak cannot
--- be un-shown. Do not apply before failed_24h on this tenant
--- has aged out (12.8-pre).
+-- be un-shown. 7c72371f failed_24h is a real finding and is
+-- kept for B7. Do not age it out. Do not block this INSERT
+-- on it.
 --
 -- telegram_user_id is NEVER a literal. Resolve with
 -- current_setting('lni.tenant2_telegram_user_id', true)
@@ -104,17 +105,6 @@ begin
   if not exists (
     select 1 from public.bot_state b where b.owner_id = v_owner
   ) then
-    if exists (
-      select 1
-      from public.processing_jobs j
-      where j.owner_id = v_owner
-        and j.status = 'failed'
-        and j.last_transition_at > now() - interval '24 hours'
-    ) then
-      raise exception
-        'LNI 041_tenant2_bot_state: tenant still has failed_24h. Gate is last_transition_at + 24h. Do not insert bot_state.';
-    end if;
-
     insert into public.bot_state (
       owner_id,
       telegram_user_id,
