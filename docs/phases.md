@@ -1052,8 +1052,15 @@ P1c applied: catalog **043_drop_assets_column_unique**
 Composite `assets_owner_id_telegram_file_unique_id_key`
 kept. 030 stays Phase 6.
 
-**STOP** for cross-tenant same-photo STORE under
-tenant 2. Then P2, then P3, then P4. Home:
+Cross-tenant PASS: same file under both owners
+(#229 live / #230 tenant 2). P1 closed.
+
+P2 published `0c9c5a5d` (rollback `bf28621a`).
+139 → 129 nodes. Dead await gone. Flag owner-scoped.
+Route type `followup` rule removed; fallback `[11]`.
+
+**STOP** for main-phone photo + voice + `/done`.
+Then P3, then P4. Home:
 `docs/plans/packet-13-0-remediation.md`.
 
 Rollback named before each PUT. No canvas.

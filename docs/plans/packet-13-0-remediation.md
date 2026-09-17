@@ -1,14 +1,15 @@
 # Packet 13.0 — WF-01 / WF-10 isolation leftovers
 
 **Date:** 17 Sep 2026
-**Status:** P1 + P1c applied. STOP for cross-tenant
-photo. No canvas. Rollback named before each PUT.
+**Status:** P1 + P1c + P2 applied. STOP for main-phone
+photo + voice + `/done` before P3. No canvas.
 **Home:** this file. Also `phases.md`.
 
 034's composite unique on assets is live. P1 published
 owner-scoped Duplicate check + composite ON CONFLICT
 (`bf28621a`). P1c dropped 038's TEMPORARY column unique.
-Cross-tenant STORE is now testable. Then P2/P3/P4.
+Cross-tenant STORE proved (#229 / #230). P2 published
+`0c9c5a5d`. Then P3/P4.
 
 ## Order (locked)
 
@@ -128,9 +129,79 @@ MAIN phone into tenant 2's chat. Must STORE, not
 Duplicate terminal. First time the 034 capture-loss
 defect is testable.
 
+**Cross-tenant PASS** (architect-verified). Same
+`telegram_file_unique_id` has 2 asset rows, one per
+owner: tenant 2 cap **#230** / live cap **#229**, both
+165401 B. t2 assets 8 → 9. Live owner unchanged at 205.
+P1 closed.
+
 Then P2 (same WF-01). Then main-phone photo + voice
 + `/done`. Then P3.
 
-## P2 / P3 / P4
+## P2 PUT
 
-Not this step.
+Rollback **before** PUT: WF-01 `bf28621a`.
+Published **after** PUT: `0c9c5a5d` (17 Sep).
+GET name `LNI WF-01 - Telegram ingest router`.
+Node count 139 → 129. DIFF vs `bf28621a`: only 2a/2b/2c.
+
+**2a.** Deleted 10: `Voice kind?`, `Load await`,
+`Await flags`, `Await id set?`, `Await live?`,
+`Compose voice expired`, `Send voice expired`,
+`Clear stale await`, `Voice payload`, `Voice skip terminal`.
+Reachability after: 128 reachable; `Followup payload`
+orphaned (expected — 2c cut its only in-edge).
+`Call WF-10` kept (Callback payload / Followup done payload).
+
+**2b.** `Flag capture lookup`: `AND i.owner_id = $2::uuid`,
+`$2` = Attach correlation `owner_id`. `queryReplacement`
+one array. `Flag enqueue` subquery: `AND i.owner_id = $1::uuid`
+(reuses existing `$1` owner). QR unchanged.
+
+**2c.** Removed Route type rule 11 `followup`. Fallback
+rewired `[12]` → `[11]`. Mapping:
+
+| i | output | dest |
+|---|---|---|
+| 0 | command | Command payload |
+| 1 | photo | Duplicate check |
+| 2 | voice | Duplicate check |
+| 3 | document | Duplicate check |
+| 4 | text | Text is ask? |
+| 5 | callback | Callback is f7? |
+| 6 | contact | Contact payload |
+| 7 | ask | Ask payload |
+| 8 | digest | Digest payload |
+| 9 | vcard | Telegram getFile vcard |
+| 10 | flag | Flag arg empty? |
+| 11 | FALLBACK unknown | Unknown type terminal |
+
+**2d survival.** vcard `download:true`. Trigger
+`download:false`. Main getFile no `download` key.
+`LEAP 2026` count 0. `errorWorkflow` WF-00.
+timezone `Asia/Riyadh`. `availableInMCP` true.
+Duplicate check / Insert asset composite still live
+from P1. executeWorkflow `waitForSubWorkflow: true`
+on Call WF-02/07/08/10.
+
+**STOP for main-phone photo + voice + `/done`.** Then P3.
+
+## P3 / P4
+
+Not this PUT.
+
+## Fixture
+
+`7c72371f` is the packet 12.6 C3 **deliberate** failure
+fixture (`card_vision` / failed / attempts 3 / capture
+**#217** / `error_code=packet_126_c3` / `asset_id` NULL).
+Watchdog reporting it is correct. Do not requeue.
+`aa963264` was a real 429; requeued 17 Sep to `queued`
+attempts 0 on asset `a5d5867e`.
+
+## Still owed (not blocking P2/P3)
+
+B5 picker. Keyboard only renders when the spoken name
+matches a person that tenant owns. Last try named a
+person tenant 2 does not have — "no person matches"
+was correct. Owner retries with "probe".

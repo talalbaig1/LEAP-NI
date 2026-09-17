@@ -543,6 +543,10 @@ LNI bot only and must not disturb any ElderWise webhook.
    `/flag` is a named Route type output **appended** after `vcard`.
    Do not renumber existing outputs. Unknown commands still fall through
    to `Unknown type terminal` (silent NoOp).
+   **Packet 13.0 P2:** removed dead named output `followup`
+   (Classify already sets `branch=command` `action=followup`).
+   Live map: `[10]` flag → Flag arg empty?; `[11]` fallback →
+   Unknown type terminal. 10-node dead await chain gone.
 
    **Telegram `contact` — Phase 9.** `Classify update` sets
    `branch = 'contact'` and copies `raw_contact`. WF-01 calls
@@ -2650,7 +2654,15 @@ include them.
 The Phase 2 deliberate forced-failure job (`transcription` / `failed` /
 `attempt_count` 3 / capture #36) sits inside the 24-hour failed window
 until `last_transition_at + 24h`. Do **not** touch that row, requeue it,
-or retarget it. Under the scan alone, a 15-minute cron would re-alert
+or retarget it.
+
+The packet 12.6 C3 deliberate failure fixture is the same
+class: `card_vision` / `failed` / `attempt_count` 3 / job
+`7c72371f` / capture **#217** / `error_code=packet_126_c3` /
+`asset_id` NULL. Watchdog reporting it is correct. Do **not**
+requeue it, attach an asset, or mark it succeeded. Tenant-2
+`aa963264` was a real provider 429 and was requeued 17 Sep
+(packet 13.0). Under the scan alone, a 15-minute cron would re-alert
 that unchanged set until it ages out (~56 messages). The owner would
 mute the watchdog and it would protect nothing.
 
@@ -2709,7 +2721,8 @@ The alert is what is suppressed, not the kicker.
 
 **Must not:** log PII; rewrite vision job `1564abc3`; auto-merge;
 delete capture #9; call WF-06; tight-loop dispatch of `attempt_count
->= 3`; mutate the Phase 2 forced-failure transcription job.
+>= 3`; mutate the Phase 2 forced-failure transcription job;
+mutate the packet 12.6 C3 fixture `7c72371f`.
 
 ---
 
