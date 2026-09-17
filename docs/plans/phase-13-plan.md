@@ -1,8 +1,9 @@
 # Phase 13 — Enrichment read path + S6
 
 **Date:** 17 Sep 2026
-**Status:** designed this packet. **Not built** until
-13.1 / 13.2 PUT. No canvas.
+**Status:** 13.1 published `5f6ffbc9` (rollback
+`<WF10_PUBLISHED_14_0>` / `465a037a`). GET-verified
+17 Sep. 13.2 not built. No canvas.
 **Home:** this file. Also `phases.md`, `architecture.md`
 § enrichment read, `workflows.md` WF-05 / WF-10,
 `masterplan.md` D-P D-Q.

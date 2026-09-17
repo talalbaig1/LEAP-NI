@@ -3140,10 +3140,9 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     no ask, use the no-specific-next-step sentinel.`
     **Sender (12.5g):** system + user `Owner name:` inject
     caller `sender_name`. Same change on **Extract
-    history draft**. Prompt version **`wf10-v5`** on
-    both composers until packet **13.1**, then
-    **`wf10-v6`** (D-P system rule + Apollo context
-    user line).
+    history draft**. Prompt version **`wf10-v6`**
+    (packet **13.1**, published `5f6ffbc9`): D-P
+    system rule + Apollo context user line.
     Do not write the
     transcript to `audit_log`. Do not add `language` on
     Transcribe.
@@ -3180,8 +3179,8 @@ INACTIVE. `source=voice` is a non-functional stub pending 7.4.
     `status='open'`, freeze `to_email` (person
     `email_normalized`), `cc_email` (owner `auth.users.email`),
     `subject`, `body`, `attachment_asset_ids`, `confirm_expires_at`,
-    `prompt_version='wf10-v6'` after packet **13.1**
-    (`wf10-v5` until that PUT), `title` = subject.
+    `prompt_version='wf10-v6'` (packet **13.1**),
+    `title` = subject.
     Same version on **Update draft**, **Insert brief draft**,
     **Record script flags** / **Record script**,
     **History insert**, **History copy insert**.

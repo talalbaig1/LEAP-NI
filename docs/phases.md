@@ -1164,14 +1164,21 @@ Rollback named before each PUT. No canvas.
 
 **Timing:** after 12.2 isolation (live). Home:
 `docs/plans/phase-13-plan.md`. D-P D-Q locked 15 Sep.
-D-R D-S D-T locked 17 Sep in that plan. **Not built**
-until packets 13.1 / 13.2 PUT.
+D-R D-S D-T locked 17 Sep in that plan.
 
-`enrichment_records` is written by WF-06 and read by
-nothing until 13.1. Live 17 Sep: **88** rows (46
-person/apollo, 36 company/apollo, 6 company/tavily).
-Hollow person payloads **3**. Duplicates per entity
-exist; latest `fetched_at` wins.
+**13.1 published** `5f6ffbc9` (rollback `465a037a`).
+167 nodes. GET-verified 17 Sep: `History load` reads
+`enrichment_records` owner-scoped; hollow skip;
+`wf10-v6`; CARD TITLE rule; Telegram Apollo evidence.
+SQL sim: hollow → NULL title; duplicate → latest
+`fetched_at`; live owner does not see test-tenant
+rows. 13.2 not built.
+
+`enrichment_records` is written by WF-06. 13.1 is the
+read. Live 17 Sep: **88** rows (46 person/apollo, 36
+company/apollo, 6 company/tavily). Hollow person
+payloads **3**. Duplicates per entity exist; latest
+`fetched_at` wins.
 
 `/ask` exclusion was **DELIBERATE**
 (`docs/plans/phase-06-plan.md`) — D-T, stays out.
