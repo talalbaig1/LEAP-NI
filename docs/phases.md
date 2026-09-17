@@ -1026,7 +1026,25 @@ architect approval. 12.5a C/D/E/G unstarted.
 
 Two real `bot_state` rows. Depends on 12.2b and 12.4b.
 
-### Packet 12.6 — Login surface (after isolation)
+### Packet 12.6 — Drain owner resolution
+
+**16 Sep. PART B applied.** Home:
+`docs/plans/packet-12-6-drain-owner.md`.
+
+WF-09 / 06 / 04 / 03 / 05 PUT from A6
+published graphs. Actual `LEAP 2026` count
+**0** on all five. C3 exec **486765** skip
+send. C4 exec **486781** ceiling 0, no
+Apollo spend. C2 drained 11:40Z (job
+`b47ddee0` succeeded, `image_type=other`).
+Capture `#217` leftover_processing spent.
+C1 owner phone still owed.
+
+The **login surface** previously numbered 12.6
+is **not this packet**. It still lands after
+isolation (below).
+
+### Packet 12.6-login — Login surface (after isolation)
 
 Minimal login: Supabase Auth, Google/Microsoft,
 Telegram-ID capture. A Phase 12 **dependency**, landing

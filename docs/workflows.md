@@ -31,7 +31,7 @@ Copy the discipline already proven in the owner's ElderWise workflows.
 | Scheduled send | Parallel Telegram + Gmail; Merge after both attempts | Delivery is proven by Telegram `message_id` or Gmail `id` via `$('Node').first()` — never `.item` across the Merge, never by "the node ran". `stopAndError` only when both channels are empty or both failed. Email exists to survive a Telegram-specific death (revoked token, blocked bot, outage). Serial Gmail-behind-Telegram makes email depend on the thing it insures against. **This is the standard for every scheduled LNI send (WF-07, WF-09).** WF-09 MUST use this topology and must not copy WF-07's old serial graph. |
 | Who decides what the owner is told | **Callee decides; WF-01 sends inbound replies** | WF-02 / on-demand WF-07 / WF-08 return `reply_text`. WF-01 never re-derives a condition the callee already evaluated. `reply_text` non-empty means send; empty means stay silent. Scheduled WF-07 / WF-09 send on their own execution. WF-02 never sends. **Recorded exception:** WF-10 sends Telegram itself when `source` is `sweep` or `deferred` (8.2 cluster, `Sweep source?` OR-gate). Immediate `/done` still returns to WF-01. |
 | Configuration source | Postgres, never `$env` | `$env` is blocked instance-wide, and configuration outside Postgres violates architecture.md §2 rule 2 regardless. |
-| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. Cron: every **tenant** `bot_state.owner_id` (never the platform owner). Fingerprint: `lni_instance` (12.1), **not** `events.name = 'LEAP 2026'` | Q4 locked. After 12.1 the string `LEAP 2026` is not in workflow logic. Do not hardcode `<OWNER_ID>`. Do not take owner from `$env`. Inert test tenant (037 / 12.2b-i) has `events` but **no `bot_state`**: invisible to `List due owners`, WF-01 allowlist, and every cron. `/digest` Load digest `$1` still returns a row from `events`. Missing `digest_email` → `owner_email` `''` → `Email skipped` (D2d). |
+| Owner resolution (Phase 12) | Inbound: `bot_state.telegram_user_id`. WF-07 hourly: every tenant with **both** `bot_state` and `events`. Drain (WF-03/04/05/06, packet 12.6): claim by status/type across tenants; `owner_id` from the **claimed job** row. WF-09 scan/alert: `List owners that have work` (captures/jobs/assets), one owner per item. Fingerprint: `lni_instance` (12.1), **not** `events.name = 'LEAP 2026'` | Q4 locked. After 12.6 the string `LEAP 2026` is not in WF-03/04/05/06/09 published graphs (actual count **0**). Do not hardcode `<OWNER_ID>`. Do not take owner from `$env`. Inert test tenant (037 / 12.2b-i) has `events` but **no `bot_state`**: invisible to `List due owners` and WF-01 allowlist. Visible to WF-09 once it has work; empty `chat_id` / `digest_email` → skip send, never fall back. `/digest` Load digest `$1` still returns a row from `events`. Missing `digest_email` → `owner_email` `''` → `Email skipped` (D2d). |
 | Credentials (Phase 12) | **Fail closed.** No linked mailbox → no Gmail draft, no digest email (Telegram copy-text, D-E). No Apollo ceiling row → ceiling 0 | Q3 / D-M. A second tenant's drafts in the live owner's mailbox is a privacy defect. |
 | Runtime identifiers | Postgres or gitignored local config | Repo is public. Never commit a Telegram user ID, project ref, owner UUID, key, or connection string. Placeholders in committed files; real values only in gitignored `docs/environment.local.md`. |
 | `binaryMode` | `"separate"` (workflow `settings`) | JSON and binary stay on separate item properties. Required for Telegram download → sha256 → Storage PUT. Undocumented defaults cannot be verified by read-back. Set explicitly on every LNI workflow that handles files (WF-00 / WF-00b / WF-02 already have it; WF-01 must too). |
@@ -260,13 +260,13 @@ to `normal` / nothing open.
 | 00b | `<WF00B_ID>` | false | 6 | `<WF00B_SAVED>` | — |
 | 01 | `<WF01_ID>` | true | 137 | `<WF01_PUBLISHED>` | `<WF01_ROLLBACK>` |
 | 02 | `<WF02_ID>` | true | 91 | `<WF02_PUBLISHED>` | `<WF02_ROLLBACK>` |
-| 03 | `<WF03_ID>` | true | 38 | `<WF03_PUBLISHED>` | — |
-| 04 | `<WF04_ID>` | true | 28 | `<WF04_PUBLISHED>` | — |
-| 05 | `<WF05_ID>` | true | 29 | `<WF05_PUBLISHED>` | `<WF05_ROLLBACK>` |
-| 06 | `<WF06_ID>` | true | 53 | `<WF06_PUBLISHED>` | `<WF06_ROLLBACK>` |
+| 03 | `<WF03_ID>` | true | 38 | `<WF03_PUBLISHED>` | `<WF03_ROLLBACK_A6>` |
+| 04 | `<WF04_ID>` | true | 29 | `<WF04_PUBLISHED>` | `<WF04_ROLLBACK_A6>` |
+| 05 | `<WF05_ID>` | true | 31 | `<WF05_PUBLISHED>` | `<WF05_ROLLBACK_A6>` |
+| 06 | `<WF06_ID>` | true | 53 | `<WF06_PUBLISHED>` | `<WF06_ROLLBACK_A6>` |
 | 07 | `<WF07_ID>` | true | 25 | `<WF07_PUBLISHED_9_14>` | — |
 | 08 | `<WF08_ID>` | true | 19 | `<WF08_PUBLISHED>` | — |
-| 09 | `<WF09_ID>` | true | 43 | `<WF09_PUBLISHED>` | `<WF09_ROLLBACK>` |
+| 09 | `<WF09_ID>` | true | 50 | `<WF09_PUBLISHED>` | `<WF09_ROLLBACK_A6>` |
 | 10 | `<WF10_ID>` | true | 146 | `<WF10_PUBLISHED_9_14>` | `<WF10_ROLLBACK_9_14>` |
 
 Packet 9.6 applied (GET-verified). WF-01 rollback `<WF01_ROLLBACK>`.
@@ -275,6 +275,13 @@ never touch. Capture #130 and draft `f210d77d` are evidence —
 do not delete, do not re-send. LNI-TEST-7.16-driver
 `<TEST_716_DRIVER_WF_ID>` inactive unless a packet activates it
 (GET after 9.8: `active=false`, version `d69aa9d0`).
+
+**12.6 drain.** WF-03/04/05/06/09 PUT 16 Sep. Actual
+`LEAP 2026` count **0** on those five published graphs.
+C2 drain 11:40Z: WF-03 **487040** `When called`
+(parent WF-02 **487039** `wf02_done`). Job
+`b47ddee0` succeeded `image_type=other`.
+Not Manual. See packet-12-6-drain-owner C2.
 
 **12.5a-0b.** Published WF-01 `<WF01_PUBLISHED>` still has
 webhook node `Driver ingest` (unauthenticated, wired
@@ -1248,10 +1255,10 @@ without a benchmark** (packet 2.5; `phases.md`; `rules.md` §7 rule 14
 knowingly not honoured). The model id is set in **one** named config
 node (`Card engine config`) and read from there. Do not scatter it.
 
-1. **Self-identify** before any write: `SELECT name, timezone, owner_id
-   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
-   Wrong database → `stopAndError`.
-2. **Claim** queued jobs (not a payload of assets):
+1. **Self-identify** before any write: `SELECT name FROM public.lni_instance LIMIT 1`. Gate `name` equals `NIS`. Must not return `owner_id`. Wrong database → `stopAndError`.
+2. **Claim** queued jobs globally (no owner predicate). `owner_id` on later writes comes from the claimed row / Join job. Zero-row claim → NoOp `No queued jobs`.
+
+   Claim drops `owner_id = $1`. Remaining claim predicates (status, type, backoff, SKIP LOCKED, LIMIT 10) are unchanged.
 
    ```sql
    UPDATE public.processing_jobs AS j
@@ -1262,7 +1269,6 @@ node (`Card engine config`) and read from there. Do not scatter it.
      SELECT p.id
      FROM public.processing_jobs p
      WHERE p.status = 'queued'
-       AND p.owner_id = $1
        AND p.attempt_count < 3
        AND (p.attempt_count = 0
             OR p.last_transition_at < now() - (CASE p.attempt_count
@@ -1401,10 +1407,8 @@ does not call the card/Whisper providers. GPT-4o is the extract engine
 **Input contract:** a kick with `owner_id` / `correlation_id` is enough
 and optional — WF-04 **claims from Postgres itself**.
 
-1. **Self-identify** before any write: `SELECT name, timezone, owner_id
-   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
-   Wrong database → `stopAndError`.
-2. **Claim** queued extraction jobs:
+1. **Self-identify** before any write: `SELECT name FROM public.lni_instance LIMIT 1`. Gate `NIS`. Must not return `owner_id`.
+2. **Claim** queued extraction jobs globally (no owner predicate). Writes use `$('Claim queued extraction jobs').item.json.owner_id`.
 
    ```sql
    UPDATE public.processing_jobs AS j
@@ -1414,7 +1418,6 @@ and optional — WF-04 **claims from Postgres itself**.
    WHERE j.id IN (
      SELECT p.id FROM public.processing_jobs p
      WHERE p.status = 'queued'
-       AND p.owner_id = $1::uuid
        AND p.asset_id IS NULL
        AND p.job_type = 'extraction'
        AND p.attempt_count < 3
@@ -1610,11 +1613,8 @@ itself**. Reads the **latest** `extraction_runs` row for the capture
 (`ORDER BY created_at DESC LIMIT 1`) so a `wf04-v4` re-proof is used
 without touching `wf04-v3`.
 
-1. **Self-identify** before any write: `SELECT name, timezone, owner_id
-   FROM public.events WHERE name = 'LEAP 2026' LIMIT 1`. Explicit gate.
-   Wrong database → `stopAndError`.
-2. **Claim** queued entity-resolution jobs (same shape as WF-04, with
-   `job_type = 'entity_resolution'`):
+1. **Self-identify** before any write: `SELECT name FROM public.lni_instance LIMIT 1`. Gate `NIS`. Must not return `owner_id`.
+2. **Claim** queued entity-resolution jobs globally (no owner predicate). `Each claimed resolution job` splitInBatches 1. Enqueue enrichment and Kick WF-10 take that job's `owner_id`. Call WF-10 stays `executeOnce`.
 
    ```sql
    UPDATE public.processing_jobs AS j
@@ -1624,7 +1624,6 @@ without touching `wf04-v3`.
    WHERE j.id IN (
      SELECT p.id FROM public.processing_jobs p
      WHERE p.status = 'queued'
-       AND p.owner_id = $1::uuid
        AND p.asset_id IS NULL
        AND p.job_type = 'entity_resolution'
        AND p.attempt_count < 3
@@ -1858,8 +1857,8 @@ settings or credentials — REST PUT after create, then re-GET. Postgres
 **Leap-NI**. HTTP **Apollo Leap-NI** and **Tavily Leap-NI**
 (`httpHeaderAuth`). First httpHeaderAuth on this instance is Storage;
 MCP will bind the wrong one. Bind by REST PUT; prove by re-GET, then a
-self-identifying execution (`SELECT name FROM public.events WHERE
-name = 'LEAP 2026'`).
+self-identifying execution (`SELECT name FROM public.lni_instance`,
+gate `NIS`).
 
 WF-05 **enqueues** `job_type='enrichment'`. It does **not**
 dispatch. `/flag` force-enqueues. WF-06 is **ACTIVE** and
@@ -1894,18 +1893,19 @@ loop would bill real money.
 
 1. **Manual Trigger** and **Schedule drain** (`*/15`) both feed
    **Self identify**.
-2. **Self identify** — Postgres `SELECT name, timezone, owner_id FROM
-   public.events WHERE name = 'LEAP 2026' LIMIT 1`.
+2. **Self identify** — Postgres `SELECT name FROM public.lni_instance LIMIT 1`.
    `alwaysOutputData: true`, `executeOnce: true`, `retryOnFail: true`,
-   `replaceEmptyStrings: false`.
-3. **Row returned?** — `name` equals `LEAP 2026`, `typeValidation:
+   `replaceEmptyStrings: false`. Must not return `owner_id`.
+3. **Row returned?** — `name` equals `NIS`, `typeValidation:
    strict`. False → **Wrong database terminal** (`stopAndError`, no
    comma/quote/apostrophe).
-4. **Claim enrichment job** — one row, oldest first:
-   `UPDATE … WHERE id = (SELECT … job_type='enrichment' AND
-   status='queued' … ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP
-   LOCKED) RETURNING`. `alwaysOutputData: true`. `queryReplacement` is
-   one array: owner_id from **Self identify**.
+4. **Claim enrichment job** — up to 4 rows, oldest first, **no owner
+   predicate**. `Each claimed job` splitInBatches **1**. Every later
+   `owner_id` bind is `$('Each claimed job').item.json.owner_id`.
+   Ceilings: `COALESCE((SELECT value …), 0)` — missing key is **0**,
+   never unlimited.
+   `alwaysOutputData: true`. Claim has **no**
+   `queryReplacement`.
 5. **Job returned?** — claimed `id` notEmpty, strict. False →
    **Empty queue** NoOp (not an error).
 6. **Load person** — `people` by `output.person_id`, plus current
@@ -2506,9 +2506,14 @@ while Insert asset has not committed. The asset lands `stored`, the
 capture is already `processing`, and no `processing_jobs` row exists.
 Capture #77 is that row. **Do not** try to make `/done` win the race.
 
-On every WF-09 tick, **in parallel with Scan findings** (fan-out
-from Mint correlation — existing stuck-job / poison-job / alert
-paths stay untouched):
+On every WF-09 tick, **List owners that have work** (packet 12.6:
+captures / jobs / assets, not `bot_state`), then `Each owner`
+splitInBatches 1. Scan / alert / fingerprint are per owner.
+`leftover_processing` keys on that owner's `events.id`. Empty
+`chat_id` and empty `digest_email` → **Alert no destination** (no
+live-chat fallback). **Enqueue orphan jobs** stays in parallel from
+Mint correlation (existing stuck-job / poison-job / alert paths
+stay untouched):
 
 1. **Enqueue orphan jobs** — the **same** `INSERT … SELECT … ON
    CONFLICT (asset_id, job_type) WHERE asset_id IS NOT NULL DO
