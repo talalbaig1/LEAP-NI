@@ -837,7 +837,10 @@ fixture. Never deleted, never frozen (Q2).
 
 12.2 did not insert a second `bot_state`. Live count
 is still 1. 12.2b-i is the inert fixture only. Do not
-assert a second allowlist row.
+assert a second allowlist row. The door is **packet
+12.8** (`041_tenant2_bot_state`), gated on job
+`7c72371f` aging out of `failed_24h`
+(`2026-09-17 11:07:59Z`).
 
 ### Packet 12.3 — `person_emails` (deferred)
 
