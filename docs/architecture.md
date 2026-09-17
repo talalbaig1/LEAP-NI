@@ -602,7 +602,13 @@ policy `lni_instance_select` for `authenticated`; writes are
 owner migrations / table-owner. After 12.2 the string
 `LEAP 2026` appears nowhere in workflow logic — only in
 one tenant's `events` row (Q4). Do not put the fingerprint
-on `events`.
+on `events`. **12.9 audit:** Q4 is met on WF-00 / 07 / 08
+and WF-03…10 (zero hits). It is **not** met on published
+WF-01 `4160647a` and WF-02 `eddb0f11`: Self-identify still
+gates `events.name = 'LEAP 2026'`, and four WF-02 INSERT
+CTEs filter that name **and** `owner_id = $1` (DATA PATH,
+not fingerprint). Home:
+`docs/plans/packet-12-9-event-resolution.md`.
 
 | Column | Type | Default | Null |
 |---|---|---|---|
